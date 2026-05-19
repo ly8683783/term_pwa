@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betaflight Web Configurator (Sim)</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --header-bg: #e8e8e8;
+            --primary-yellow: #ffb400;
+            --primary-green: #4caf50;
+            --text-color: #333;
+            --border-color: #ccc;
+            /* NetView Theme Colors */
+            --nv-local: #f7b2aa;
+            --nv-relay: #c8c5ff;
+            --nv-node: #bfeec6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+        }
+
+        .left-section { display: flex; align-items: center; }
+        .logo-container { display: flex; flex-direction: column; margin-right: 20px; min-width: 245px; }
+        .logo-text {
+            position: relative;
+            display: inline-flex;
+            align-items: baseline;
+            width: fit-content;
+            padding: 0 0 28px 0;
+            color: #2f3679;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 39px;
+            font-weight: 400;
+            letter-spacing: -2.6px;
+            line-height: 1;
+        }
+        .logo-text .amp-rf {
+            color: #ef8732;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: 700;
+            letter-spacing: -2px;
+        }
+        .logo-text .apostrophe {
+            display: inline-block;
+            width: 18px;
+            height: 24px;
+            margin: 0 -2px 0 -4px;
+            border-radius: 50% 50% 50% 0;
+            background: #ef8732;
+            transform: rotate(-14deg) translateY(-7px);
+        }
+        .logo-text::after {
+            content: "Wireless Technology";
+            position: absolute;
+            left: 0;
+            bottom: 6px;
+            width: 190px;
+            padding: 3px 0;
+            color: #ffffff;
+            background: #2f3679;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 3.6px;
+            line-height: 1;
+            text-align: center;
+        }
+        .version-info { font-size: 11px; color: #666; margin-top: -4px; }
+
+        .right-section { display: flex; align-items: center; gap: 20px; }
+        .controls-group { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+        select { padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border-color); background: white; font-size: 13px; width: 180px; }
+        
+        .toggle-container { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-green); }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        .action-buttons { display: flex; gap: 15px; }
+        .btn-circle { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; text-decoration: none; color: #333; font-size: 12px; font-weight: bold; }
+        .icon-wrapper { width: 44px; height: 44px; border-radius: 50%; display: flex; justify-content: center; align-items: center; transition: transform 0.1s, box-shadow 0.1s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .icon-wrapper:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .icon-wrapper svg { width: 24px; height: 24px; fill: white; }
+        .btn-firmware .icon-wrapper { background-color: var(--primary-yellow); }
+        .btn-connect .icon-wrapper { background-color: var(--primary-green); }
+        .btn-connect.connected .icon-wrapper { background-color: #f44336; }
+
+        .app-container {
+            display: flex;
+            flex-grow: 1;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 240px;
+            background-color: #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+
+        .menu-item {
+            display: flex; align-items: center; gap: 12px; padding: 10px 15px;
+            text-decoration: none; color: #444; font-size: 14px; font-weight: 500;
+            border-radius: 8px; transition: background-color 0.2s; cursor: pointer;
+        }
+        .menu-item:hover { background-color: rgba(0,0,0,0.05); }
+        .menu-item.active { background-color: var(--primary-yellow); color: #333; }
+        .menu-item svg { width: 18px; height: 18px; fill: currentColor; }
+
+        .main-content {
+            flex-grow: 1;
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .view-panel {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+        .view-panel.active {
+            display: flex;
+        }
+
+        /* Config View Styles */
+        .terminal-container { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; overflow: hidden; }
+        .terminal-output { flex-grow: 1; background-color: #1e1e1e; color: #00ff00; font-family: monospace; padding: 10px; border-radius: 8px; overflow-y: auto; white-space: pre-wrap; }
+        .terminal-input-group { display: flex; gap: 10px; flex-shrink: 0; }
+        .terminal-input-group input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
+        .terminal-input-group button { padding: 10px 20px; background-color: var(--primary-green); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .terminal-input-group button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* NetView Styles */
+        .netview-controls { display: flex; gap: 10px; margin-bottom: 10px; }
+        .netview-controls button { padding: 8px 16px; border: none; border-radius: 4px; color: white; font-weight: bold; cursor: pointer; }
+        #btnStartNetView { background-color: var(--primary-green); }
+        #btnStopNetView { background-color: #f44336; }
+        .netview-controls button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .netview-status { margin-bottom: 10px; color: #666; font-size: 13px; font-weight: 600; }
+
+        .canvas-wrap {
+            flex-grow: 1; position: relative; border: 1px solid #c7c9d9;
+            border-radius: 8px; overflow: hidden; background: #f0f0ff;
+        }
+        #topology { display: block; width: 100%; height: 100%; }
+        .group-tag { position: absolute; top: 10px; left: 10px; padding: 4px 10px; border: 1px solid #2c2c2c; border-radius: 4px; background: #ffe36e; font-weight: 700; font-size: 12px; }
+        .edge-label rect { fill: #fffdf4; stroke: #c8c1a1; }
+        .edge-label text { fill: #263238; font-size: 11px; font-weight: 700; }
+        .node text.addr { font-size: 14px; font-weight: 800; fill: #0b2a66; }
+        .node text.role { font-size: 10px; fill: #0b2a66; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="left-section">
+            <div class="logo-container">
+                <div class="logo-text" aria-label="Amp'edRF Wireless Technology">
+                    Amp<span class="apostrophe" aria-hidden="true"></span>ed<span class="amp-rf">RF</span>
+                </div>
+                <div class="version-info">Application Version: 2025.12.2 (a2d0f50)</div>
+            </div>
+        </div>
+
+        <div class="right-section">
+            <div class="controls-group">
+                <select id="portSelect">
+                    <option value="request">Select your device...</option>
+                </select>
+                <label class="toggle-container">
+                    <div class="switch">
+                        <input type="checkbox" id="autoConnectToggle">
+                        <span class="slider"></span>
+                    </div>
+                    Auto-connect
+                </label>
+            </div>
+
+            <div class="action-buttons">
+                <div class="btn-circle btn-firmware" onclick="alert('Starting firmware update...')">
+                    <div class="icon-wrapper">
+                        <svg viewBox="0 0 24 24"><path d="M15,9H9V15H15V9M13,13H11V11H13V13M18,15V13H20V11H18V9H20V7H18V5H16V3H14V5H12V3H10V5H8V3H6V5H4V7H6V9H4V11H6V13H4V15H6V17H4V19H6V21H8V19H10V21H12V19H14V21H16V19H18V21H20V19H18V17H20V15H18M16,17H8V7H16V17Z"/></svg>
+                    </div>
+                    Update
+                </div>
+                <div id="connectBtn" class="btn-circle btn-connect">
+                    <div class="icon-wrapper">
+                        <svg viewBox="0 0 24 24"><path d="M15,7V11H16V13H13V5H15L12,1L9,5H11V13H8V11H9V7H7V11H6V13L9,17V19H11V23H13V19H15V17L18,13V11H17V7H15Z"/></svg>
+                    </div>
+                    <span id="connectText">Connect</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <div class="sidebar">
+            <a href="#" class="menu-item active" data-target="view-config">
+                <svg viewBox="0 0 24 24"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.35 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.97 21.68,8.76L19.68,5.3C19.58,5.09 19.33,5.03 19.12,5.11L16.64,6.11C16.12,5.71 15.56,5.39 14.94,5.13L14.57,2.47C14.53,2.25 14.33,2.08 14.11,2.08H10.11C9.89,2.08 9.69,2.25 9.65,2.47L9.28,5.13C8.66,5.39 8.1,5.71 7.58,6.11L5.1,5.11C4.89,5.03 4.64,5.09 4.54,5.3L2.54,8.76C2.44,8.97 2.49,9.22 2.68,9.37L4.79,11.03C4.75,11.35 4.72,11.67 4.72,12C4.72,12.33 4.75,12.65 4.79,12.97L2.68,14.63C2.49,14.78 2.44,15.03 2.54,15.24L4.54,18.7C4.64,18.91 4.89,18.97 5.1,18.89L7.58,17.89C8.1,18.29 8.66,18.61 9.28,18.87L9.65,21.53C9.69,21.75 9.89,21.92 10.11,21.92H14.11C14.33,21.92 14.53,21.75 14.57,21.53L14.94,18.87C15.56,18.61 16.12,18.29 16.64,17.89L19.12,18.89C19.33,18.97 19.58,18.91 19.68,18.7L21.68,15.24C21.78,15.03 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>
+                Configuration
+            </a>
+            <a href="#" class="menu-item" data-target="view-netview">
+                <svg viewBox="0 0 24 24"><path d="M17,13H13V17H11V13H7V11H11V7H13V11H17V13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
+                NetView
+            </a>
+            <a href="#" class="menu-item" data-target="view-docs">
+                <svg viewBox="0 0 24 24"><path d="M19,2L14,6.5V17.5L19,13V2M6.5,5C4.55,5 2.45,5.4 1,6.5V21C2.45,19.9 4.55,19.5 6.5,19.5C8.45,19.5 10.55,19.9 12,21C13.45,19.9 15.55,19.5 17.5,19.5C19.45,19.5 21.55,19.9 23,21V6.5C21.55,5.4 19.45,5 17.5,5C15.55,5 13.45,5.4 12,6.5C10.55,5.4 8.45,5 6.5,5Z"/></svg>
+                Documentation
+            </a>
+        </div>
+
+        <div class="main-content">
+            <!-- Configuration View -->
+            <div id="view-config" class="view-panel active">
+                <h2 style="margin-top: 0;">AT Command Terminal</h2>
+                <div id="statusMessage" style="font-weight: bold; color: #666;">Status: Disconnected</div>
+                
+                <div class="terminal-container">
+                    <div class="terminal-output" id="terminalOutput"></div>
+                    <div class="terminal-input-group">
+                        <input type="text" id="atCommandInput" placeholder="Enter AT Command (e.g. AT+GMR)" disabled>
+                        <button id="sendCmdBtn" disabled>Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NetView View -->
+            <div id="view-netview" class="view-panel">
+                <h2 style="margin-top: 0; margin-bottom: 10px;">LoRaNet Topology</h2>
+                <div class="netview-controls">
+                    <button id="btnStartNetView" disabled>Start</button>
+                    <button id="btnStopNetView" disabled>Stop</button>
+                </div>
+                <div id="netViewStatus" class="netview-status">Status: connect a serial device to start NetView.</div>
+                <div class="canvas-wrap">
+                    <div id="netViewGroupTag" class="group-tag">Group --</div>
+                    <svg id="topology" aria-label="LoRaNet topology graph"></svg>
+                </div>
+            </div>
+
+            <!-- Docs View -->
+            <div id="view-docs" class="view-panel">
+                <h2 style="margin-top: 0;">Documentation</h2>
+                <p>Documentation content will be loaded here.</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { SerialPortManager } from "./serial_port.js";
+
+        // === UI Elements ===
+        const portSelect = document.getElementById('portSelect');
+        const connectBtn = document.getElementById('connectBtn');
+        const connectText = document.getElementById('connectText');
+        const autoConnectToggle = document.getElementById('autoConnectToggle');
+        
+        // Config Tab Elements
+        const statusMessage = document.getElementById('statusMessage');
+        const terminalOutput = document.getElementById('terminalOutput');
+        const atCommandInput = document.getElementById('atCommandInput');
+        const sendCmdBtn = document.getElementById('sendCmdBtn');
+
+        // NetView Tab Elements
+        const btnStartNetView = document.getElementById('btnStartNetView');
+        const btnStopNetView = document.getElementById('btnStopNetView');
+        const netViewStatus = document.getElementById('netViewStatus');
+        const netViewGroupTag = document.getElementById('netViewGroupTag');
+        
+        // === State ===
+        const NETVIEW_RESPONSE_IDLE_MS = 1500;
+        const NETVIEW_REFRESH_DELAY_MS = 10000;
+        let isNetViewCollecting = false;
+        let netViewState = "idle";
+        let netViewInfoBuffer = "";
+        let netViewBuffer = "";
+        let netViewLocalNode = null;
+        let netViewGroupAddr = null;
+        let drawTimeout = null;
+        let infoTimeout = null;
+        let netViewResponseIdleTimer = null;
+        let netViewRefreshTimer = null;
+
+        // === Tab Navigation ===
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Update active menu item
+                document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                item.classList.add('active');
+                
+                // Show target view
+                const targetId = item.getAttribute('data-target');
+                document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
+                document.getElementById(targetId).classList.add('active');
+                
+                // Redraw topology when switching to NetView to fix hidden-size layout issues.
+                if (targetId === 'view-netview') {
+                    drawTopology();
+                }
+            });
+        });
+
+        // === Serial Callbacks ===
+        function onDataReceived(data) {
+            // Always print to terminal
+            terminalOutput.textContent += data;
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+
+            if (!isNetViewCollecting) {
+                return;
+            }
+
+            if (netViewState === "reading_info") {
+                netViewInfoBuffer += data;
+                const info = parseATInfo(netViewInfoBuffer);
+                if (info) {
+                    startNetViewTopology(info).catch(error => {
+                        console.error("Failed to start topology collection", error);
+                        stopNetView(`Status: failed to start loranet - ${error.message}`);
+                    });
+                }
+                return;
+            }
+
+            if (netViewState === "collecting_topology" || netViewState === "waiting_refresh") {
+                if (netViewState === "waiting_refresh") {
+                    clearTimeout(netViewRefreshTimer);
+                    netViewRefreshTimer = null;
+                    netViewState = "collecting_topology";
+                }
+                netViewBuffer += data;
+                clearTimeout(drawTimeout);
+                drawTimeout = setTimeout(drawTopology, 500); // Debounce drawing
+                armNetViewResponseIdleTimer();
+            }
+        }
+
+        function onDisconnect() {
+            stopNetView(); // Ensure collection stops if disconnected
+            updateUI(false);
+            updatePortList().catch(error => console.error("Port list update failed:", error));
+        }
+
+        const serialManager = new SerialPortManager(onDataReceived, onDisconnect);
+
+        // === Initialization ===
+        async function init() {
+            const autoConnect = localStorage.getItem('autoConnect') === 'true';
+            autoConnectToggle.checked = autoConnect;
+
+            await updatePortList();
+
+            if (autoConnect && serialManager.isSupported()) {
+                const ports = await serialManager.getAuthorizedPorts();
+                if (ports.length > 0) {
+                    tryConnect(ports[0]);
+                }
+            }
+        }
+
+        async function updatePortList() {
+            if (!serialManager.isSupported()) {
+                portSelect.innerHTML = '<option value="unsupported">Web Serial unavailable</option>';
+                portSelect.disabled = true;
+                autoConnectToggle.disabled = true;
+                statusMessage.innerText = "Status: Web Serial unavailable";
+                netViewStatus.innerText = "Status: Web Serial requires Chrome/Chromium over localhost or HTTPS.";
+                return;
+            }
+
+            const ports = await serialManager.getAuthorizedPorts();
+            portSelect.innerHTML = '<option value="request">Select your device...</option>';
+            
+            ports.forEach((p, index) => {
+                const info = p.getInfo();
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = `Device ${index + 1} (VID:${info.usbVendorId || '?'})`;
+                portSelect.appendChild(option);
+            });
+            
+            portSelect.appendChild(new Option("Add new device...", "request_new"));
+        }
+
+        portSelect.addEventListener('change', async () => {
+            if (portSelect.value === 'request_new') {
+                try {
+                    await serialManager.requestNewPort();
+                    await updatePortList();
+                } catch (e) {
+                    console.error("Device selection cancelled", e);
+                }
+                portSelect.value = 'request';
+            }
+        });
+
+        autoConnectToggle.addEventListener('change', () => {
+            localStorage.setItem('autoConnect', autoConnectToggle.checked);
+        });
+
+        async function tryConnect(targetPort = null) {
+            try {
+                let portObj = targetPort;
+                if (!portObj) {
+                    const selectedValue = portSelect.value;
+                    const ports = await serialManager.getAuthorizedPorts();
+                    
+                    if (selectedValue === 'request') {
+                        portObj = null;
+                    } else if (ports[selectedValue]) {
+                        portObj = ports[selectedValue];
+                    }
+                }
+
+                await serialManager.connect(portObj, 115200);
+                updateUI(true);
+            } catch (error) {
+                console.error("Connection failed:", error);
+                alert("Failed to connect: " + error.message);
+                updateUI(false);
+            }
+        }
+
+        async function tryDisconnect() {
+            try {
+                await serialManager.disconnect();
+            } catch (error) {
+                console.error("Disconnect failed:", error);
+                updateUI(false);
+            }
+        }
+
+        function updateUI(connected) {
+            if (connected) {
+                connectBtn.classList.add('connected');
+                connectText.innerText = "Disconnect";
+                statusMessage.innerText = "Status: Connected to Serial Device";
+                
+                atCommandInput.disabled = false;
+                sendCmdBtn.disabled = false;
+                if (!isNetViewCollecting) btnStartNetView.disabled = false;
+                netViewStatus.innerText = isNetViewCollecting ? "Status: collecting topology data..." : "Status: ready.";
+            } else {
+                connectBtn.classList.remove('connected');
+                connectText.innerText = "Connect";
+                statusMessage.innerText = "Status: Disconnected";
+                
+                atCommandInput.disabled = true;
+                sendCmdBtn.disabled = true;
+                btnStartNetView.disabled = true;
+                btnStopNetView.disabled = true;
+                netViewStatus.innerText = "Status: connect a serial device to start NetView.";
+            }
+        }
+
+        connectBtn.addEventListener('click', () => {
+            if (serialManager.isConnected()) {
+                tryDisconnect();
+            } else {
+                tryConnect();
+            }
+        });
+
+        if (serialManager.isSupported()) {
+            navigator.serial.addEventListener('connect', () => {
+                updatePortList();
+            });
+
+            navigator.serial.addEventListener('disconnect', (e) => {
+                if (serialManager.port === e.target) {
+                    tryDisconnect();
+                }
+                updatePortList();
+            });
+        }
+
+        // === Config AT Command Logic ===
+        async function sendCommand() {
+            const cmd = atCommandInput.value;
+            if (!cmd) return;
+            
+            terminalOutput.textContent += `> ${cmd}\n`;
+            try {
+                await serialManager.writeATCommand(cmd);
+                atCommandInput.value = '';
+            } catch (error) {
+                terminalOutput.textContent += `Error: ${error.message}\n`;
+            }
+        }
+
+        sendCmdBtn.addEventListener('click', sendCommand);
+        atCommandInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendCommand();
+        });
+
+        // === NetView Logic ===
+        btnStartNetView.addEventListener('click', async () => {
+            if (!serialManager.isConnected()) {
+                netViewStatus.innerText = "Status: connect a serial device before starting NetView.";
+                return;
+            }
+            
+            isNetViewCollecting = true;
+            netViewState = "reading_info";
+            netViewInfoBuffer = "";
+            netViewBuffer = "";
+            netViewLocalNode = null;
+            netViewGroupAddr = null;
+            clearNetViewCycleTimers();
+            
+            btnStartNetView.disabled = true;
+            btnStopNetView.disabled = false;
+            netViewGroupTag.innerText = "Group --";
+            netViewStatus.innerText = "Status: reading device info...";
+            clearTopology();
+
+            try {
+                await serialManager.writeATCommand("at+ab info");
+                clearTimeout(infoTimeout);
+                infoTimeout = setTimeout(() => {
+                    if (isNetViewCollecting && netViewState === "reading_info") {
+                        stopNetView("Status: failed to parse at+ab info; missing Node Addr or Publish Addr.");
+                    }
+                }, 5000);
+                terminalOutput.textContent += `> [NetView Started] at+ab info\n`;
+                terminalOutput.scrollTop = terminalOutput.scrollHeight;
+            } catch (error) {
+                console.error("Failed to start NetView", error);
+                stopNetView();
+                netViewStatus.innerText = `Status: failed to start NetView - ${error.message}`;
+            }
+        });
+
+        btnStopNetView.addEventListener('click', () => {
+            stopNetView();
+            drawTopology(); // Final draw
+            terminalOutput.textContent += `> [NetView Stopped]\n`;
+        });
+
+        function stopNetView(message = null) {
+            isNetViewCollecting = false;
+            netViewState = "idle";
+            clearTimeout(infoTimeout);
+            infoTimeout = null;
+            clearNetViewCycleTimers();
+            if (serialManager.isConnected()) {
+                btnStartNetView.disabled = false;
+            }
+            btnStopNetView.disabled = true;
+            netViewStatus.innerText = message || (netViewBuffer.trim()
+                ? "Status: stopped. Showing latest topology data."
+                : "Status: stopped. No topology rows received.");
+        }
+
+        function parseATInfo(text) {
+            const nodeMatch = text.match(/^\s*Node\s+Addr\s+([0-9A-Fa-f]{4})\s*$/m);
+            const groupMatch = text.match(/^\s*Publish\s+Addr\s+([0-9A-Fa-f]{4})\s*$/m);
+
+            if (!nodeMatch || !groupMatch) {
+                return null;
+            }
+
+            return {
+                localNode: nodeMatch[1].toUpperCase(),
+                groupAddr: groupMatch[1].toUpperCase(),
+            };
+        }
+
+        async function startNetViewTopology(info) {
+            if (!isNetViewCollecting || netViewState !== "reading_info") {
+                return;
+            }
+
+            netViewLocalNode = info.localNode;
+            netViewGroupAddr = info.groupAddr;
+            netViewState = "collecting_topology";
+            clearTimeout(infoTimeout);
+            infoTimeout = null;
+            netViewGroupTag.innerText = `Group ${netViewGroupAddr}`;
+            netViewStatus.innerText = `Status: Local ${netViewLocalNode}, starting group ${netViewGroupAddr} refresh...`;
+
+            terminalOutput.textContent += `> [NetView] Local=${netViewLocalNode} Group=${netViewGroupAddr}\n`;
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+            await sendNetViewLoraNetCommand();
+        }
+
+        async function sendNetViewLoraNetCommand() {
+            if (!isNetViewCollecting || !serialManager.isConnected() || !netViewGroupAddr) {
+                return;
+            }
+
+            clearNetViewCycleTimers();
+            netViewState = "collecting_topology";
+            netViewBuffer = "";
+            netViewStatus.innerText = `Status: collecting group ${netViewGroupAddr} from Local ${netViewLocalNode}...`;
+
+            const cmd = `at+ab loranet ${netViewGroupAddr}`;
+            await serialManager.writeATCommand(cmd);
+            terminalOutput.textContent += `> [NetView Refresh] ${cmd}\n`;
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        }
+
+        function armNetViewResponseIdleTimer() {
+            clearTimeout(netViewResponseIdleTimer);
+            netViewResponseIdleTimer = setTimeout(() => {
+                finishNetViewResponseCycle();
+            }, NETVIEW_RESPONSE_IDLE_MS);
+        }
+
+        function finishNetViewResponseCycle() {
+            if (!isNetViewCollecting || netViewState !== "collecting_topology") {
+                return;
+            }
+
+            clearTimeout(netViewResponseIdleTimer);
+            netViewResponseIdleTimer = null;
+            netViewState = "waiting_refresh";
+            drawTopology();
+            netViewStatus.innerText = `Status: refresh complete. Next refresh in ${NETVIEW_REFRESH_DELAY_MS / 1000}s.`;
+
+            clearTimeout(netViewRefreshTimer);
+            netViewRefreshTimer = setTimeout(() => {
+                sendNetViewLoraNetCommand().catch(error => {
+                    console.error("NetView refresh failed", error);
+                    stopNetView(`Status: refresh failed - ${error.message}`);
+                });
+            }, NETVIEW_REFRESH_DELAY_MS);
+        }
+
+        function clearNetViewCycleTimers() {
+            clearTimeout(netViewResponseIdleTimer);
+            clearTimeout(netViewRefreshTimer);
+            netViewResponseIdleTimer = null;
+            netViewRefreshTimer = null;
+        }
+
+        // === D3.js Topology Logic (Ported from netview.html) ===
+        function parseLoraNet(text, localNode) {
+            const rows = [];
+            const lineRe = /^(\d+):([0-9A-Fa-f]{4})\s+(-?\d+)\s+([0-9A-Fa-f]{4})$/;
+
+            for (const line of text.split("\n")) {
+                const match = line.trim().match(lineRe);
+                if (!match) continue;
+                rows.push({
+                    hop: Number(match[1]),
+                    relay: match[2].toUpperCase(),
+                    rssi: Number(match[3]),
+                    node: match[4].toUpperCase(),
+                });
+            }
+
+            if (rows.length === 0) {
+                return { nodes: [], links: [], localNode: localNode || "----" };
+            }
+
+            localNode = (localNode || inferLocalNode(rows)).toUpperCase();
+            const bestByNode = new Map();
+            const reverseRssiByEdge = new Map();
+            const inferredRelays = new Set();
+
+            for (const row of rows) {
+                const old = bestByNode.get(row.node);
+                if (!old || row.hop < old.hop || (row.hop === old.hop && isBetterRssi(row.rssi, old.rssi))) {
+                    bestByNode.set(row.node, row);
+                }
+                if (row.relay !== localNode) {
+                    inferredRelays.add(row.relay);
+                }
+                const edgeKey = `${row.node}->${row.relay}`;
+                const oldReverse = reverseRssiByEdge.get(edgeKey);
+                if (oldReverse === undefined || isBetterRssi(row.rssi, oldReverse)) {
+                    reverseRssiByEdge.set(edgeKey, row.rssi);
+                }
+            }
+
+            const nodes = new Map();
+            const links = [];
+            const linkKeys = new Set();
+
+            function addNode(id, role, depth) {
+                const old = nodes.get(id);
+                if (!old) {
+                    nodes.set(id, { id, role, depth });
+                    return;
+                }
+                if (old.role !== "Local" && role === "Relay") old.role = "Relay";
+                if (depth < old.depth) old.depth = depth;
+            }
+
+            addNode(localNode, "Local", 0);
+
+            for (const row of bestByNode.values()) {
+                if (row.node === localNode) continue;
+                addNode(row.relay, row.relay === localNode ? "Local" : "Relay", row.hop);
+                addNode(row.node, inferredRelays.has(row.node) ? "Relay" : "Node", row.hop + 1);
+
+                linkKeys.add(`${row.relay}->${row.node}`);
+                links.push({
+                    source: row.relay,
+                    target: row.node,
+                    forwardRssi: row.rssi,
+                    reverseRssi: reverseRssiByEdge.get(`${row.relay}->${row.node}`),
+                    hop: row.hop,
+                    kind: "primary",
+                });
+            }
+
+            for (const row of rows) {
+                if (row.node === localNode) continue;
+                const linkKey = `${row.relay}->${row.node}`;
+                if (linkKeys.has(linkKey)) continue;
+
+                addNode(row.relay, row.relay === localNode ? "Local" : "Relay", row.hop);
+                addNode(row.node, inferredRelays.has(row.node) ? "Relay" : "Node", row.hop + 1);
+                linkKeys.add(linkKey);
+
+                links.push({
+                    source: row.relay,
+                    target: row.node,
+                    forwardRssi: row.rssi,
+                    reverseRssi: undefined,
+                    hop: row.hop,
+                    kind: "observed",
+                });
+            }
+
+            return { nodes: Array.from(nodes.values()), links, localNode };
+        }
+
+        function isValidRssi(rssi) {
+            return rssi !== 0;
+        }
+
+        function isBetterRssi(candidate, current) {
+            if (isValidRssi(candidate) && !isValidRssi(current)) {
+                return true;
+            }
+            if (!isValidRssi(candidate) && isValidRssi(current)) {
+                return false;
+            }
+            return candidate > current;
+        }
+
+        function formatRssi(rssi) {
+            return isValidRssi(rssi) ? `${rssi} dB` : "-- dB";
+        }
+
+        function inferLocalNode(rows) {
+            const counts = new Map();
+
+            for (const row of rows) {
+                if (row.hop !== 0) continue;
+                counts.set(row.relay, (counts.get(row.relay) || 0) + 1);
+            }
+
+            let localNode = "0000";
+            let bestCount = -1;
+            for (const [node, count] of counts.entries()) {
+                if (count > bestCount) {
+                    localNode = node;
+                    bestCount = count;
+                }
+            }
+
+            return localNode;
+        }
+
+        let simulation = null;
+
+        function clearTopology() {
+            if (simulation) {
+                simulation.stop();
+                simulation = null;
+            }
+
+            if (window.d3) {
+                d3.select("#topology").selectAll("*").remove();
+            }
+        }
+
+        function drawTopology() {
+            if (!window.d3) {
+                netViewStatus.innerText = "Status: D3 failed to load; topology cannot be drawn.";
+                return;
+            }
+
+            const svg = d3.select("#topology");
+            const root = svg.node();
+            if (!root || root.clientWidth === 0) return; // Not visible
+            
+            const width = root.clientWidth;
+            const height = root.clientHeight;
+            
+            // Parse from internal buffer
+            const { nodes, links, localNode } = parseLoraNet(netViewBuffer, netViewLocalNode);
+
+            svg.selectAll("*").remove();
+            if (simulation) simulation.stop();
+            
+            svg.attr("viewBox", `0 0 ${width} ${height}`);
+
+            if (nodes.length === 0) {
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height / 2)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#667085")
+                    .text("Waiting for data...");
+                if (isNetViewCollecting) {
+                    netViewStatus.innerText = netViewState === "reading_info"
+                        ? "Status: reading device info..."
+                        : `Status: collecting group ${netViewGroupAddr || "--"} from Local ${netViewLocalNode || "--"}...`;
+                }
+                return;
+            }
+
+            netViewStatus.innerText = isNetViewCollecting
+                ? `Status: collecting group ${netViewGroupAddr || "--"} from Local ${localNode}. Parsed ${nodes.length} nodes and ${links.length} links.`
+                : `Status: showing group ${netViewGroupAddr || "--"} from Local ${localNode}. ${nodes.length} nodes and ${links.length} links.`;
+
+            const depthCounts = new Map();
+            for (const n of nodes) {
+                const index = depthCounts.get(n.depth) || 0;
+                depthCounts.set(n.depth, index + 1);
+                n.x = 110 + n.depth * 230;
+                n.y = height / 2 + (index - 0.5) * 120;
+            }
+
+            simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(d => d.hop === 0 ? 260 : 220).strength(0.85))
+                .force("charge", d3.forceManyBody().strength(-950))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("x", d3.forceX(d => 110 + d.depth * 230).strength(0.12))
+                .force("y", d3.forceY(height / 2).strength(0.08))
+                .force("collide", d3.forceCollide(58));
+
+            const link = svg.append("g")
+                .selectAll("line")
+                .data(links)
+                .join("line")
+                .attr("stroke", d => d.kind === "primary" ? "#30313f" : "#8b95a7")
+                .attr("stroke-width", d => d.kind === "primary" ? 1.5 : 1.2)
+                .attr("opacity", d => d.kind === "primary" ? 1 : 0.72);
+
+            const edgeLabel = svg.append("g").selectAll("g").data(links).join("g").attr("class", "edge-label");
+            edgeLabel.append("rect").attr("x", -23).attr("y", -9).attr("width", 46).attr("height", 18);
+            edgeLabel.append("text").attr("text-anchor", "middle").attr("dominant-baseline", "central").text(d => formatRssi(d.forwardRssi));
+
+            const reverseLabel = svg.append("g").selectAll("g").data(links.filter(d => d.reverseRssi !== undefined)).join("g").attr("class", "edge-label");
+            reverseLabel.append("rect").attr("x", -23).attr("y", -9).attr("width", 46).attr("height", 18);
+            reverseLabel.append("text").attr("text-anchor", "middle").attr("dominant-baseline", "central").text(d => formatRssi(d.reverseRssi));
+
+            const node = svg.append("g").selectAll("g").data(nodes).join("g").attr("class", "node")
+                .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+
+            node.append("circle").attr("r", 40)
+                .attr("fill", d => d.role === "Local" ? "var(--nv-local)" : d.role === "Relay" ? "var(--nv-relay)" : "var(--nv-node)")
+                .attr("stroke", "#2a2c35").attr("stroke-width", 1.5);
+
+            node.append("text").attr("class", "addr").attr("text-anchor", "middle").attr("y", -4).text(d => d.id);
+            node.append("text").attr("class", "role").attr("text-anchor", "middle").attr("y", 15).text(d => d.role);
+
+            simulation.on("tick", () => {
+                for (const n of nodes) {
+                    n.x = Math.max(55, Math.min(width - 55, n.x));
+                    n.y = Math.max(55, Math.min(height - 55, n.y));
+                }
+                link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                edgeLabel.attr("transform", d => `translate(${d.source.x * 0.58 + d.target.x * 0.42},${d.source.y * 0.58 + d.target.y * 0.42})`);
+                reverseLabel.attr("transform", d => `translate(${d.source.x * 0.42 + d.target.x * 0.58},${d.source.y * 0.42 + d.target.y * 0.58})`);
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            function dragstarted(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+            function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+            function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+        }
+
+        window.addEventListener("resize", () => {
+            clearTimeout(drawTimeout);
+            drawTimeout = setTimeout(drawTopology, 120);
+        });
+
+        init().catch(error => {
+            console.error("Initialization failed:", error);
+            statusMessage.innerText = `Status: initialization failed - ${error.message}`;
+        });
+    </script>
+</body>
+</html>
