@@ -39,10 +39,9 @@ class SerialPortManager {
         if (!portObj) {
             portObj = await this.requestNewPort();
         }
+        await portObj.open({ baudRate });
+
         this.port = portObj;
-
-        await this.port.open({ baudRate });
-
         this.keepReading = true;
         this.readPromise = this.readLoop();
         return this.port;

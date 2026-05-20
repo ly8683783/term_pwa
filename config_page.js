@@ -4,7 +4,7 @@ const CONFIG_ITEMS = [
     { varNo: 2, name: "DeviceName", group: "System", control: "text", defaultValue: "ART 0001", range: "Text", description: "Device display name. Firmware may render it from NodeAddr." },
     { varNo: 3, name: "MACADDR", group: "System", control: "readonly", ro: true, defaultValue: "00043e2600a2", range: "Read only", description: "Production MAC address." },
     { varNo: 4, name: "MeshName", group: "Mesh", control: "text", defaultValue: "Amp'ed LoRa!", range: "Text", description: "Mesh network name." },
-    { varNo: 5, name: "MeshKey", group: "Mesh", control: "password", defaultValue: "12345678", range: "Text", description: "Mesh network key." },
+    { varNo: 5, name: "MeshKey", group: "Mesh", control: "text", defaultValue: "12345678", range: "Text", description: "Mesh network key." },
     { varNo: 6, name: "AuthType", group: "Mesh", control: "select", defaultValue: "0", options: [["0", "NONE"], ["1", "AES-128"]], range: "0=NONE, 1=AES-128", description: "Authentication mode." },
     { varNo: 7, name: "UartBaudrate", group: "UART", control: "select", defaultValue: "115200", options: ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"], range: "300 - 921600", description: "Main UART baud rate." },
     { varNo: 8, name: "UartParity", group: "UART", control: "select", defaultValue: "none", options: ["none", "even", "odd"], range: "none, even, odd", description: "Main UART parity." },
@@ -83,11 +83,13 @@ function createConfigPage({
     const itemByVar = new Map(CONFIG_ITEMS.map(item => [item.varNo, item]));
     const itemByName = new Map(CONFIG_ITEMS.map(item => [item.name.toLowerCase(), item]));
     const values = new Map(CONFIG_ITEMS.map(item => [item.varNo, item.defaultValue || ""]));
+    const loaded = new Set();
     const dirty = new Set();
     let connected = false;
     let readBuffer = "";
     let readTimer = null;
     let reading = false;
+    let autoReadDone = false;
 
     if (!root) {
         return emptyConfigPage();
@@ -150,7 +152,7 @@ function createConfigPage({
             <label class="config-label" for="config-var-${item.varNo}">${escapeHtml(item.name)}</label>
             <div class="config-control"></div>
             <span class="config-help" tabindex="0">?
-                <span class="config-tooltip">
+                <span class="config-tooltip" id="config-tip-${item.varNo}">
                     <strong>var${String(item.varNo).padStart(2, "0")} ${escapeHtml(item.name)}</strong><br>
                     ${escapeHtml(item.description || "")}<br>
                     <em>Range: ${escapeHtml(item.range || "")}</em><br>
@@ -189,7 +191,6 @@ function createConfigPage({
         input.type = item.control === "password" ? "password" : item.control === "number" ? "number" : "text";
         if (item.min !== undefined) input.min = item.min;
         if (item.max !== undefined) input.max = item.max;
-        if (item.ro || item.control === "readonly") input.disabled = true;
         input.addEventListener("input", () => setValue(item, normalizeInput(item, input.value), true));
         return input;
     }
@@ -209,6 +210,7 @@ function createConfigPage({
         const control = root.querySelector(`#config-var-${item.varNo}`);
         if (!control) return;
         const value = values.get(item.varNo) || "";
+        control.disabled = isItemDisabled(item);
         if (item.control === "bool") {
             control.checked = value === "true" || value === "1";
         } else if (item.control === "select") {
@@ -222,20 +224,33 @@ function createConfigPage({
     function updateRowState(item) {
         const row = root.querySelector(`.config-row[data-var-no="${item.varNo}"]`);
         if (!row) return;
+        const isReadonly = isReadonlyItem(item);
+        const isMissing = connected && !reading && !loaded.has(item.varNo);
+        row.classList.toggle("readonly", isReadonly);
+        row.classList.toggle("missing", isMissing);
         row.classList.toggle("changed", dirty.has(item.varNo));
+        updateTooltip(item);
     }
 
     function updateButtons() {
         const readBtn = root.querySelector("#configReadBtn");
         const applyBtn = root.querySelector("#configApplyBtn");
+        const importBtn = root.querySelector("#configImportBtn");
         if (readBtn) readBtn.disabled = !connected || reading;
         if (applyBtn) applyBtn.disabled = !connected || reading || dirty.size === 0;
+        if (importBtn) importBtn.disabled = reading || loaded.size === 0;
     }
 
     async function readFromDevice() {
         ensureConnected();
         reading = true;
         readBuffer = "";
+        loaded.clear();
+        dirty.clear();
+        CONFIG_ITEMS.forEach(item => {
+            updateControl(item);
+            updateRowState(item);
+        });
         setStatus("Reading configuration...");
         updateButtons();
         await serialManager.writeATCommand("at+ab config");
@@ -251,7 +266,7 @@ function createConfigPage({
         setStatus(`Applying ${pending.length} changed item(s)...`);
         for (const varNo of pending) {
             const item = itemByVar.get(varNo);
-            if (!item || item.ro || item.control === "readonly") continue;
+            if (!item || isReadonlyItem(item) || !loaded.has(varNo)) continue;
             const value = normalizeForCommand(item, values.get(varNo) || "");
             const cmd = `at+ab config var${varNo}=${value}`;
             await serialManager.writeATCommand(cmd);
@@ -287,6 +302,7 @@ function createConfigPage({
             const value = match[3].trim();
             const item = itemByVar.get(varNo) || itemByName.get(name.toLowerCase());
             if (!item) continue;
+            loaded.add(item.varNo);
             values.set(item.varNo, normalizeValue(item, value));
             dirty.delete(item.varNo);
             updateControl(item);
@@ -294,7 +310,12 @@ function createConfigPage({
             count++;
         }
         reading = false;
-        setStatus(count ? `Loaded ${count} item(s) from device.` : "No config rows parsed.");
+        CONFIG_ITEMS.forEach(item => {
+            updateControl(item);
+            updateRowState(item);
+        });
+        const missing = CONFIG_ITEMS.length - loaded.size;
+        setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned.` : "No config rows parsed.");
         updateButtons();
     }
 
@@ -306,6 +327,8 @@ function createConfigPage({
                 varNo: item.varNo,
                 name: item.name,
                 value: values.get(item.varNo) || "",
+                loaded: loaded.has(item.varNo),
+                readonly: isReadonlyItem(item),
             })),
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -321,6 +344,11 @@ function createConfigPage({
         event.target.value = "";
         if (!file) return;
 
+        if (loaded.size === 0) {
+            setStatus("Read configuration from device before importing JSON.");
+            return;
+        }
+
         const data = JSON.parse(await file.text());
         if (!data || data.format !== "lr71-config-v1" || !Array.isArray(data.items)) {
             throw new Error("Invalid LR71 config JSON");
@@ -329,7 +357,7 @@ function createConfigPage({
         let count = 0;
         for (const imported of data.items) {
             const item = itemByVar.get(Number(imported.varNo));
-            if (!item || item.ro || item.control === "readonly") continue;
+            if (!item || isReadonlyItem(item) || !loaded.has(item.varNo)) continue;
             if (imported.name && imported.name !== item.name) continue;
             setValue(item, String(imported.value ?? ""), true);
             count++;
@@ -339,22 +367,42 @@ function createConfigPage({
 
     function handleConnected() {
         connected = true;
-        setStatus("Connected. Click Read From Device.");
+        setStatus("Connected. Open Configuration or click Read From Device.");
         updateButtons();
     }
 
     function handleDisconnected() {
         connected = false;
         reading = false;
+        autoReadDone = false;
         clearTimeout(readTimer);
+        loaded.clear();
+        dirty.clear();
+        CONFIG_ITEMS.forEach(item => {
+            updateControl(item);
+            updateRowState(item);
+        });
         setStatus("Disconnected.");
         updateButtons();
     }
 
     function handleUnavailable(message) {
         connected = false;
+        loaded.clear();
+        dirty.clear();
+        CONFIG_ITEMS.forEach(item => {
+            updateControl(item);
+            updateRowState(item);
+        });
         setStatus(message);
         updateButtons();
+    }
+
+    function handleShown() {
+        if (connected && !autoReadDone && !reading) {
+            autoReadDone = true;
+            readFromDevice().catch(handleError);
+        }
     }
 
     function setStatus(message) {
@@ -373,13 +421,45 @@ function createConfigPage({
         }
     }
 
-    CONFIG_ITEMS.forEach(item => updateControl(item));
+    function isReadonlyItem(item) {
+        return item.ro || item.control === "readonly";
+    }
+
+    function isItemDisabled(item) {
+        return !connected || reading || isReadonlyItem(item) || !loaded.has(item.varNo);
+    }
+
+    function updateTooltip(item) {
+        const tip = root.querySelector(`#config-tip-${item.varNo}`);
+        if (!tip) return;
+
+        let status = "Writable";
+        if (isReadonlyItem(item)) {
+            status = "Read only";
+        } else if (!loaded.has(item.varNo)) {
+            status = "Not returned by at+ab config";
+        }
+
+        tip.innerHTML = `
+            <strong>var${String(item.varNo).padStart(2, "0")} ${escapeHtml(item.name)}</strong><br>
+            ${escapeHtml(item.description || "")}<br>
+            <em>Range: ${escapeHtml(item.range || "")}</em><br>
+            <em>Status: ${escapeHtml(status)}</em><br>
+            <em>Set: at+ab config var${item.varNo}=value</em>
+        `;
+    }
+
+    CONFIG_ITEMS.forEach(item => {
+        updateControl(item);
+        updateRowState(item);
+    });
 
     return {
         handleSerialData,
         handleConnected,
         handleDisconnected,
         handleUnavailable,
+        handleShown,
     };
 }
 
@@ -432,6 +512,7 @@ function emptyConfigPage() {
         handleConnected() {},
         handleDisconnected() {},
         handleUnavailable() {},
+        handleShown() {},
     };
 }
 
