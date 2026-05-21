@@ -2,6 +2,7 @@
 const NETVIEW_RESPONSE_IDLE_MS = 1500;
 const NETVIEW_REFRESH_DELAY_MS = 10000;
 const NETVIEW_INFO_TIMEOUT_MS = 5000;
+const NETVIEW_RESPONSE_TIMEOUT_MS = 20000;
 const NETVIEW_DRAW_DEBOUNCE_MS = 500;
 const NETVIEW_RESIZE_DEBOUNCE_MS = 120;
 const parseATInfo = window.TermPWA.parseATInfo;
@@ -28,6 +29,7 @@ function createNetViewPage({
     let drawTimer = null;
     let infoTimer = null;
     let responseIdleTimer = null;
+    let responseTimeoutTimer = null;
     let refreshTimer = null;
 
     startButton.addEventListener("click", () => {
@@ -171,6 +173,11 @@ function createNetViewPage({
 
         const cmd = `at+ab loranet ${groupAddr}`;
         await serialManager.writeATCommand(cmd);
+        responseTimeoutTimer = setTimeout(() => {
+            if (isCollecting && state === "collecting_topology") {
+                stop("Status: no response from at+ab loranet. Please check whether the device is normal.");
+            }
+        }, NETVIEW_RESPONSE_TIMEOUT_MS);
         writeTerminal(`> [NetView Refresh] ${cmd}\n`);
     }
 
@@ -188,6 +195,8 @@ function createNetViewPage({
 
         clearTimeout(responseIdleTimer);
         responseIdleTimer = null;
+        clearTimeout(responseTimeoutTimer);
+        responseTimeoutTimer = null;
         state = "waiting_refresh";
         redraw();
         setStatus(`Status: refresh complete. Next refresh in ${NETVIEW_REFRESH_DELAY_MS / 1000}s.`);
@@ -234,8 +243,10 @@ function createNetViewPage({
 
     function clearCycleTimers() {
         clearTimeout(responseIdleTimer);
+        clearTimeout(responseTimeoutTimer);
         clearTimeout(refreshTimer);
         responseIdleTimer = null;
+        responseTimeoutTimer = null;
         refreshTimer = null;
     }
 

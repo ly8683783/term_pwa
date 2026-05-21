@@ -83,6 +83,7 @@ function createConfigPage({
     const itemByVar = new Map(CONFIG_ITEMS.map(item => [item.varNo, item]));
     const itemByName = new Map(CONFIG_ITEMS.map(item => [item.name.toLowerCase(), item]));
     const values = new Map(CONFIG_ITEMS.map(item => [item.varNo, item.defaultValue || ""]));
+    const deviceValues = new Map();
     const loaded = new Set();
     const dirty = new Set();
     let connected = false;
@@ -198,8 +199,12 @@ function createConfigPage({
     function setValue(item, value, userChanged) {
         const normalized = normalizeValue(item, value);
         values.set(item.varNo, normalized);
-        if (userChanged && !item.ro && item.control !== "readonly") {
-            dirty.add(item.varNo);
+        if (userChanged && !isReadonlyItem(item) && loaded.has(item.varNo)) {
+            if (normalized === (deviceValues.get(item.varNo) || "")) {
+                dirty.delete(item.varNo);
+            } else {
+                dirty.add(item.varNo);
+            }
         }
         updateControl(item);
         updateRowState(item);
@@ -247,6 +252,7 @@ function createConfigPage({
         readBuffer = "";
         loaded.clear();
         dirty.clear();
+        deviceValues.clear();
         CONFIG_ITEMS.forEach(item => {
             updateControl(item);
             updateRowState(item);
@@ -302,8 +308,10 @@ function createConfigPage({
             const value = match[3].trim();
             const item = itemByVar.get(varNo) || itemByName.get(name.toLowerCase());
             if (!item) continue;
+            const normalized = normalizeValue(item, value);
             loaded.add(item.varNo);
-            values.set(item.varNo, normalizeValue(item, value));
+            values.set(item.varNo, normalized);
+            deviceValues.set(item.varNo, normalized);
             dirty.delete(item.varNo);
             updateControl(item);
             updateRowState(item);
@@ -359,10 +367,15 @@ function createConfigPage({
             const item = itemByVar.get(Number(imported.varNo));
             if (!item || isReadonlyItem(item) || !loaded.has(item.varNo)) continue;
             if (imported.name && imported.name !== item.name) continue;
-            setValue(item, String(imported.value ?? ""), true);
+            const currentValue = values.get(item.varNo) || "";
+            const importedValue = normalizeValue(item, String(imported.value ?? ""));
+            if (importedValue === currentValue) continue;
+            setValue(item, importedValue, true);
             count++;
         }
-        setStatus(`Imported ${count} writable item(s). Click Apply Changed to write them.`);
+        setStatus(count
+            ? `Imported ${count} changed writable item(s). Click Apply Changed to write them.`
+            : "Imported JSON matches current device configuration.");
     }
 
     function handleConnected() {
@@ -378,6 +391,7 @@ function createConfigPage({
         clearTimeout(readTimer);
         loaded.clear();
         dirty.clear();
+        deviceValues.clear();
         CONFIG_ITEMS.forEach(item => {
             updateControl(item);
             updateRowState(item);
@@ -390,6 +404,7 @@ function createConfigPage({
         connected = false;
         loaded.clear();
         dirty.clear();
+        deviceValues.clear();
         CONFIG_ITEMS.forEach(item => {
             updateControl(item);
             updateRowState(item);
