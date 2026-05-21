@@ -1,5 +1,11 @@
 (function () {
-const CONFIG_ITEMS = [
+const CONFIG_HARDWARE_TIMEOUT_MS = 3000;
+const CONFIG_READ_IDLE_MS = 900;
+const CONFIG_PROFILES = {
+LR71: {
+    format: "lr71-config-v1",
+    groups: ["System", "UART", "Mesh", "LoRa Radio", "Timing", "Bypass / Sleep", "Advanced"],
+    items: [
     { varNo: 1, name: "BuildVersion", group: "System", control: "readonly", ro: true, defaultValue: "", range: "Read only", description: "Firmware build version." },
     { varNo: 2, name: "DeviceName", group: "System", control: "text", defaultValue: "ART 0001", range: "Text", description: "Device display name. Firmware may render it from NodeAddr." },
     { varNo: 3, name: "MACADDR", group: "System", control: "readonly", ro: true, defaultValue: "00043e2600a2", range: "Read only", description: "Production MAC address." },
@@ -69,9 +75,14 @@ const CONFIG_ITEMS = [
     { varNo: 67, name: "RelayAckEn", group: "Timing", control: "bool", defaultValue: "false", range: "bool", description: "Enable relay ACK mechanism." },
     { varNo: 68, name: "RelayRptMax", group: "Timing", control: "number", defaultValue: "3", min: 0, max: 255, range: "0 - 255", description: "Maximum relay repeat count." },
     { varNo: 69, name: "CadMode", group: "LoRa Radio", control: "select", defaultValue: "1", options: [["0", "Disabled"], ["1", "Dynamic Delay"]], range: "0 - 1", description: "CAD mode. 0 disables CAD-assisted timing; 1 enables dynamic CAD delay." },
-];
-
-const GROUP_ORDER = ["System", "UART", "Mesh", "LoRa Radio", "Timing", "Bypass / Sleep", "Advanced"];
+    ],
+},
+WF88: {
+    format: "wf88-config-v1",
+    groups: [],
+    items: [],
+},
+};
 
 function createConfigPage({
     serialManager,
@@ -80,9 +91,13 @@ function createConfigPage({
     rootSelector = "#configPage",
 } = {}) {
     const root = document.querySelector(rootSelector);
-    const itemByVar = new Map(CONFIG_ITEMS.map(item => [item.varNo, item]));
-    const itemByName = new Map(CONFIG_ITEMS.map(item => [item.name.toLowerCase(), item]));
-    const values = new Map(CONFIG_ITEMS.map(item => [item.varNo, item.defaultValue || ""]));
+    let activeProfileName = null;
+    let activeProfile = null;
+    let activeItems = [];
+    let activeGroups = [];
+    let itemByVar = new Map();
+    let itemByName = new Map();
+    let values = new Map();
     const deviceValues = new Map();
     const loaded = new Set();
     const dirty = new Set();
@@ -90,6 +105,7 @@ function createConfigPage({
     let readBuffer = "";
     let readTimer = null;
     let reading = false;
+    let readMode = null;
     let autoReadDone = false;
 
     if (!root) {
@@ -125,8 +141,8 @@ function createConfigPage({
             columns.push(column);
         }
 
-        GROUP_ORDER.forEach((group, index) => {
-            const items = CONFIG_ITEMS.filter(item => item.group === group);
+        activeGroups.forEach((group, index) => {
+            const items = activeItems.filter(item => item.group === group);
             const card = document.createElement("section");
             card.className = "config-card";
             card.innerHTML = `<h3>${escapeHtml(group)}</h3>`;
@@ -136,7 +152,7 @@ function createConfigPage({
             columns[index % columns.length].appendChild(card);
         });
 
-        root.querySelector("#configReadBtn").addEventListener("click", () => readFromDevice().catch(handleError));
+        root.querySelector("#configReadBtn").addEventListener("click", () => probeHardwareThenRead().catch(handleError));
         root.querySelector("#configApplyBtn").addEventListener("click", () => applyChanged().catch(handleError));
         root.querySelector("#configExportBtn").addEventListener("click", exportJson);
         root.querySelector("#configImportBtn").addEventListener("click", () => root.querySelector("#configImportInput").click());
@@ -240,20 +256,40 @@ function createConfigPage({
     function updateButtons() {
         const readBtn = root.querySelector("#configReadBtn");
         const applyBtn = root.querySelector("#configApplyBtn");
+        const exportBtn = root.querySelector("#configExportBtn");
         const importBtn = root.querySelector("#configImportBtn");
         if (readBtn) readBtn.disabled = !connected || reading;
-        if (applyBtn) applyBtn.disabled = !connected || reading || dirty.size === 0;
-        if (importBtn) importBtn.disabled = reading || loaded.size === 0;
+        if (applyBtn) applyBtn.disabled = !connected || reading || !activeProfile || dirty.size === 0;
+        if (exportBtn) exportBtn.disabled = reading || !activeProfile || loaded.size === 0;
+        if (importBtn) importBtn.disabled = reading || !activeProfile || loaded.size === 0;
+    }
+
+    async function probeHardwareThenRead() {
+        ensureConnected();
+        reading = true;
+        readMode = "hardware";
+        readBuffer = "";
+        clearDeviceState();
+        setActiveProfile(null);
+        setStatus("Detecting hardware...");
+        updateButtons();
+        await serialManager.writeATCommand("at+ab config Hardware");
+        writeTerminal("> [Configuration] at+ab config Hardware\n");
+        armHardwareTimer();
     }
 
     async function readFromDevice() {
         ensureConnected();
+        if (!activeProfile) {
+            throw new Error("hardware profile is not selected");
+        }
         reading = true;
+        readMode = "config";
         readBuffer = "";
         loaded.clear();
         dirty.clear();
         deviceValues.clear();
-        CONFIG_ITEMS.forEach(item => {
+        activeItems.forEach(item => {
             updateControl(item);
             updateRowState(item);
         });
@@ -261,7 +297,7 @@ function createConfigPage({
         updateButtons();
         await serialManager.writeATCommand("at+ab config");
         writeTerminal("> [Configuration] at+ab config\n");
-        armReadTimer();
+        armConfigReadTimer();
     }
 
     async function applyChanged() {
@@ -280,25 +316,67 @@ function createConfigPage({
             await sleep(120);
         }
         dirty.clear();
-        CONFIG_ITEMS.forEach(updateRowState);
+        activeItems.forEach(updateRowState);
         updateButtons();
         setStatus("Apply complete. Refreshing from device...");
         await sleep(300);
-        await readFromDevice();
+        await probeHardwareThenRead();
     }
 
     function handleSerialData(text) {
         if (!reading) return;
         readBuffer += text;
-        armReadTimer();
+        if (readMode === "hardware") {
+            const hardware = parseHardwareName(readBuffer);
+            if (hardware) {
+                finishHardwareProbe(hardware);
+            }
+            return;
+        }
+        armConfigReadTimer();
     }
 
-    function armReadTimer() {
+    function armHardwareTimer() {
         clearTimeout(readTimer);
-        readTimer = setTimeout(finishRead, 900);
+        readTimer = setTimeout(() => finishHardwareProbe(null), CONFIG_HARDWARE_TIMEOUT_MS);
+    }
+
+    function armConfigReadTimer() {
+        clearTimeout(readTimer);
+        readTimer = setTimeout(finishRead, CONFIG_READ_IDLE_MS);
+    }
+
+    function finishHardwareProbe(hardware) {
+        if (!reading || readMode !== "hardware") return;
+
+        clearTimeout(readTimer);
+        readTimer = null;
+        reading = false;
+        readMode = null;
+
+        if (!hardware) {
+            setActiveProfile(null);
+            setStatus("Failed to detect hardware. Configuration is disabled.");
+            updateButtons();
+            return;
+        }
+
+        const profileName = findProfileName(hardware);
+        if (!profileName || !CONFIG_PROFILES[profileName].items.length) {
+            setActiveProfile(null);
+            setStatus(`Unsupported hardware: ${hardware}. Configuration is disabled.`);
+            updateButtons();
+            return;
+        }
+
+        setActiveProfile(profileName);
+        setStatus(`Detected hardware: ${profileName}. Reading configuration...`);
+        readFromDevice().catch(handleError);
     }
 
     function finishRead() {
+        if (!reading || readMode !== "config") return;
+
         let count = 0;
         const re = /^var(\d+)\s+(.+?)\s*=\s*(.*)$/gm;
         let match;
@@ -318,20 +396,22 @@ function createConfigPage({
             count++;
         }
         reading = false;
-        CONFIG_ITEMS.forEach(item => {
+        readMode = null;
+        activeItems.forEach(item => {
             updateControl(item);
             updateRowState(item);
         });
-        const missing = CONFIG_ITEMS.length - loaded.size;
+        const missing = activeItems.length - loaded.size;
         setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned.` : "No config rows parsed.");
         updateButtons();
     }
 
     function exportJson() {
         const data = {
-            format: "lr71-config-v1",
+            hardware: activeProfileName,
+            format: activeProfile.format,
             exportedAt: new Date().toISOString(),
-            items: CONFIG_ITEMS.map(item => ({
+            items: activeItems.map(item => ({
                 varNo: item.varNo,
                 name: item.name,
                 value: values.get(item.varNo) || "",
@@ -342,7 +422,7 @@ function createConfigPage({
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `lr71-config-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+        link.download = `${activeProfileName.toLowerCase()}-config-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
         link.click();
         URL.revokeObjectURL(link.href);
     }
@@ -358,8 +438,8 @@ function createConfigPage({
         }
 
         const data = JSON.parse(await file.text());
-        if (!data || data.format !== "lr71-config-v1" || !Array.isArray(data.items)) {
-            throw new Error("Invalid LR71 config JSON");
+        if (!activeProfile || !data || data.format !== activeProfile.format || !Array.isArray(data.items)) {
+            throw new Error(`Invalid ${activeProfileName} config JSON`);
         }
 
         let count = 0;
@@ -387,28 +467,23 @@ function createConfigPage({
     function handleDisconnected() {
         connected = false;
         reading = false;
+        readMode = null;
         autoReadDone = false;
         clearTimeout(readTimer);
-        loaded.clear();
-        dirty.clear();
-        deviceValues.clear();
-        CONFIG_ITEMS.forEach(item => {
-            updateControl(item);
-            updateRowState(item);
-        });
+        clearDeviceState();
+        setActiveProfile(null);
         setStatus("Disconnected.");
         updateButtons();
     }
 
     function handleUnavailable(message) {
         connected = false;
-        loaded.clear();
-        dirty.clear();
-        deviceValues.clear();
-        CONFIG_ITEMS.forEach(item => {
-            updateControl(item);
-            updateRowState(item);
-        });
+        reading = false;
+        readMode = null;
+        autoReadDone = false;
+        clearTimeout(readTimer);
+        clearDeviceState();
+        setActiveProfile(null);
         setStatus(message);
         updateButtons();
     }
@@ -416,7 +491,22 @@ function createConfigPage({
     function handleShown() {
         if (connected && !autoReadDone && !reading) {
             autoReadDone = true;
-            readFromDevice().catch(handleError);
+            probeHardwareThenRead().catch(handleError);
+        }
+    }
+
+    function handleDeviceChanged(isConfigVisible = false) {
+        reading = false;
+        readMode = null;
+        autoReadDone = false;
+        clearTimeout(readTimer);
+        clearDeviceState();
+        setActiveProfile(null);
+        setStatus("Device changed. Configuration must be read again.");
+        updateButtons();
+        if (connected && isConfigVisible) {
+            autoReadDone = true;
+            probeHardwareThenRead().catch(handleError);
         }
     }
 
@@ -426,7 +516,11 @@ function createConfigPage({
     }
 
     function handleError(error) {
+        reading = false;
+        readMode = null;
+        clearTimeout(readTimer);
         setStatus(`Error: ${error.message}`);
+        updateButtons();
         debugLog("config page error", error);
     }
 
@@ -441,7 +535,7 @@ function createConfigPage({
     }
 
     function isItemDisabled(item) {
-        return !connected || reading || isReadonlyItem(item) || !loaded.has(item.varNo);
+        return !connected || reading || !activeProfile || isReadonlyItem(item) || !loaded.has(item.varNo);
     }
 
     function updateTooltip(item) {
@@ -464,7 +558,25 @@ function createConfigPage({
         `;
     }
 
-    CONFIG_ITEMS.forEach(item => {
+    function clearDeviceState() {
+        loaded.clear();
+        dirty.clear();
+        deviceValues.clear();
+        values = new Map(activeItems.map(item => [item.varNo, item.defaultValue || ""]));
+    }
+
+    function setActiveProfile(profileName) {
+        activeProfileName = profileName;
+        activeProfile = profileName ? CONFIG_PROFILES[profileName] : null;
+        activeItems = activeProfile ? activeProfile.items : [];
+        activeGroups = activeProfile ? activeProfile.groups : [];
+        itemByVar = new Map(activeItems.map(item => [item.varNo, item]));
+        itemByName = new Map(activeItems.map(item => [item.name.toLowerCase(), item]));
+        values = new Map(activeItems.map(item => [item.varNo, item.defaultValue || ""]));
+        render();
+    }
+
+    activeItems.forEach(item => {
         updateControl(item);
         updateRowState(item);
     });
@@ -475,11 +587,28 @@ function createConfigPage({
         handleDisconnected,
         handleUnavailable,
         handleShown,
+        handleDeviceChanged,
     };
 }
 
 function normalizeInput(item, value) {
     return item.control === "hex" ? value.toUpperCase() : value;
+}
+
+function parseHardwareName(text) {
+    const lines = String(text || "").split(/\r?\n/);
+    for (const line of lines) {
+        const match = line.match(/^var\d+\s+Hardware\s*=\s*(.+)$/i);
+        if (match) {
+            return match[1].trim();
+        }
+    }
+    return null;
+}
+
+function findProfileName(hardwareName) {
+    const normalized = String(hardwareName || "").trim().toUpperCase();
+    return Object.keys(CONFIG_PROFILES).find(name => name.toUpperCase() === normalized) || null;
 }
 
 function normalizeValue(item, value) {
@@ -528,10 +657,11 @@ function emptyConfigPage() {
         handleDisconnected() {},
         handleUnavailable() {},
         handleShown() {},
+        handleDeviceChanged() {},
     };
 }
 
 window.TermPWA = window.TermPWA || {};
 window.TermPWA.createConfigPage = createConfigPage;
-window.TermPWA.CONFIG_ITEMS = CONFIG_ITEMS;
+window.TermPWA.CONFIG_PROFILES = CONFIG_PROFILES;
 })();

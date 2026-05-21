@@ -65,14 +65,20 @@ let commandHistoryIndex = commandHistory.length;
 let commandHistoryDraft = "";
 let uartAtLineStart = true;
 let selectedPortIndex = "request";
+let activeViewId = "view-terminal";
 
 document.querySelectorAll('.menu-item').forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
+        const targetId = item.getAttribute('data-target');
+        if (activeViewId === "view-netview" && targetId !== "view-netview") {
+            netViewPage.stop("Status: stopped because NetView page was left.");
+        }
+        activeViewId = targetId;
+
         document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
         item.classList.add('active');
 
-        const targetId = item.getAttribute('data-target');
         document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
         document.getElementById(targetId).classList.add('active');
 
@@ -256,6 +262,7 @@ async function switchConnectedPort(selectedValue) {
         selectedPortIndex = selectedValue;
         updateUI(true);
         await updatePortList();
+        configPage.handleDeviceChanged(activeViewId === "view-config");
         debugLog("switch serial port success", { selectedValue });
     } catch (error) {
         debugLog("switch serial port failed", error);
@@ -304,6 +311,9 @@ async function tryConnect(targetPort = null) {
         }
         debugLog("serial connect success");
         updateUI(true);
+        if (activeViewId === "view-config") {
+            configPage.handleDeviceChanged(true);
+        }
     } catch (error) {
         debugLog("serial connect failed", error);
         console.error("Connection failed:", error);

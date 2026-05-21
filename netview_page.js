@@ -16,6 +16,7 @@ function createNetViewPage({
 } = {}) {
     const startButton = document.querySelector(selectors.startButton || "#btnStartNetView");
     const stopButton = document.querySelector(selectors.stopButton || "#btnStopNetView");
+    const clearButton = document.querySelector(selectors.clearButton || "#btnClearNetView");
     const statusElement = document.querySelector(selectors.status || "#netViewStatus");
     const groupTag = document.querySelector(selectors.groupTag || "#netViewGroupTag");
     const svgSelector = selectors.topology || "#topology";
@@ -44,6 +45,11 @@ function createNetViewPage({
         stop();
         redraw();
         writeTerminal("> [NetView Stopped]\n");
+    });
+
+    clearButton.addEventListener("click", () => {
+        clear();
+        writeTerminal("> [NetView Cleared]\n");
     });
 
     window.addEventListener("resize", () => {
@@ -142,6 +148,23 @@ function createNetViewPage({
         setStatus(message || (topologyBuffer.trim()
             ? "Status: stopped. Showing latest topology data."
             : "Status: stopped. No topology rows received."));
+    }
+
+    function clear() {
+        isCollecting = false;
+        state = "idle";
+        infoBuffer = "";
+        topologyBuffer = "";
+        localNode = null;
+        groupAddr = null;
+        clearAllTimers();
+        groupTag.innerText = "Group --";
+        clearTopology(svgSelector);
+        if (serialManager.isConnected()) {
+            startButton.disabled = false;
+        }
+        stopButton.disabled = true;
+        setStatus("Status: topology cleared.");
     }
 
     async function startTopology(info) {
@@ -269,6 +292,7 @@ function createNetViewPage({
         handleUnavailable,
         redraw,
         stop,
+        clear,
         isCollecting: () => isCollecting,
     };
 }
