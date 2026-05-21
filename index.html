@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amp'd RF Web Configurator</title>
+    <meta name="theme-color" content="#ffb400">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <link rel="stylesheet" href="./styles.css">
 
@@ -74,31 +78,41 @@
         <div class="main-content">
             <!-- Terminal View -->
             <div id="view-terminal" class="view-panel active">
-                <h2 style="margin-top: 0;">AT Command Terminal</h2>
-                <div id="statusMessage" style="font-weight: bold; color: #666;">Status: Disconnected</div>
-                
                 <div class="terminal-container">
-                    <div class="terminal-output" id="terminalOutput" tabindex="0" title="Click here and type to send keys directly to UART."></div>
-                    <div class="terminal-input-group">
-                        <input type="text" id="atCommandInput" placeholder="Enter AT Command (e.g. AT+GMR)" disabled>
-                        <button id="sendCmdBtn" disabled>Send</button>
+                    <div class="terminal-main">
+                        <div class="terminal-status-row">
+                            <div id="statusMessage" style="font-weight: bold; color: #666;">Status: Disconnected</div>
+                            <label class="toggle-container">
+                                <span class="switch">
+                                    <input type="checkbox" id="showLineTimeToggle">
+                                    <span class="slider"></span>
+                                </span>
+                                Show UART line time
+                            </label>
+                        </div>
+                        <div class="terminal-output" id="terminalOutput" tabindex="0" title="Click here and type to send keys directly to UART."></div>
+                        <div class="terminal-input-group">
+                            <input type="text" id="atCommandInput" placeholder="Enter AT Command (e.g. AT+GMR)" disabled>
+                            <button id="sendCmdBtn" disabled>Send</button>
+                        </div>
+                        <div class="terminal-options">
+                            <label class="toggle-container">
+                                <span class="switch">
+                                    <input type="checkbox" id="appendNewlineToggle" checked>
+                                    <span class="slider"></span>
+                                </span>
+                                Add CR/LF
+                            </label>
+                            <label>
+                                Send interval
+                                <input type="number" id="sendIntervalInput" min="10" step="10" value="1000" disabled>
+                                ms
+                            </label>
+                            <button id="intervalSendBtn" type="button" disabled>Start Interval</button>
+                            <span class="terminal-hint">Click the terminal window to send keyboard input directly to UART.</span>
+                        </div>
                     </div>
-                    <div class="terminal-options">
-                        <label class="toggle-container">
-                            <span class="switch">
-                                <input type="checkbox" id="appendNewlineToggle" checked>
-                                <span class="slider"></span>
-                            </span>
-                            加回车换行
-                        </label>
-                        <label>
-                            发送间隔
-                            <input type="number" id="sendIntervalInput" min="10" step="10" value="1000" disabled>
-                            ms
-                        </label>
-                        <button id="intervalSendBtn" type="button" disabled>开始定时发送</button>
-                        <span class="terminal-hint">点击终端窗口后，键盘输入会直接发送到 UART。</span>
-                    </div>
+                    <aside id="quickSendPanel" class="quick-send-panel" aria-label="Quick Send"></aside>
                 </div>
             </div>
 
@@ -171,6 +185,7 @@
     <script src="./topology_view.js"></script>
     <script src="./netview_page.js"></script>
     <script src="./serial_port.js"></script>
+    <script src="./quick_send.js"></script>
     <script src="./ymodem_crc.js"></script>
     <script src="./firmware_update.js"></script>
     <script src="./config_page.js"></script>

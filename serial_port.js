@@ -47,7 +47,7 @@ class SerialPortManager {
         return this.port;
     }
 
-    async disconnect() {
+    async disconnect({ notify = true } = {}) {
         this.keepReading = false;
 
         if (this.reader) {
@@ -64,7 +64,7 @@ class SerialPortManager {
             this.port = null;
         }
 
-        if (this.onDisconnectCallback) {
+        if (notify && this.onDisconnectCallback) {
             this.onDisconnectCallback();
         }
     }

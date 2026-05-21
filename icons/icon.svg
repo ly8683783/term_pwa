@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LR71 LoRaNet">
+  <rect width="512" height="512" rx="96" fill="#ffb400"/>
+
+  <g fill="#2f3679">
+    <rect x="86" y="142" width="28" height="42" rx="8"/>
+    <rect x="86" y="220" width="28" height="42" rx="8"/>
+    <rect x="86" y="298" width="28" height="42" rx="8"/>
+    <rect x="398" y="220" width="28" height="42" rx="8"/>
+    <rect x="398" y="298" width="28" height="42" rx="8"/>
+    <rect x="142" y="86" width="42" height="28" rx="8"/>
+    <rect x="220" y="86" width="42" height="28" rx="8"/>
+    <rect x="298" y="86" width="42" height="28" rx="8"/>
+    <rect x="142" y="398" width="42" height="28" rx="8"/>
+    <rect x="220" y="398" width="42" height="28" rx="8"/>
+    <rect x="298" y="398" width="42" height="28" rx="8"/>
+  </g>
+
+  <path fill="#2f3679" fill-rule="evenodd" d="
+    M128 128
+    H384
+    V384
+    H128
+    Z
+    M304 128
+    H384
+    V208
+    H304
+    Z"/>
+
+  <rect x="184" y="184" width="144" height="144" rx="18" fill="none" stroke="#ffffff" stroke-width="28"/>
+  <rect x="232" y="232" width="48" height="48" rx="10" fill="#ffffff"/>
+
+  <g fill="none" stroke="#2f3679" stroke-width="18" stroke-linecap="round">
+    <path d="M344 184 A28 28 0 0 0 324 164"/>
+    <path d="M370 184 A54 54 0 0 0 324 138"/>
+    <path d="M396 184 A80 80 0 0 0 324 112"/>
+  </g>
+</svg>

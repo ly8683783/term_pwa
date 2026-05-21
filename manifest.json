@@ -1,0 +1,24 @@
+{
+  "name": "LR71 LoRaNet Web Terminal",
+  "short_name": "LR71 Web",
+  "description": "Web Serial terminal, configuration, topology, and firmware update tool for LR71 LoRaNet devices.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f0f0f0",
+  "theme_color": "#ffb400",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

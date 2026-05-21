@@ -2,10 +2,11 @@ const debugLog = (message, detail) => window.appDebugLog && window.appDebugLog(m
 debugLog("main script start");
 const appModules = window.TermPWA || {};
 
-if (!appModules.createNetViewPage || !appModules.SerialPortManager || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage) {
+if (!appModules.createNetViewPage || !appModules.SerialPortManager || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         SerialPortManager: Boolean(appModules.SerialPortManager),
+        createQuickSendPanel: Boolean(appModules.createQuickSendPanel),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),
     });
@@ -20,6 +21,18 @@ debugLog("browser security context", {
     origin: window.location.origin,
 });
 
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service_worker.js")
+            .then(registration => {
+                debugLog("service worker registered", { scope: registration.scope });
+            })
+            .catch(error => {
+                debugLog("service worker registration failed", error);
+            });
+    });
+}
+
 const portSelect = document.getElementById('portSelect');
 const connectBtn = document.getElementById('connectBtn');
 const connectText = document.getElementById('connectText');
@@ -28,9 +41,12 @@ const statusMessage = document.getElementById('statusMessage');
 const terminalOutput = document.getElementById('terminalOutput');
 const atCommandInput = document.getElementById('atCommandInput');
 const sendCmdBtn = document.getElementById('sendCmdBtn');
+const showLineTimeToggle = document.getElementById('showLineTimeToggle');
 const appendNewlineToggle = document.getElementById('appendNewlineToggle');
 const sendIntervalInput = document.getElementById('sendIntervalInput');
 const intervalSendBtn = document.getElementById('intervalSendBtn');
+const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
+const COMMAND_HISTORY_MAX = 50;
 debugLog("dom refs resolved", {
     connectBtn: Boolean(connectBtn),
     portSelect: Boolean(portSelect),
@@ -41,8 +57,14 @@ debugLog("dom refs resolved", {
 let netViewPage = null;
 let firmwareUpdateDialog = null;
 let configPage = null;
+let quickSendPanel = null;
 let intervalSendTimer = null;
 let intervalSendBusy = false;
+let commandHistory = loadCommandHistory();
+let commandHistoryIndex = commandHistory.length;
+let commandHistoryDraft = "";
+let uartAtLineStart = true;
+let selectedPortIndex = "request";
 
 document.querySelectorAll('.menu-item').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -67,9 +89,37 @@ function writeTerminal(text) {
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
 }
 
+function writeUartData(data) {
+    if (!showLineTimeToggle.checked) {
+        writeTerminal(data);
+        uartAtLineStart = /(\r|\n)$/.test(data);
+        return;
+    }
+
+    let output = "";
+    for (const char of data) {
+        if (uartAtLineStart && char !== "\r" && char !== "\n") {
+            output += `[${formatTimestampMs(new Date())}] `;
+            uartAtLineStart = false;
+        }
+
+        output += char;
+        if (char === "\r" || char === "\n") {
+            uartAtLineStart = true;
+        }
+    }
+    writeTerminal(output);
+}
+
+function formatTimestampMs(date) {
+    const pad2 = value => String(value).padStart(2, "0");
+    const pad3 = value => String(value).padStart(3, "0");
+    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
+}
+
 function onDataReceived(data) {
     debugLog("serial data received", { length: data.length });
-    writeTerminal(data);
+    writeUartData(data);
     netViewPage.handleSerialData(data);
     firmwareUpdateDialog.handleSerialText(data);
     configPage.handleSerialData(data);
@@ -89,6 +139,13 @@ netViewPage = appModules.createNetViewPage({
     writeTerminal,
 });
 debugLog("netview page created");
+quickSendPanel = appModules.createQuickSendPanel({
+    serialManager,
+    appendNewlineToggle,
+    writeTerminal,
+    debugLog,
+});
+debugLog("quick send panel created");
 firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
     serialManager,
     writeTerminal,
@@ -114,7 +171,7 @@ async function init() {
         const ports = await serialManager.getAuthorizedPorts();
         debugLog("auto connect ports", { count: ports.length });
         if (ports.length > 0) {
-            portSelect.value = "0";
+            selectedPortIndex = "0";
             tryConnect(ports[0]);
         }
     }
@@ -145,9 +202,22 @@ async function updatePortList() {
     });
 
     portSelect.appendChild(new Option("Add new device...", "request_new"));
+
+    const currentPortIndex = ports.findIndex(port => port === serialManager.port);
+    if (currentPortIndex >= 0) {
+        selectedPortIndex = String(currentPortIndex);
+    }
+
+    if (selectedPortIndex !== "request" && ports[selectedPortIndex]) {
+        portSelect.value = selectedPortIndex;
+    } else {
+        selectedPortIndex = "request";
+        portSelect.value = "request";
+    }
 }
 
 portSelect.addEventListener('change', async () => {
+    const selectedValue = portSelect.value;
     if (portSelect.value === 'request_new') {
         try {
             await serialManager.requestNewPort();
@@ -155,12 +225,54 @@ portSelect.addEventListener('change', async () => {
         } catch (e) {
             console.error("Device selection cancelled", e);
         }
-        portSelect.value = 'request';
+        if (selectedPortIndex !== "request") {
+            portSelect.value = selectedPortIndex;
+        } else {
+            portSelect.value = 'request';
+        }
+        return;
     }
+
+    selectedPortIndex = selectedValue;
+    if ((selectedValue === "request") || !serialManager.isConnected()) {
+        return;
+    }
+
+    await switchConnectedPort(selectedValue);
 });
+
+async function switchConnectedPort(selectedValue) {
+    try {
+        const ports = await serialManager.getAuthorizedPorts();
+        const nextPort = ports[selectedValue];
+        if (!nextPort || nextPort === serialManager.port) {
+            return;
+        }
+
+        debugLog("switch serial port start", { selectedValue });
+        stopIntervalSend();
+        await serialManager.disconnect({ notify: false });
+        await serialManager.connect(nextPort, 115200);
+        selectedPortIndex = selectedValue;
+        updateUI(true);
+        await updatePortList();
+        debugLog("switch serial port success", { selectedValue });
+    } catch (error) {
+        debugLog("switch serial port failed", error);
+        console.error("Switch port failed:", error);
+        alert("Failed to switch device: " + error.message);
+        selectedPortIndex = "request";
+        updateUI(false);
+        await updatePortList();
+    }
+}
 
 autoConnectToggle.addEventListener('change', () => {
     localStorage.setItem('autoConnect', autoConnectToggle.checked);
+});
+
+showLineTimeToggle.addEventListener('change', () => {
+    uartAtLineStart = true;
 });
 
 async function tryConnect(targetPort = null) {
@@ -176,11 +288,20 @@ async function tryConnect(targetPort = null) {
                 portObj = null;
             } else if (ports[selectedValue]) {
                 portObj = ports[selectedValue];
+                selectedPortIndex = selectedValue;
             }
         }
 
         debugLog("serial connect call", { hasPortObj: Boolean(portObj), baudRate: 115200 });
-        await serialManager.connect(portObj, 115200);
+        const connectedPort = await serialManager.connect(portObj, 115200);
+        if (connectedPort) {
+            const ports = await serialManager.getAuthorizedPorts();
+            const connectedIndex = ports.findIndex(port => port === connectedPort);
+            if (connectedIndex >= 0) {
+                selectedPortIndex = String(connectedIndex);
+                portSelect.value = selectedPortIndex;
+            }
+        }
         debugLog("serial connect success");
         updateUI(true);
     } catch (error) {
@@ -196,6 +317,7 @@ async function tryDisconnect() {
     try {
         stopIntervalSend();
         await serialManager.disconnect();
+        selectedPortIndex = "request";
         debugLog("tryDisconnect success");
     } catch (error) {
         debugLog("tryDisconnect failed", error);
@@ -216,6 +338,7 @@ function updateUI(connected) {
         intervalSendBtn.disabled = false;
         netViewPage.handleConnected();
         configPage.handleConnected();
+        quickSendPanel.handleConnected();
     } else {
         stopIntervalSend();
         connectBtn.classList.remove('connected');
@@ -227,6 +350,7 @@ function updateUI(connected) {
         intervalSendBtn.disabled = true;
         netViewPage.handleDisconnected();
         configPage.handleDisconnected();
+        quickSendPanel.handleDisconnected();
     }
 }
 
@@ -270,12 +394,62 @@ async function sendCommand({ clearInput = true } = {}) {
     writeTerminal(formatTerminalEcho(cmd));
     try {
         await serialManager.writeText(buildTerminalPayload(cmd));
+        addCommandHistory(cmd);
         if (clearInput) {
             atCommandInput.value = '';
         }
     } catch (error) {
         writeTerminal(`Error: ${error.message}\n`);
     }
+}
+
+function loadCommandHistory() {
+    try {
+        const value = JSON.parse(localStorage.getItem(COMMAND_HISTORY_KEY) || "[]");
+        return Array.isArray(value) ? value.filter(item => typeof item === "string" && item.length > 0) : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function saveCommandHistory() {
+    localStorage.setItem(COMMAND_HISTORY_KEY, JSON.stringify(commandHistory));
+}
+
+function addCommandHistory(command) {
+    const value = String(command || "");
+    if (!value) return;
+
+    if (commandHistory[commandHistory.length - 1] !== value) {
+        commandHistory.push(value);
+        if (commandHistory.length > COMMAND_HISTORY_MAX) {
+            commandHistory = commandHistory.slice(commandHistory.length - COMMAND_HISTORY_MAX);
+        }
+        saveCommandHistory();
+    }
+    commandHistoryIndex = commandHistory.length;
+    commandHistoryDraft = "";
+}
+
+function browseCommandHistory(direction) {
+    if (commandHistory.length === 0) return;
+
+    if (commandHistoryIndex === commandHistory.length) {
+        commandHistoryDraft = atCommandInput.value;
+    }
+
+    if (direction < 0) {
+        commandHistoryIndex = Math.max(0, commandHistoryIndex - 1);
+        atCommandInput.value = commandHistory[commandHistoryIndex];
+    } else if (commandHistoryIndex < commandHistory.length - 1) {
+        commandHistoryIndex += 1;
+        atCommandInput.value = commandHistory[commandHistoryIndex];
+    } else {
+        commandHistoryIndex = commandHistory.length;
+        atCommandInput.value = commandHistoryDraft;
+    }
+
+    atCommandInput.setSelectionRange(atCommandInput.value.length, atCommandInput.value.length);
 }
 
 function terminalKeyToSerialText(event) {
@@ -330,7 +504,7 @@ function startIntervalSend() {
         return;
     }
 
-    intervalSendBtn.textContent = "停止定时发送";
+    intervalSendBtn.textContent = "Stop Interval";
     intervalSendBtn.classList.add("active");
     sendCommand({ clearInput: false });
     intervalSendTimer = setInterval(async () => {
@@ -351,7 +525,7 @@ function stopIntervalSend() {
     }
     intervalSendBusy = false;
     if (intervalSendBtn) {
-        intervalSendBtn.textContent = "开始定时发送";
+        intervalSendBtn.textContent = "Start Interval";
         intervalSendBtn.classList.remove("active");
     }
 }
@@ -362,8 +536,21 @@ terminalOutput.addEventListener('keydown', event => {
 });
 sendCmdBtn.addEventListener('click', () => sendCommand());
 intervalSendBtn.addEventListener('click', startIntervalSend);
-atCommandInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendCommand();
+atCommandInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        sendCommand();
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        browseCommandHistory(-1);
+    } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        browseCommandHistory(1);
+    }
+});
+atCommandInput.addEventListener('input', () => {
+    commandHistoryIndex = commandHistory.length;
+    commandHistoryDraft = atCommandInput.value;
 });
 
 init().catch(error => {
