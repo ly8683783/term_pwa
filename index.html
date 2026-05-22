@@ -84,11 +84,29 @@
                             <div id="statusMessage" style="font-weight: bold; color: #666;">Status: Disconnected</div>
                             <label class="toggle-container">
                                 <span class="switch">
+                                    <input type="checkbox" id="autoScrollToggle" checked>
+                                    <span class="slider"></span>
+                                </span>
+                                Auto scroll
+                            </label>
+                            <label class="toggle-container">
+                                <span class="switch">
                                     <input type="checkbox" id="showLineTimeToggle">
                                     <span class="slider"></span>
                                 </span>
                                 Show UART line time
                             </label>
+                            <span id="terminalNotice" class="terminal-notice" aria-live="polite"></span>
+                            <button id="copyTerminalOutputBtn" class="terminal-status-button" type="button" title="Copy UART output" aria-label="Copy UART output">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M8 7A2 2 0 0 1 10 5H19A2 2 0 0 1 21 7V16A2 2 0 0 1 19 18H17V20A2 2 0 0 1 15 22H6A2 2 0 0 1 4 20V11A2 2 0 0 1 6 9H8V7ZM10 7V16H19V7H10ZM6 11V20H15V18H10A2 2 0 0 1 8 16V11H6Z"></path>
+                                </svg>
+                            </button>
+                            <button id="clearTerminalOutputBtn" class="terminal-status-button" type="button" title="Clear UART output" aria-label="Clear UART output">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M9 3H15L16 5H21V7H19L18.1 20.1A2 2 0 0 1 16.1 22H7.9A2 2 0 0 1 5.9 20.1L5 7H3V5H8L9 3ZM7 7L7.9 20H16.1L17 7H7ZM9 9H11V18H9V9ZM13 9H15V18H13V9Z"></path>
+                                </svg>
+                            </button>
                         </div>
                         <div class="terminal-output" id="terminalOutput" tabindex="0" title="Click here and type to send keys directly to UART."></div>
                         <div class="terminal-input-group">

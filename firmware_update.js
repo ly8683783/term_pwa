@@ -19,6 +19,7 @@ function createFirmwareUpdateDialog({
     const progressText = document.querySelector(selectors.progressText || "#firmwareProgressText");
 
     let selectedFile = null;
+    let selectedFileBytes = null;
     let isLoading = false;
 
     updateButton.addEventListener("click", open);
@@ -37,20 +38,34 @@ function createFirmwareUpdateDialog({
     });
 
     selectButton.addEventListener("click", () => {
+        fileInput.value = "";
         fileInput.click();
     });
 
     fileInput.addEventListener("change", () => {
+        handleFileSelected().catch(error => {
+            selectedFile = null;
+            selectedFileBytes = null;
+            fileInfo.textContent = "No file selected";
+            setStatus(`File read failed: ${error.message}`);
+            debugLog("firmware file read failed", error);
+        });
+    });
+
+    async function handleFileSelected() {
         selectedFile = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
         if (selectedFile) {
             fileInfo.textContent = `${selectedFile.name} (${selectedFile.size} bytes)`;
+            setStatus("Reading firmware file...");
+            selectedFileBytes = new Uint8Array(await selectedFile.arrayBuffer());
             setStatus("Firmware file selected.");
         } else {
+            selectedFileBytes = null;
             fileInfo.textContent = "No file selected";
             setStatus("No firmware file selected.");
         }
         setProgress(0);
-    });
+    }
 
     loadButton.addEventListener("click", () => {
         handleLoad().catch(error => {
@@ -115,7 +130,7 @@ function createFirmwareUpdateDialog({
 
     async function handleLoad() {
         ensureConnected();
-        if (!selectedFile) {
+        if (!selectedFile || !selectedFileBytes) {
             setStatus("Select a firmware binary before Load.");
             return;
         }
@@ -128,7 +143,7 @@ function createFirmwareUpdateDialog({
         setStatus(`Loading ${selectedFile.name} by YMODEM-CRC...`);
 
         try {
-            const bytes = new Uint8Array(await selectedFile.arrayBuffer());
+            const bytes = selectedFileBytes;
             serialManager.clearByteQueue();
 
             const sender = window.TermPWA.createYModemSender({

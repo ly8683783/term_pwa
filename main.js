@@ -41,12 +41,17 @@ const statusMessage = document.getElementById('statusMessage');
 const terminalOutput = document.getElementById('terminalOutput');
 const atCommandInput = document.getElementById('atCommandInput');
 const sendCmdBtn = document.getElementById('sendCmdBtn');
+const autoScrollToggle = document.getElementById('autoScrollToggle');
 const showLineTimeToggle = document.getElementById('showLineTimeToggle');
+const terminalNotice = document.getElementById('terminalNotice');
+const copyTerminalOutputBtn = document.getElementById('copyTerminalOutputBtn');
+const clearTerminalOutputBtn = document.getElementById('clearTerminalOutputBtn');
 const appendNewlineToggle = document.getElementById('appendNewlineToggle');
 const sendIntervalInput = document.getElementById('sendIntervalInput');
 const intervalSendBtn = document.getElementById('intervalSendBtn');
 const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
 const COMMAND_HISTORY_MAX = 50;
+const TERMINAL_COPY_WARN_LENGTH = 2000000;
 debugLog("dom refs resolved", {
     connectBtn: Boolean(connectBtn),
     portSelect: Boolean(portSelect),
@@ -66,6 +71,7 @@ let commandHistoryDraft = "";
 let uartAtLineStart = true;
 let selectedPortIndex = "request";
 let activeViewId = "view-terminal";
+let terminalNoticeTimer = null;
 
 document.querySelectorAll('.menu-item').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -92,7 +98,54 @@ document.querySelectorAll('.menu-item').forEach(item => {
 
 function writeTerminal(text) {
     terminalOutput.textContent += text;
-    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    if (!autoScrollToggle || autoScrollToggle.checked) {
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+}
+
+function showTerminalNotice(message) {
+    if (!terminalNotice) return;
+
+    terminalNotice.textContent = message;
+    terminalNotice.classList.add('visible');
+
+    if (terminalNoticeTimer) {
+        clearTimeout(terminalNoticeTimer);
+    }
+
+    terminalNoticeTimer = setTimeout(() => {
+        terminalNotice.classList.remove('visible');
+    }, 2000);
+}
+
+async function copyTerminalOutput() {
+    const text = terminalOutput.textContent;
+    if (!text) {
+        showTerminalNotice("Nothing to copy");
+        debugLog("No UART output to copy");
+        return;
+    }
+
+    if (text.length > TERMINAL_COPY_WARN_LENGTH &&
+        !confirm("UART output is large. Copying may freeze the page. Continue?")) {
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+        showTerminalNotice("Copied");
+        debugLog("UART output copied", { length: text.length });
+    } catch (error) {
+        showTerminalNotice("Copy failed");
+        debugLog("UART output copy failed", error);
+    }
+}
+
+function clearTerminalOutput() {
+    terminalOutput.textContent = "";
+    terminalOutput.scrollTop = 0;
+    uartAtLineStart = true;
+    showTerminalNotice("Cleared");
 }
 
 function writeUartData(data) {
@@ -281,6 +334,14 @@ autoConnectToggle.addEventListener('change', () => {
 showLineTimeToggle.addEventListener('change', () => {
     uartAtLineStart = true;
 });
+
+copyTerminalOutputBtn.addEventListener('click', () => {
+    copyTerminalOutput().catch(error => {
+        debugLog("UART output copy failed", error);
+    });
+});
+
+clearTerminalOutputBtn.addEventListener('click', clearTerminalOutput);
 
 async function tryConnect(targetPort = null) {
     debugLog("tryConnect start", { hasTargetPort: Boolean(targetPort), selectedValue: portSelect.value });
