@@ -1,14 +1,15 @@
 const debugLog = (message, detail) => window.appDebugLog && window.appDebugLog(message, detail);
 debugLog("main script start");
 const appModules = window.TermPWA || {};
-const APP_CACHE_NAME = "amp'ed RF 2026.05.25C";
+const APP_CACHE_NAME = "amp'ed RF 2026.05.25D";
 
-if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         SerialTransport: Boolean(appModules.SerialTransport),
         SerialPortStore: Boolean(appModules.SerialPortStore),
         SerialPortManager: Boolean(appModules.SerialPortManager),
+        createSerialEventBus: Boolean(appModules.createSerialEventBus),
         createQuickSendPanel: Boolean(appModules.createQuickSendPanel),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),
@@ -316,17 +317,18 @@ function formatTimestampMs(date) {
 function onDataReceived(data, bytes) {
     const byteLength = bytes ? bytes.length : data.length;
     debugLog("serial data received", { length: byteLength });
+    serialBus.emitData({ text: data, bytes });
+}
+
+function handleTerminalSerialData({ text, bytes }) {
     if (hexSendToggle.checked && bytes) {
         writeUartHexData(bytes);
     } else {
         if (hexRxBuffer.length > 0) {
             flushUartRxBuffer();
         }
-        writeUartTextBuffered(data);
+        writeUartTextBuffered(text);
     }
-    netViewPage.handleSerialData(data);
-    firmwareUpdateDialog.handleSerialText(data);
-    configPage.handleSerialData(data);
 }
 
 function onDisconnect() {
@@ -339,6 +341,8 @@ function onDisconnect() {
 
 const serialManager = new appModules.SerialPortManager(onDataReceived, onDisconnect);
 debugLog("serial manager created", { supported: serialManager.isSupported() });
+const serialBus = appModules.createSerialEventBus();
+debugLog("serial event bus created");
 netViewPage = appModules.createNetViewPage({
     serialManager,
     writeTerminal,
@@ -354,6 +358,7 @@ quickSendPanel = appModules.createQuickSendPanel({
 debugLog("quick send panel created");
 firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
     serialManager,
+    serialBus,
     writeTerminal,
     debugLog,
 });
@@ -364,6 +369,22 @@ configPage = appModules.createConfigPage({
     debugLog,
 });
 debugLog("configuration page created");
+
+serialBus.subscribeBytes("terminal", bytes => {
+    if (!hexSendToggle.checked) {
+        return;
+    }
+    handleTerminalSerialData({ text: "", bytes });
+});
+serialBus.subscribeText("terminal", text => {
+    if (hexSendToggle.checked) {
+        return;
+    }
+    handleTerminalSerialData({ text, bytes: null });
+});
+serialBus.subscribeText("netview", text => netViewPage.handleSerialData(text));
+serialBus.subscribeText("firmware", text => firmwareUpdateDialog.handleSerialText(text));
+serialBus.subscribeText("config", text => configPage.handleSerialData(text));
 
 async function init() {
     debugLog("init start");

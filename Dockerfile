@@ -12,6 +12,7 @@ COPY index.html \
      serial_transport.js \
      serial_port_store.js \
      serial_port.js \
+     serial_event_bus.js \
      quick_send.js \
      netview_parser.js \
      topology_view.js \

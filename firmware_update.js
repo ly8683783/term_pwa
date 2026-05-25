@@ -1,6 +1,7 @@
 (function () {
 function createFirmwareUpdateDialog({
     serialManager,
+    serialBus = null,
     writeTerminal = () => {},
     debugLog = () => {},
     selectors = {},
@@ -141,8 +142,14 @@ function createFirmwareUpdateDialog({
         setBusy(true);
         setProgress(0);
         setStatus(`Loading ${selectedFile.name} by YMODEM-CRC...`);
+        let exclusiveAcquired = false;
 
         try {
+            if (serialBus) {
+                serialBus.acquireExclusive("firmware");
+                exclusiveAcquired = true;
+            }
+
             const bytes = selectedFileBytes;
             serialManager.clearByteQueue();
 
@@ -163,6 +170,9 @@ function createFirmwareUpdateDialog({
 
             setStatus("Firmware load finished.");
         } finally {
+            if (serialBus && exclusiveAcquired) {
+                serialBus.releaseExclusive("firmware");
+            }
             setBusy(false);
         }
     }
