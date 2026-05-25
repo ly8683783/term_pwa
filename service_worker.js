@@ -1,4 +1,4 @@
-const CACHE_NAME = "amp'ed RF 2026.05.25A";
+const CACHE_NAME = "amp'ed RF 2026.05.25B";
 
 const APP_ASSETS = [
     "./",
@@ -7,6 +7,8 @@ const APP_ASSETS = [
     "./debug_logger.js",
     "./hex_utils.js",
     "./main.js",
+    "./serial_transport.js",
+    "./serial_port_store.js",
     "./serial_port.js",
     "./quick_send.js",
     "./netview_parser.js",

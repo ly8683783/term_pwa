@@ -1,67 +1,87 @@
 (function () {
+const appModules = window.TermPWA || {};
+
 class SerialPortManager {
     constructor(onDataReceived, onDisconnect) {
+        if (!appModules.SerialTransport || !appModules.SerialPortStore) {
+            throw new Error("Serial transport scripts failed to load.");
+        }
+
         this.port = null;
-        this.reader = null;
         this.onDataReceived = onDataReceived;
         this.onDisconnectCallback = onDisconnect;
-        this.keepReading = false;
-        this.readPromise = null;
         this.decoder = new TextDecoder();
         this.rawListeners = new Set();
         this.byteQueue = [];
         this.byteWaiters = [];
         this.maxByteQueueLength = 4096;
+        this.portStore = new appModules.SerialPortStore();
+        this.transport = new appModules.SerialTransport({
+            onData: bytes => this.handleIncomingBytes(bytes),
+            onError: error => console.error("Read error:", error),
+        });
     }
 
     isSupported() {
-        return Boolean(navigator.serial);
+        return this.portStore.isSupported();
     }
 
     assertSupported() {
-        if (!this.isSupported()) {
-            throw new Error("Web Serial is unavailable. Use Chrome or Chromium over localhost or HTTPS.");
-        }
+        this.portStore.assertSupported();
     }
 
     async getAuthorizedPorts() {
-        this.assertSupported();
-        return await navigator.serial.getPorts();
+        return await this.portStore.getPorts();
+    }
+
+    async getPortEntries() {
+        return await this.portStore.getEntries();
+    }
+
+    async getCurrentPortEntry() {
+        return await this.portStore.getEntryForPort(this.port);
     }
 
     async requestNewPort() {
-        this.assertSupported();
-        return await navigator.serial.requestPort();
+        return await this.portStore.requestPort();
+    }
+
+    async requestNewPortEntry() {
+        return await this.portStore.requestPortEntry();
+    }
+
+    setPortMetadata(port, metadata) {
+        this.portStore.setMetadata(port, metadata);
     }
 
     async connect(portObj = null, baudRate = 115200) {
         this.assertSupported();
+        if (this.isConnected()) {
+            throw new Error("serial port is already connected");
+        }
         if (!portObj) {
             portObj = await this.requestNewPort();
         }
-        await portObj.open({ baudRate });
 
-        this.port = portObj;
-        this.keepReading = true;
-        this.readPromise = this.readLoop();
-        return this.port;
+        this.resetByteState();
+
+        try {
+            await this.transport.open(portObj, { baudRate });
+            this.port = portObj;
+            return this.port;
+        } catch (error) {
+            this.port = null;
+            this.resetByteState(error);
+            throw error;
+        }
     }
 
     async disconnect({ notify = true } = {}) {
-        this.keepReading = false;
-
-        if (this.reader) {
-            await this.reader.cancel();
-        }
-
-        if (this.readPromise) {
-            await this.readPromise;
-            this.readPromise = null;
-        }
-
-        if (this.port) {
-            await this.port.close();
+        try {
+            await this.transport.close();
+        } finally {
             this.port = null;
+            this.resetByteState(new Error("Serial port disconnected"));
         }
 
         if (notify && this.onDisconnectCallback) {
@@ -78,25 +98,11 @@ class SerialPortManager {
             throw new TypeError("writeText expects a string");
         }
 
-        const encoder = new TextEncoder();
-        await this.writeBytes(encoder.encode(text));
+        await this.writeBytes(new TextEncoder().encode(text));
     }
 
     async writeBytes(bytes) {
-        if (!this.port || !this.port.writable) {
-            throw new Error("Port not connected or not writable");
-        }
-
-        if (!(bytes instanceof Uint8Array)) {
-            throw new TypeError("writeBytes expects a Uint8Array");
-        }
-
-        const writer = this.port.writable.getWriter();
-        try {
-            await writer.write(bytes);
-        } finally {
-            writer.releaseLock();
-        }
+        await this.transport.writeBytes(bytes);
     }
 
     async writeATCommand(cmd) {
@@ -141,30 +147,10 @@ class SerialPortManager {
         });
     }
 
-    async readLoop() {
-        while (this.port && this.port.readable && this.keepReading) {
-            this.reader = this.port.readable.getReader();
-            try {
-                while (this.keepReading) {
-                    const { value, done } = await this.reader.read();
-                    if (done) break;
-                    if (value) {
-                        this.handleRawBytes(value);
-                        if (this.onDataReceived) {
-                            this.onDataReceived(this.decoder.decode(value, { stream: true }), value);
-                        }
-                    }
-                }
-            } catch (error) {
-                if (this.keepReading) {
-                    console.error("Read error:", error);
-                }
-            } finally {
-                if (this.reader) {
-                    this.reader.releaseLock();
-                    this.reader = null;
-                }
-            }
+    handleIncomingBytes(bytes) {
+        this.handleRawBytes(bytes);
+        if (this.onDataReceived) {
+            this.onDataReceived(this.decoder.decode(bytes, { stream: true }), bytes);
         }
     }
 
@@ -210,8 +196,17 @@ class SerialPortManager {
         return null;
     }
 
+    resetByteState(error = null) {
+        this.byteQueue = [];
+        for (const waiter of this.byteWaiters) {
+            clearTimeout(waiter.timer);
+            waiter.reject(error || new Error("Serial byte queue reset"));
+        }
+        this.byteWaiters = [];
+    }
+
     isConnected() {
-        return this.port !== null;
+        return this.port !== null && this.transport.isOpen();
     }
 }
 

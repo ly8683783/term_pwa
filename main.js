@@ -1,11 +1,13 @@
 const debugLog = (message, detail) => window.appDebugLog && window.appDebugLog(message, detail);
 debugLog("main script start");
 const appModules = window.TermPWA || {};
-const APP_CACHE_NAME = "amp'ed RF 2026.05.25A";
+const APP_CACHE_NAME = "amp'ed RF 2026.05.25B";
 
-if (!appModules.createNetViewPage || !appModules.SerialPortManager || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
+        SerialTransport: Boolean(appModules.SerialTransport),
+        SerialPortStore: Boolean(appModules.SerialPortStore),
         SerialPortManager: Boolean(appModules.SerialPortManager),
         createQuickSendPanel: Boolean(appModules.createQuickSendPanel),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
@@ -372,11 +374,11 @@ async function init() {
     await updatePortList();
 
     if (autoConnect && serialManager.isSupported()) {
-        const ports = await serialManager.getAuthorizedPorts();
-        debugLog("auto connect ports", { count: ports.length });
-        if (ports.length > 0) {
+        const entries = await serialManager.getPortEntries();
+        debugLog("auto connect ports", { count: entries.length });
+        if (entries.length > 0) {
             selectedPortIndex = "0";
-            tryConnect(ports[0]);
+            tryConnect(entries[0].port);
         }
     }
 }
@@ -390,42 +392,50 @@ async function updatePortList() {
         statusMessage.innerText = "Status: Web Serial unavailable";
         netViewPage.handleUnavailable("Status: Web Serial requires Chrome/Chromium over localhost or HTTPS.");
         configPage.handleUnavailable("Web Serial requires Chrome/Chromium over localhost or HTTPS.");
-        return;
+        return [];
     }
 
-    const ports = await serialManager.getAuthorizedPorts();
-    debugLog("authorized ports loaded", { count: ports.length });
+    const entries = await serialManager.getPortEntries();
+    debugLog("authorized ports loaded", { count: entries.length });
     portSelect.innerHTML = '<option value="request">Select your device...</option>';
 
-    ports.forEach((p, index) => {
-        const info = p.getInfo();
+    entries.forEach((entry, index) => {
         const option = document.createElement('option');
-        option.value = index;
-        option.text = `Device ${index + 1} (VID:${info.usbVendorId || '?'})`;
+        option.value = String(index);
+        option.text = entry.displayName;
         portSelect.appendChild(option);
     });
 
     portSelect.appendChild(new Option("Add new device...", "request_new"));
 
-    const currentPortIndex = ports.findIndex(port => port === serialManager.port);
+    const currentPortIndex = entries.findIndex(entry => entry.port === serialManager.port);
     if (currentPortIndex >= 0) {
         selectedPortIndex = String(currentPortIndex);
     }
 
-    if (selectedPortIndex !== "request" && ports[selectedPortIndex]) {
+    if (selectedPortIndex !== "request" && entries[selectedPortIndex]) {
         portSelect.value = selectedPortIndex;
     } else {
         selectedPortIndex = "request";
         portSelect.value = "request";
     }
+
+    return entries;
 }
 
 portSelect.addEventListener('change', async () => {
     const selectedValue = portSelect.value;
     if (portSelect.value === 'request_new') {
         try {
-            await serialManager.requestNewPort();
-            await updatePortList();
+            const requestedEntry = await serialManager.requestNewPortEntry();
+            const entries = await updatePortList();
+            if (requestedEntry) {
+                const requestedIndex = entries.findIndex(entry => entry.port === requestedEntry.port);
+                if (requestedIndex >= 0) {
+                    selectedPortIndex = String(requestedIndex);
+                    portSelect.value = selectedPortIndex;
+                }
+            }
         } catch (e) {
             console.error("Device selection cancelled", e);
         }
@@ -447,8 +457,8 @@ portSelect.addEventListener('change', async () => {
 
 async function switchConnectedPort(selectedValue) {
     try {
-        const ports = await serialManager.getAuthorizedPorts();
-        const nextPort = ports[selectedValue];
+        const entries = await serialManager.getPortEntries();
+        const nextPort = entries[selectedValue] && entries[selectedValue].port;
         if (!nextPort || nextPort === serialManager.port) {
             return;
         }
@@ -496,13 +506,13 @@ async function tryConnect(targetPort = null) {
         let portObj = targetPort;
         if (!portObj) {
             const selectedValue = portSelect.value;
-            const ports = await serialManager.getAuthorizedPorts();
-            debugLog("tryConnect authorized ports", { count: ports.length, selectedValue });
+            const entries = await serialManager.getPortEntries();
+            debugLog("tryConnect authorized ports", { count: entries.length, selectedValue });
 
             if (selectedValue === 'request') {
                 portObj = null;
-            } else if (ports[selectedValue]) {
-                portObj = ports[selectedValue];
+            } else if (entries[selectedValue]) {
+                portObj = entries[selectedValue].port;
                 selectedPortIndex = selectedValue;
             }
         }
@@ -510,8 +520,8 @@ async function tryConnect(targetPort = null) {
         debugLog("serial connect call", { hasPortObj: Boolean(portObj), baudRate: 115200 });
         const connectedPort = await serialManager.connect(portObj, 115200);
         if (connectedPort) {
-            const ports = await serialManager.getAuthorizedPorts();
-            const connectedIndex = ports.findIndex(port => port === connectedPort);
+            const entries = await serialManager.getPortEntries();
+            const connectedIndex = entries.findIndex(entry => entry.port === connectedPort);
             if (connectedIndex >= 0) {
                 selectedPortIndex = String(connectedIndex);
                 portSelect.value = selectedPortIndex;
