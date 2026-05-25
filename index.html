@@ -20,7 +20,7 @@
                 <div class="logo-text" aria-label="Amp'edRF Wireless Technology">
                     Amp<span class="apostrophe" aria-hidden="true"></span>ed<span class="amp-rf">RF</span>
                 </div>
-                <div class="version-info">Application Version: 2025.12.2 (a2d0f50)</div>
+                <div id="appVersionInfo" class="version-info">Application Version: amp'ed RF 2026.05.25A</div>
             </div>
         </div>
 
@@ -54,6 +54,11 @@
             </div>
         </div>
     </header>
+
+    <div id="pwaUpdatePrompt" class="pwa-update-prompt" hidden>
+        <span>New version available.</span>
+        <button id="pwaUpdateBtn" type="button">Update</button>
+    </div>
 
     <div class="app-container">
         <div class="sidebar">
@@ -94,7 +99,7 @@
                                     <input type="checkbox" id="showLineTimeToggle">
                                     <span class="slider"></span>
                                 </span>
-                                Show UART line time
+                                UART time
                             </label>
                             <span id="terminalNotice" class="terminal-notice" aria-live="polite"></span>
                             <button id="copyTerminalOutputBtn" class="terminal-status-button" type="button" title="Copy UART output" aria-label="Copy UART output">
@@ -114,6 +119,18 @@
                             <button id="sendCmdBtn" disabled>Send</button>
                         </div>
                         <div class="terminal-options">
+                            <label class="toggle-container">
+                                <span class="switch">
+                                    <input type="checkbox" id="hexSendToggle">
+                                    <span class="slider"></span>
+                                </span>
+                                HEX
+                            </label>
+                            <label>
+                                RX idle
+                                <input type="number" id="rxIdleInput" min="1" max="1000" step="1" value="30">
+                                ms
+                            </label>
                             <label class="toggle-container">
                                 <span class="switch">
                                     <input type="checkbox" id="appendNewlineToggle" checked>
@@ -200,6 +217,7 @@
 
     <script src="./debug_logger.js"></script>
 
+    <script src="./hex_utils.js"></script>
     <script src="./netview_parser.js"></script>
     <script src="./topology_view.js"></script>
     <script src="./netview_page.js"></script>

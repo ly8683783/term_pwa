@@ -1,4 +1,5 @@
 (function () {
+const appModules = window.TermPWA || {};
 const STORAGE_KEY = "lr71QuickSendList";
 const COLLAPSED_KEY = "lr71QuickSendCollapsed";
 
@@ -15,6 +16,7 @@ function createQuickSendPanel({
     serialManager,
     appendNewlineToggle,
     writeTerminal = () => {},
+    writeTerminalTxEcho = (text, { hex = false } = {}) => writeTerminal(`> ${hex ? "[HEX] " : ""}${text}\n`),
     debugLog = () => {},
     rootSelector = "#quickSendPanel",
 } = {}) {
@@ -185,8 +187,17 @@ function createQuickSendPanel({
             hex.title = "HEX";
             hex.checked = Boolean(item.hex);
             hex.addEventListener("change", () => {
-                item.hex = hex.checked;
-                saveGroups();
+                const enabled = hex.checked;
+                try {
+                    item.content = enabled ? appModules.textToHexText(item.content) : appModules.hexTextToText(item.content);
+                    item.hex = enabled;
+                    content.value = item.content;
+                    saveGroups();
+                } catch (error) {
+                    hex.checked = !enabled;
+                    setStatus(`HEX convert failed: ${error.message}`);
+                    debugLog("quick send hex convert failed", error);
+                }
             });
 
             row.append(drag, remove, content, send, hex);
@@ -306,12 +317,12 @@ function createQuickSendPanel({
         }
 
         if (item.hex) {
-            await serialManager.writeBytes(hexToBytes(item.content));
-            writeTerminal(`> [HEX] ${item.content}\n`);
+            await serialManager.writeBytes(appModules.hexToBytes(item.content));
+            writeTerminalTxEcho(item.content, { hex: true });
         } else {
             const payload = appendNewlineToggle && appendNewlineToggle.checked ? `${item.content}\r\n` : item.content;
             await serialManager.writeText(payload);
-            writeTerminal(`> ${item.content}\n`);
+            writeTerminalTxEcho(item.content);
         }
         setStatus(`Sent: ${item.name || item.content}`);
     }
@@ -432,19 +443,6 @@ function normalizeImportedItem(item) {
         content,
         hex: Boolean(item.hex),
     };
-}
-
-function hexToBytes(hex) {
-    const value = String(hex).replace(/\s+/g, "");
-    if (!value || (value.length % 2) !== 0 || /[^0-9a-fA-F]/.test(value)) {
-        throw new Error(`invalid HEX: ${hex}`);
-    }
-
-    const bytes = new Uint8Array(value.length / 2);
-    for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = parseInt(value.slice(i * 2, i * 2 + 2), 16);
-    }
-    return bytes;
 }
 
 function sanitizeFilename(name) {

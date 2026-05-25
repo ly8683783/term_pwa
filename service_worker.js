@@ -1,10 +1,11 @@
-const CACHE_NAME = "lr71-web-v1";
+const CACHE_NAME = "amp'ed RF 2026.05.25A";
 
 const APP_ASSETS = [
     "./",
     "./index.html",
     "./styles.css",
     "./debug_logger.js",
+    "./hex_utils.js",
     "./main.js",
     "./serial_port.js",
     "./quick_send.js",
@@ -24,7 +25,6 @@ self.addEventListener("install", event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(APP_ASSETS))
-            .then(() => self.skipWaiting())
     );
 });
 
@@ -47,4 +47,10 @@ self.addEventListener("fetch", event => {
         caches.match(event.request)
             .then(cached => cached || fetch(event.request))
     );
+});
+
+self.addEventListener("message", event => {
+    if (event.data && event.data.type === "SKIP_WAITING") {
+        self.skipWaiting();
+    }
 });

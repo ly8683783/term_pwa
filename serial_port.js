@@ -151,7 +151,7 @@ class SerialPortManager {
                     if (value) {
                         this.handleRawBytes(value);
                         if (this.onDataReceived) {
-                            this.onDataReceived(this.decoder.decode(value, { stream: true }));
+                            this.onDataReceived(this.decoder.decode(value, { stream: true }), value);
                         }
                     }
                 }

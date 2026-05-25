@@ -1,14 +1,16 @@
 const debugLog = (message, detail) => window.appDebugLog && window.appDebugLog(message, detail);
 debugLog("main script start");
 const appModules = window.TermPWA || {};
+const APP_CACHE_NAME = "amp'ed RF 2026.05.25A";
 
-if (!appModules.createNetViewPage || !appModules.SerialPortManager || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage) {
+if (!appModules.createNetViewPage || !appModules.SerialPortManager || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         SerialPortManager: Boolean(appModules.SerialPortManager),
         createQuickSendPanel: Boolean(appModules.createQuickSendPanel),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),
+        hexToBytes: Boolean(appModules.hexToBytes),
     });
     throw new Error("Required page scripts failed to load.");
 }
@@ -23,17 +25,14 @@ debugLog("browser security context", {
 
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service_worker.js")
-            .then(registration => {
-                debugLog("service worker registered", { scope: registration.scope });
-            })
-            .catch(error => {
-                debugLog("service worker registration failed", error);
-            });
+        registerServiceWorker();
     });
 }
 
 const portSelect = document.getElementById('portSelect');
+const appVersionInfo = document.getElementById('appVersionInfo');
+const pwaUpdatePrompt = document.getElementById('pwaUpdatePrompt');
+const pwaUpdateBtn = document.getElementById('pwaUpdateBtn');
 const connectBtn = document.getElementById('connectBtn');
 const connectText = document.getElementById('connectText');
 const autoConnectToggle = document.getElementById('autoConnectToggle');
@@ -46,12 +45,15 @@ const showLineTimeToggle = document.getElementById('showLineTimeToggle');
 const terminalNotice = document.getElementById('terminalNotice');
 const copyTerminalOutputBtn = document.getElementById('copyTerminalOutputBtn');
 const clearTerminalOutputBtn = document.getElementById('clearTerminalOutputBtn');
+const hexSendToggle = document.getElementById('hexSendToggle');
+const rxIdleInput = document.getElementById('rxIdleInput');
 const appendNewlineToggle = document.getElementById('appendNewlineToggle');
 const sendIntervalInput = document.getElementById('sendIntervalInput');
 const intervalSendBtn = document.getElementById('intervalSendBtn');
 const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
 const COMMAND_HISTORY_MAX = 50;
 const TERMINAL_COPY_WARN_LENGTH = 2000000;
+const RX_IDLE_DEFAULT_MS = 30;
 debugLog("dom refs resolved", {
     connectBtn: Boolean(connectBtn),
     portSelect: Boolean(portSelect),
@@ -72,6 +74,69 @@ let uartAtLineStart = true;
 let selectedPortIndex = "request";
 let activeViewId = "view-terminal";
 let terminalNoticeTimer = null;
+let hexRxBuffer = [];
+let textRxBuffer = "";
+let rxFlushTimer = null;
+let waitingServiceWorker = null;
+let serviceWorkerRefreshing = false;
+
+if (appVersionInfo) {
+    appVersionInfo.textContent = `Application Version: ${APP_CACHE_NAME}`;
+}
+
+function registerServiceWorker() {
+    navigator.serviceWorker.register("./service_worker.js")
+        .then(registration => {
+            debugLog("service worker registered", { scope: registration.scope });
+            watchServiceWorkerUpdate(registration);
+            return registration.update();
+        })
+        .catch(error => {
+            debugLog("service worker registration failed", error);
+        });
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (serviceWorkerRefreshing) return;
+        serviceWorkerRefreshing = true;
+        window.location.reload();
+    });
+}
+
+function watchServiceWorkerUpdate(registration) {
+    if (registration.waiting && navigator.serviceWorker.controller) {
+        showPwaUpdatePrompt(registration.waiting);
+    }
+
+    registration.addEventListener("updatefound", () => {
+        const worker = registration.installing;
+        if (!worker) return;
+
+        debugLog("service worker update found");
+        worker.addEventListener("statechange", () => {
+            if (worker.state === "installed" && navigator.serviceWorker.controller) {
+                showPwaUpdatePrompt(worker);
+            }
+        });
+    });
+}
+
+function showPwaUpdatePrompt(worker) {
+    waitingServiceWorker = worker;
+    if (pwaUpdatePrompt) {
+        pwaUpdatePrompt.hidden = false;
+    }
+    debugLog("service worker update ready");
+}
+
+if (pwaUpdateBtn) {
+    pwaUpdateBtn.addEventListener("click", () => {
+        if (!waitingServiceWorker) return;
+
+        pwaUpdateBtn.disabled = true;
+        pwaUpdateBtn.textContent = "Updating...";
+        waitingServiceWorker.postMessage({ type: "SKIP_WAITING" });
+    });
+}
 
 document.querySelectorAll('.menu-item').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -101,6 +166,11 @@ function writeTerminal(text) {
     if (!autoScrollToggle || autoScrollToggle.checked) {
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
     }
+}
+
+function writeTerminalTxEcho(text, { hex = false } = {}) {
+    const timestamp = showLineTimeToggle.checked ? `[${formatTimestampMs(new Date())}] ` : "";
+    writeTerminal(`${timestamp}> ${hex ? "[HEX] " : ""}${text}\n`);
 }
 
 function showTerminalNotice(message) {
@@ -142,6 +212,7 @@ async function copyTerminalOutput() {
 }
 
 function clearTerminalOutput() {
+    clearUartRxBuffer();
     terminalOutput.textContent = "";
     terminalOutput.scrollTop = 0;
     uartAtLineStart = true;
@@ -170,15 +241,87 @@ function writeUartData(data) {
     writeTerminal(output);
 }
 
+function writeUartHexData(bytes) {
+    hexRxBuffer.push(...bytes);
+    restartUartRxFlushTimer();
+}
+
+function writeUartTextBuffered(data) {
+    textRxBuffer += data;
+    restartUartRxFlushTimer();
+}
+
+function getRxIdleMs() {
+    const value = Number(rxIdleInput.value);
+    if (!Number.isFinite(value) || value < 1) {
+        return RX_IDLE_DEFAULT_MS;
+    }
+    return Math.min(1000, Math.floor(value));
+}
+
+function restartUartRxFlushTimer() {
+    if (rxFlushTimer) {
+        clearTimeout(rxFlushTimer);
+    }
+    rxFlushTimer = setTimeout(flushUartRxBuffer, getRxIdleMs());
+}
+
+function clearUartRxBuffer() {
+    if (rxFlushTimer) {
+        clearTimeout(rxFlushTimer);
+        rxFlushTimer = null;
+    }
+    textRxBuffer = "";
+    hexRxBuffer = [];
+}
+
+function flushUartRxBuffer() {
+    if (rxFlushTimer) {
+        clearTimeout(rxFlushTimer);
+        rxFlushTimer = null;
+    }
+
+    if (hexRxBuffer.length > 0) {
+        flushUartHexBuffer();
+    }
+
+    if (textRxBuffer.length > 0) {
+        const output = textRxBuffer;
+        textRxBuffer = "";
+        writeUartData(output);
+    }
+}
+
+function flushUartHexBuffer() {
+    const output = appModules.bytesToHexText(new Uint8Array(hexRxBuffer));
+    hexRxBuffer = [];
+    if (!output) return;
+
+    if (showLineTimeToggle.checked) {
+        writeTerminal(`[${formatTimestampMs(new Date())}] ${output}\n`);
+    } else {
+        writeTerminal(`${output}\n`);
+    }
+    uartAtLineStart = true;
+}
+
 function formatTimestampMs(date) {
     const pad2 = value => String(value).padStart(2, "0");
     const pad3 = value => String(value).padStart(3, "0");
     return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
 }
 
-function onDataReceived(data) {
-    debugLog("serial data received", { length: data.length });
-    writeUartData(data);
+function onDataReceived(data, bytes) {
+    const byteLength = bytes ? bytes.length : data.length;
+    debugLog("serial data received", { length: byteLength });
+    if (hexSendToggle.checked && bytes) {
+        writeUartHexData(bytes);
+    } else {
+        if (hexRxBuffer.length > 0) {
+            flushUartRxBuffer();
+        }
+        writeUartTextBuffered(data);
+    }
     netViewPage.handleSerialData(data);
     firmwareUpdateDialog.handleSerialText(data);
     configPage.handleSerialData(data);
@@ -186,6 +329,7 @@ function onDataReceived(data) {
 
 function onDisconnect() {
     debugLog("serial disconnected");
+    flushUartRxBuffer();
     stopIntervalSend();
     updateUI(false);
     updatePortList().catch(error => console.error("Port list update failed:", error));
@@ -202,6 +346,7 @@ quickSendPanel = appModules.createQuickSendPanel({
     serialManager,
     appendNewlineToggle,
     writeTerminal,
+    writeTerminalTxEcho,
     debugLog,
 });
 debugLog("quick send panel created");
@@ -342,6 +487,8 @@ copyTerminalOutputBtn.addEventListener('click', () => {
 });
 
 clearTerminalOutputBtn.addEventListener('click', clearTerminalOutput);
+hexSendToggle.addEventListener('change', handleTerminalHexToggle);
+rxIdleInput.addEventListener('change', normalizeRxIdleInput);
 
 async function tryConnect(targetPort = null) {
     debugLog("tryConnect start", { hasTargetPort: Boolean(targetPort), selectedValue: portSelect.value });
@@ -454,17 +601,18 @@ function buildTerminalPayload(text) {
     return appendNewlineToggle.checked ? `${text}\r\n` : text;
 }
 
-function formatTerminalEcho(text) {
-    return `> ${text}\n`;
-}
-
 async function sendCommand({ clearInput = true } = {}) {
     const cmd = atCommandInput.value;
     if (!cmd) return;
 
-    writeTerminal(formatTerminalEcho(cmd));
     try {
-        await serialManager.writeText(buildTerminalPayload(cmd));
+        if (hexSendToggle.checked) {
+            await serialManager.writeBytes(appModules.hexToBytes(cmd));
+            writeTerminalTxEcho(cmd, { hex: true });
+        } else {
+            await serialManager.writeText(buildTerminalPayload(cmd));
+            writeTerminalTxEcho(cmd);
+        }
         addCommandHistory(cmd);
         if (clearInput) {
             atCommandInput.value = '';
@@ -472,6 +620,31 @@ async function sendCommand({ clearInput = true } = {}) {
     } catch (error) {
         writeTerminal(`Error: ${error.message}\n`);
     }
+}
+
+function handleTerminalHexToggle() {
+    const enabled = hexSendToggle.checked;
+    const value = atCommandInput.value;
+
+    if (!enabled) {
+        flushUartRxBuffer();
+    }
+
+    if (!value) return;
+
+    try {
+        atCommandInput.value = enabled ? appModules.textToHexText(value) : appModules.hexTextToText(value);
+        commandHistoryIndex = commandHistory.length;
+        commandHistoryDraft = atCommandInput.value;
+    } catch (error) {
+        hexSendToggle.checked = !enabled;
+        showTerminalNotice("HEX convert failed");
+        writeTerminal(`Error: ${error.message}\n`);
+    }
+}
+
+function normalizeRxIdleInput() {
+    rxIdleInput.value = String(getRxIdleMs());
 }
 
 function loadCommandHistory() {
