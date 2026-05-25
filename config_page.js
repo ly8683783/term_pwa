@@ -86,6 +86,7 @@ WF88: {
 
 function createConfigPage({
     serialManager,
+    serialSession,
     writeTerminal = () => {},
     debugLog = () => {},
     rootSelector = "#configPage",
@@ -107,6 +108,7 @@ function createConfigPage({
     let reading = false;
     let readMode = null;
     let autoReadDone = false;
+    let sessionToken = null;
 
     if (!root) {
         return emptyConfigPage();
@@ -258,14 +260,16 @@ function createConfigPage({
         const applyBtn = root.querySelector("#configApplyBtn");
         const exportBtn = root.querySelector("#configExportBtn");
         const importBtn = root.querySelector("#configImportBtn");
-        if (readBtn) readBtn.disabled = !connected || reading;
-        if (applyBtn) applyBtn.disabled = !connected || reading || !activeProfile || dirty.size === 0;
+        const canUseSession = connected && serialSession.canWrite("config");
+        if (readBtn) readBtn.disabled = !canUseSession || reading;
+        if (applyBtn) applyBtn.disabled = !canUseSession || reading || !activeProfile || dirty.size === 0;
         if (exportBtn) exportBtn.disabled = reading || !activeProfile || loaded.size === 0;
         if (importBtn) importBtn.disabled = reading || !activeProfile || loaded.size === 0;
     }
 
     async function probeHardwareThenRead() {
         ensureConnected();
+        beginSession();
         reading = true;
         readMode = "hardware";
         readBuffer = "";
@@ -273,7 +277,7 @@ function createConfigPage({
         setActiveProfile(null);
         setStatus("Detecting hardware...");
         updateButtons();
-        await serialManager.writeATCommand("at+ab config Hardware");
+        await serialSession.writeATCommand("config", "at+ab config Hardware");
         writeTerminal("> [Configuration] at+ab config Hardware\n");
         armHardwareTimer();
     }
@@ -295,7 +299,7 @@ function createConfigPage({
         });
         setStatus("Reading configuration...");
         updateButtons();
-        await serialManager.writeATCommand("at+ab config");
+        await serialSession.writeATCommand("config", "at+ab config");
         writeTerminal("> [Configuration] at+ab config\n");
         armConfigReadTimer();
     }
@@ -305,13 +309,14 @@ function createConfigPage({
         const pending = Array.from(dirty).sort((a, b) => a - b);
         if (pending.length === 0) return;
 
+        beginSession();
         setStatus(`Applying ${pending.length} changed item(s)...`);
         for (const varNo of pending) {
             const item = itemByVar.get(varNo);
             if (!item || isReadonlyItem(item) || !loaded.has(varNo)) continue;
             const value = normalizeForCommand(item, values.get(varNo) || "");
             const cmd = `at+ab config var${varNo}=${value}`;
-            await serialManager.writeATCommand(cmd);
+            await serialSession.writeATCommand("config", cmd);
             writeTerminal(`> [Configuration] ${cmd}\n`);
             await sleep(120);
         }
@@ -358,6 +363,7 @@ function createConfigPage({
             setActiveProfile(null);
             setStatus("Failed to detect hardware. Configuration is disabled.");
             updateButtons();
+            endSession();
             return;
         }
 
@@ -366,6 +372,7 @@ function createConfigPage({
             setActiveProfile(null);
             setStatus(`Unsupported hardware: ${hardware}. Configuration is disabled.`);
             updateButtons();
+            endSession();
             return;
         }
 
@@ -404,6 +411,7 @@ function createConfigPage({
         const missing = activeItems.length - loaded.size;
         setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned.` : "No config rows parsed.");
         updateButtons();
+        endSession();
     }
 
     function exportJson() {
@@ -470,6 +478,7 @@ function createConfigPage({
         readMode = null;
         autoReadDone = false;
         clearTimeout(readTimer);
+        endSession();
         clearDeviceState();
         setActiveProfile(null);
         setStatus("Disconnected.");
@@ -482,6 +491,7 @@ function createConfigPage({
         readMode = null;
         autoReadDone = false;
         clearTimeout(readTimer);
+        endSession();
         clearDeviceState();
         setActiveProfile(null);
         setStatus(message);
@@ -500,6 +510,7 @@ function createConfigPage({
         readMode = null;
         autoReadDone = false;
         clearTimeout(readTimer);
+        endSession();
         clearDeviceState();
         setActiveProfile(null);
         setStatus("Device changed. Configuration must be read again.");
@@ -507,6 +518,15 @@ function createConfigPage({
         if (connected && isConfigVisible) {
             autoReadDone = true;
             probeHardwareThenRead().catch(handleError);
+        }
+    }
+
+    function handleSessionChanged() {
+        updateButtons();
+        if (connected && !reading && serialSession.isBusy() && !serialSession.canWrite("config")) {
+            setStatus(serialSession.getStatusText());
+        } else if (connected && !reading && !activeProfile) {
+            setStatus("Connected. Open Configuration or click Read From Device.");
         }
     }
 
@@ -519,6 +539,7 @@ function createConfigPage({
         reading = false;
         readMode = null;
         clearTimeout(readTimer);
+        endSession();
         setStatus(`Error: ${error.message}`);
         updateButtons();
         debugLog("config page error", error);
@@ -528,6 +549,20 @@ function createConfigPage({
         if (!connected || !serialManager.isConnected()) {
             throw new Error("serial is not connected");
         }
+    }
+
+    function beginSession() {
+        if (!sessionToken) {
+            sessionToken = serialSession.acquire("config", "Configuration");
+        }
+    }
+
+    function endSession() {
+        if (!sessionToken) {
+            return;
+        }
+        sessionToken.release();
+        sessionToken = null;
     }
 
     function isReadonlyItem(item) {
@@ -588,6 +623,7 @@ function createConfigPage({
         handleUnavailable,
         handleShown,
         handleDeviceChanged,
+        handleSessionChanged,
     };
 }
 
@@ -658,6 +694,7 @@ function emptyConfigPage() {
         handleUnavailable() {},
         handleShown() {},
         handleDeviceChanged() {},
+        handleSessionChanged() {},
     };
 }
 

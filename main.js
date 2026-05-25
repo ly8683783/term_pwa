@@ -1,15 +1,16 @@
 const debugLog = (message, detail) => window.appDebugLog && window.appDebugLog(message, detail);
 debugLog("main script start");
 const appModules = window.TermPWA || {};
-const APP_CACHE_NAME = "amp'ed RF 2026.05.25D";
+const APP_CACHE_NAME = "amp'ed RF 2026.05.25E";
 
-if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         SerialTransport: Boolean(appModules.SerialTransport),
         SerialPortStore: Boolean(appModules.SerialPortStore),
         SerialPortManager: Boolean(appModules.SerialPortManager),
         createSerialEventBus: Boolean(appModules.createSerialEventBus),
+        createSerialSession: Boolean(appModules.createSerialSession),
         createQuickSendPanel: Boolean(appModules.createQuickSendPanel),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),
@@ -333,6 +334,9 @@ function handleTerminalSerialData({ text, bytes }) {
 
 function onDisconnect() {
     debugLog("serial disconnected");
+    if (serialSession) {
+        serialSession.reset();
+    }
     flushUartRxBuffer();
     stopIntervalSend();
     updateUI(false);
@@ -343,13 +347,20 @@ const serialManager = new appModules.SerialPortManager(onDataReceived, onDisconn
 debugLog("serial manager created", { supported: serialManager.isSupported() });
 const serialBus = appModules.createSerialEventBus();
 debugLog("serial event bus created");
+const serialSession = appModules.createSerialSession({
+    serialManager,
+    serialBus,
+    onStatusChange: updateSessionUI,
+});
+debugLog("serial session created");
 netViewPage = appModules.createNetViewPage({
     serialManager,
+    serialSession,
     writeTerminal,
 });
 debugLog("netview page created");
 quickSendPanel = appModules.createQuickSendPanel({
-    serialManager,
+    serialSession,
     appendNewlineToggle,
     writeTerminal,
     writeTerminalTxEcho,
@@ -358,13 +369,14 @@ quickSendPanel = appModules.createQuickSendPanel({
 debugLog("quick send panel created");
 firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
     serialManager,
-    serialBus,
+    serialSession,
     writeTerminal,
     debugLog,
 });
 debugLog("firmware update dialog created");
 configPage = appModules.createConfigPage({
     serialManager,
+    serialSession,
     writeTerminal,
     debugLog,
 });
@@ -495,6 +507,8 @@ async function switchConnectedPort(selectedValue) {
 
         debugLog("switch serial port start", { selectedValue });
         stopIntervalSend();
+        serialSession.reset();
+        flushUartRxBuffer();
         const disconnectPromise = serialManager.disconnect({ notify: false });
         updateUI();
         await disconnectPromise;
@@ -641,14 +655,10 @@ function updateUI(connected = serialManager.isConnected()) {
     if (connected) {
         connectBtn.classList.add('connected');
         connectText.innerText = "Disconnect";
-        statusMessage.innerText = "Status: Connected to Serial Device";
-        atCommandInput.disabled = false;
-        sendCmdBtn.disabled = false;
-        sendIntervalInput.disabled = false;
-        intervalSendBtn.disabled = false;
         netViewPage.handleConnected();
         configPage.handleConnected();
         quickSendPanel.handleConnected();
+        updateSessionUI();
     } else {
         stopIntervalSend();
         connectBtn.classList.remove('connected');
@@ -661,6 +671,36 @@ function updateUI(connected = serialManager.isConnected()) {
         netViewPage.handleDisconnected();
         configPage.handleDisconnected();
         quickSendPanel.handleDisconnected();
+    }
+}
+
+function updateSessionUI() {
+    if (!serialManager || !serialManager.isConnected()) {
+        return;
+    }
+
+    const sessionText = serialSession ? serialSession.getStatusText() : "";
+    const terminalReady = serialSession ? serialSession.canWrite("terminal") : true;
+
+    statusMessage.innerText = sessionText
+        ? `Status: Connected to Serial Device (${sessionText})`
+        : "Status: Connected to Serial Device";
+    atCommandInput.disabled = !terminalReady;
+    sendCmdBtn.disabled = !terminalReady;
+    sendIntervalInput.disabled = !terminalReady;
+    intervalSendBtn.disabled = !terminalReady;
+
+    if (!terminalReady) {
+        stopIntervalSend();
+    }
+    if (quickSendPanel && quickSendPanel.handleSessionChanged) {
+        quickSendPanel.handleSessionChanged();
+    }
+    if (netViewPage && netViewPage.handleSessionChanged) {
+        netViewPage.handleSessionChanged();
+    }
+    if (configPage && configPage.handleSessionChanged) {
+        configPage.handleSessionChanged();
     }
 }
 
@@ -707,10 +747,10 @@ async function sendCommand({ clearInput = true } = {}) {
 
     try {
         if (hexSendToggle.checked) {
-            await serialManager.writeBytes(appModules.hexToBytes(cmd));
+            await serialSession.writeBytes("terminal", appModules.hexToBytes(cmd));
             writeTerminalTxEcho(cmd, { hex: true });
         } else {
-            await serialManager.writeText(buildTerminalPayload(cmd));
+            await serialSession.writeText("terminal", buildTerminalPayload(cmd));
             writeTerminalTxEcho(cmd);
         }
         addCommandHistory(cmd);
@@ -820,13 +860,13 @@ async function sendTerminalKey(event) {
     if (text === null) return;
 
     event.preventDefault();
-    if (!serialManager.isConnected()) {
-        writeTerminal("Error: serial is not connected\n");
+    if (!serialSession.canWrite("terminal")) {
+        writeTerminal(`${serialSession.getStatusText() || "Error: serial is not connected"}\n`);
         return;
     }
 
     try {
-        await serialManager.writeText(text);
+        await serialSession.writeText("terminal", text);
     } catch (error) {
         writeTerminal(`Error: ${error.message}\n`);
     }

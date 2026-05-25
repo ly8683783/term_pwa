@@ -13,7 +13,7 @@ const DEFAULT_GROUPS = [
 ];
 
 function createQuickSendPanel({
-    serialManager,
+    serialSession,
     appendNewlineToggle,
     writeTerminal = () => {},
     writeTerminalTxEcho = (text, { hex = false } = {}) => writeTerminal(`> ${hex ? "[HEX] " : ""}${text}\n`),
@@ -309,19 +309,19 @@ function createQuickSendPanel({
     }
 
     async function sendItem(item) {
-        if (!serialManager || !serialManager.isConnected()) {
-            throw new Error("serial is not connected");
+        if (!serialSession || !serialSession.canWrite("quick-send")) {
+            throw new Error(serialSession ? (serialSession.getStatusText() || "serial is not connected") : "serial is not connected");
         }
         if (!item.content) {
             throw new Error("send content is empty");
         }
 
         if (item.hex) {
-            await serialManager.writeBytes(appModules.hexToBytes(item.content));
+            await serialSession.writeBytes("quick-send", appModules.hexToBytes(item.content));
             writeTerminalTxEcho(item.content, { hex: true });
         } else {
             const payload = appendNewlineToggle && appendNewlineToggle.checked ? `${item.content}\r\n` : item.content;
-            await serialManager.writeText(payload);
+            await serialSession.writeText("quick-send", payload);
             writeTerminalTxEcho(item.content);
         }
         setStatus(`Sent: ${item.name || item.content}`);
@@ -367,8 +367,9 @@ function createQuickSendPanel({
     }
 
     function updateSendButtons() {
+        const canSend = connected && (!serialSession || serialSession.canWrite("quick-send"));
         root.querySelectorAll(".quick-send-button").forEach(button => {
-            button.disabled = !connected;
+            button.disabled = !canSend;
         });
     }
 
@@ -402,6 +403,14 @@ function createQuickSendPanel({
         },
         handleDisconnected() {
             setConnected(false);
+        },
+        handleSessionChanged() {
+            updateSendButtons();
+            if (connected && serialSession && serialSession.isBusy() && !serialSession.canWrite("quick-send")) {
+                setStatus(serialSession.getStatusText());
+            } else if (connected) {
+                setStatus("Ready.");
+            }
         },
     };
 }
@@ -453,6 +462,7 @@ function emptyQuickSendPanel() {
     return {
         handleConnected() {},
         handleDisconnected() {},
+        handleSessionChanged() {},
     };
 }
 

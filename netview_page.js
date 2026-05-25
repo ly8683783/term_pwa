@@ -11,6 +11,7 @@ const renderTopology = window.TermPWA.renderTopology;
 
 function createNetViewPage({
     serialManager,
+    serialSession,
     writeTerminal = () => {},
     selectors = {},
 } = {}) {
@@ -32,6 +33,7 @@ function createNetViewPage({
     let responseIdleTimer = null;
     let responseTimeoutTimer = null;
     let refreshTimer = null;
+    let sessionToken = null;
 
     startButton.addEventListener("click", () => {
         start().catch(error => {
@@ -89,9 +91,9 @@ function createNetViewPage({
 
     function handleConnected() {
         if (!isCollecting) {
-            startButton.disabled = false;
+            startButton.disabled = !canStart();
             stopButton.disabled = true;
-            setStatus("Status: ready.");
+            setStatus(canStart() ? "Status: ready." : `Status: ${serialSession.getStatusText()}.`);
         }
     }
 
@@ -99,6 +101,7 @@ function createNetViewPage({
         isCollecting = false;
         state = "idle";
         clearAllTimers();
+        releaseSession();
         startButton.disabled = true;
         stopButton.disabled = true;
         setStatus(message);
@@ -113,6 +116,7 @@ function createNetViewPage({
             setStatus("Status: connect a serial device before starting NetView.");
             return;
         }
+        sessionToken = serialSession.acquire("netview", "NetView");
 
         isCollecting = true;
         state = "reading_info";
@@ -128,7 +132,7 @@ function createNetViewPage({
         setStatus("Status: reading device info...");
         clearTopology(svgSelector);
 
-        await serialManager.writeATCommand("at+ab info");
+        await serialSession.writeATCommand("netview", "at+ab info");
         infoTimer = setTimeout(() => {
             if (isCollecting && state === "reading_info") {
                 stop("Status: failed to parse at+ab info; missing Node Addr or Publish Addr.");
@@ -141,6 +145,7 @@ function createNetViewPage({
         isCollecting = false;
         state = "idle";
         clearAllTimers();
+        releaseSession();
         if (serialManager.isConnected()) {
             startButton.disabled = false;
         }
@@ -158,6 +163,7 @@ function createNetViewPage({
         localNode = null;
         groupAddr = null;
         clearAllTimers();
+        releaseSession();
         groupTag.innerText = "Group --";
         clearTopology(svgSelector);
         if (serialManager.isConnected()) {
@@ -195,7 +201,7 @@ function createNetViewPage({
         setStatus(`Status: collecting group ${groupAddr} from Local ${localNode}...`);
 
         const cmd = `at+ab loranet ${groupAddr}`;
-        await serialManager.writeATCommand(cmd);
+        await serialSession.writeATCommand("netview", cmd);
         responseTimeoutTimer = setTimeout(() => {
             if (isCollecting && state === "collecting_topology") {
                 stop("Status: no response from at+ab loranet. Please check whether the device is normal.");
@@ -285,11 +291,36 @@ function createNetViewPage({
         statusElement.innerText = message;
     }
 
+    function handleSessionChanged() {
+        if (isCollecting) {
+            return;
+        }
+        startButton.disabled = !canStart();
+        if (serialManager.isConnected() && !canStart()) {
+            setStatus(`Status: ${serialSession.getStatusText()}.`);
+        } else if (serialManager.isConnected()) {
+            setStatus("Status: ready.");
+        }
+    }
+
+    function canStart() {
+        return serialManager.isConnected() && serialSession.canWrite("netview");
+    }
+
+    function releaseSession() {
+        if (!sessionToken) {
+            return;
+        }
+        sessionToken.release();
+        sessionToken = null;
+    }
+
     return {
         handleSerialData,
         handleConnected,
         handleDisconnected,
         handleUnavailable,
+        handleSessionChanged,
         redraw,
         stop,
         clear,

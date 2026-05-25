@@ -1,7 +1,7 @@
 (function () {
 function createFirmwareUpdateDialog({
     serialManager,
-    serialBus = null,
+    serialSession,
     writeTerminal = () => {},
     debugLog = () => {},
     selectors = {},
@@ -117,7 +117,7 @@ function createFirmwareUpdateDialog({
 
     async function enterFlashloader() {
         ensureConnected();
-        await serialManager.writeATCommand("at+ab flashloaderstart");
+        await serialSession.writeATCommand("firmware", "at+ab flashloaderstart");
         appendOutput("> at+ab flashloaderstart\r\n");
         writeTerminal("> [Firmware] at+ab flashloaderstart\n");
         setStatus("Flashloader start command sent.");
@@ -125,7 +125,7 @@ function createFirmwareUpdateDialog({
 
     async function sendKeyText(text) {
         ensureConnected();
-        await serialManager.writeText(text);
+        await serialSession.writeText("firmware", text);
         appendOutput(formatSentKey(text));
     }
 
@@ -142,37 +142,32 @@ function createFirmwareUpdateDialog({
         setBusy(true);
         setProgress(0);
         setStatus(`Loading ${selectedFile.name} by YMODEM-CRC...`);
-        let exclusiveAcquired = false;
 
         try {
-            if (serialBus) {
-                serialBus.acquireExclusive("firmware");
-                exclusiveAcquired = true;
-            }
+            await serialSession.runExclusive("firmware", "Firmware Update", async () => {
+                const bytes = selectedFileBytes;
+                serialManager.clearByteQueue();
 
-            const bytes = selectedFileBytes;
-            serialManager.clearByteQueue();
+                const sender = window.TermPWA.createYModemSender({
+                    writeBytes: data => serialSession.writeBytes("firmware", data),
+                    waitByte: options => serialManager.waitByte(options),
+                    onProgress: handleYModemProgress,
+                    onLog: message => {
+                        appendOutput(`[YMODEM] ${message}\r\n`);
+                        debugLog("ymodem", message);
+                    },
+                });
 
-            const sender = window.TermPWA.createYModemSender({
-                writeBytes: data => serialManager.writeBytes(data),
-                waitByte: options => serialManager.waitByte(options),
-                onProgress: handleYModemProgress,
-                onLog: message => {
-                    appendOutput(`[YMODEM] ${message}\r\n`);
-                    debugLog("ymodem", message);
-                },
-            });
-
-            await sender.sendFile({
-                name: selectedFile.name,
-                bytes,
+                await sender.sendFile({
+                    name: selectedFile.name,
+                    bytes,
+                });
+            }, {
+                hard: true,
             });
 
             setStatus("Firmware load finished.");
         } finally {
-            if (serialBus && exclusiveAcquired) {
-                serialBus.releaseExclusive("firmware");
-            }
             setBusy(false);
         }
     }
