@@ -1,4 +1,4 @@
-const CACHE_NAME = "amp'ed RF 2026.05.25B";
+const CACHE_NAME = "amp'ed RF 2026.05.25C";
 
 const APP_ASSETS = [
     "./",

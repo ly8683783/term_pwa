@@ -1,6 +1,11 @@
 (function () {
 const appModules = window.TermPWA || {};
 
+const SERIAL_STATE_DISCONNECTED  = "disconnected";
+const SERIAL_STATE_CONNECTING    = "connecting";
+const SERIAL_STATE_CONNECTED     = "connected";
+const SERIAL_STATE_DISCONNECTING = "disconnecting";
+
 class SerialPortManager {
     constructor(onDataReceived, onDisconnect) {
         if (!appModules.SerialTransport || !appModules.SerialPortStore) {
@@ -8,6 +13,7 @@ class SerialPortManager {
         }
 
         this.port = null;
+        this.state = SERIAL_STATE_DISCONNECTED;
         this.onDataReceived = onDataReceived;
         this.onDisconnectCallback = onDisconnect;
         this.decoder = new TextDecoder();
@@ -20,6 +26,7 @@ class SerialPortManager {
             onData: bytes => this.handleIncomingBytes(bytes),
             onError: error => console.error("Read error:", error),
         });
+        this.writeQueue = Promise.resolve();
     }
 
     isSupported() {
@@ -56,36 +63,68 @@ class SerialPortManager {
 
     async connect(portObj = null, baudRate = 115200) {
         this.assertSupported();
-        if (this.isConnected()) {
-            throw new Error("serial port is already connected");
+        if (this.state !== SERIAL_STATE_DISCONNECTED) {
+            throw new Error(`serial port is ${this.state}`);
         }
+
+        this.state = SERIAL_STATE_CONNECTING;
         if (!portObj) {
-            portObj = await this.requestNewPort();
+            try {
+                portObj = await this.requestNewPort();
+            } catch (error) {
+                this.state = SERIAL_STATE_DISCONNECTED;
+                throw error;
+            }
         }
 
         this.resetByteState();
+        this.resetWriteQueue();
 
         try {
             await this.transport.open(portObj, { baudRate });
             this.port = portObj;
+            this.state = SERIAL_STATE_CONNECTED;
             return this.port;
         } catch (error) {
             this.port = null;
+            this.state = SERIAL_STATE_DISCONNECTED;
             this.resetByteState(error);
+            this.resetWriteQueue();
             throw error;
         }
     }
 
     async disconnect({ notify = true } = {}) {
-        try {
-            await this.transport.close();
-        } finally {
-            this.port = null;
-            this.resetByteState(new Error("Serial port disconnected"));
+        let disconnectError = null;
+
+        if (this.state === SERIAL_STATE_DISCONNECTED) {
+            return;
         }
 
-        if (notify && this.onDisconnectCallback) {
-            this.onDisconnectCallback();
+        if (this.state === SERIAL_STATE_CONNECTING ||
+            this.state === SERIAL_STATE_DISCONNECTING) {
+            throw new Error(`serial port is ${this.state}`);
+        }
+
+        this.state = SERIAL_STATE_DISCONNECTING;
+        try {
+            await this.writeQueue.catch(() => {});
+            await this.transport.close();
+        } catch (error) {
+            disconnectError = error;
+        } finally {
+            this.port = null;
+            this.state = SERIAL_STATE_DISCONNECTED;
+            this.resetByteState(new Error("Serial port disconnected"));
+            this.resetWriteQueue();
+
+            if (notify && this.onDisconnectCallback) {
+                this.onDisconnectCallback();
+            }
+        }
+
+        if (disconnectError) {
+            throw disconnectError;
         }
     }
 
@@ -102,7 +141,26 @@ class SerialPortManager {
     }
 
     async writeBytes(bytes) {
-        await this.transport.writeBytes(bytes);
+        if (this.state !== SERIAL_STATE_CONNECTED) {
+            throw new Error("Port not connected");
+        }
+
+        if (!(bytes instanceof Uint8Array)) {
+            throw new TypeError("writeBytes expects a Uint8Array");
+        }
+
+        const writeTask = this.writeQueue
+            .catch(() => {})
+            .then(() => {
+                if (this.state !== SERIAL_STATE_CONNECTED) {
+                    throw new Error("Port not connected");
+                }
+
+                return this.transport.writeBytes(bytes);
+            });
+
+        this.writeQueue = writeTask.catch(() => {});
+        await writeTask;
     }
 
     async writeATCommand(cmd) {
@@ -205,8 +263,23 @@ class SerialPortManager {
         this.byteWaiters = [];
     }
 
+    resetWriteQueue() {
+        this.writeQueue = Promise.resolve();
+    }
+
+    getState() {
+        return this.state;
+    }
+
+    isBusy() {
+        return (this.state === SERIAL_STATE_CONNECTING) ||
+               (this.state === SERIAL_STATE_DISCONNECTING);
+    }
+
     isConnected() {
-        return this.port !== null && this.transport.isOpen();
+        return this.state === SERIAL_STATE_CONNECTED &&
+               this.port !== null &&
+               this.transport.isOpen();
     }
 }
 

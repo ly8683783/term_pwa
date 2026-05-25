@@ -1,7 +1,7 @@
 const debugLog = (message, detail) => window.appDebugLog && window.appDebugLog(message, detail);
 debugLog("main script start");
 const appModules = window.TermPWA || {};
-const APP_CACHE_NAME = "amp'ed RF 2026.05.25B";
+const APP_CACHE_NAME = "amp'ed RF 2026.05.25C";
 
 if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
     debugLog("script globals missing", {
@@ -373,7 +373,7 @@ async function init() {
 
     await updatePortList();
 
-    if (autoConnect && serialManager.isSupported()) {
+    if (autoConnect && serialManager.isSupported() && !serialManager.isBusy()) {
         const entries = await serialManager.getPortEntries();
         debugLog("auto connect ports", { count: entries.length });
         if (entries.length > 0) {
@@ -424,6 +424,11 @@ async function updatePortList() {
 }
 
 portSelect.addEventListener('change', async () => {
+    if (serialManager.isBusy()) {
+        await updatePortList();
+        return;
+    }
+
     const selectedValue = portSelect.value;
     if (portSelect.value === 'request_new') {
         try {
@@ -456,6 +461,10 @@ portSelect.addEventListener('change', async () => {
 });
 
 async function switchConnectedPort(selectedValue) {
+    if (serialManager.isBusy()) {
+        return;
+    }
+
     try {
         const entries = await serialManager.getPortEntries();
         const nextPort = entries[selectedValue] && entries[selectedValue].port;
@@ -465,10 +474,14 @@ async function switchConnectedPort(selectedValue) {
 
         debugLog("switch serial port start", { selectedValue });
         stopIntervalSend();
-        await serialManager.disconnect({ notify: false });
-        await serialManager.connect(nextPort, 115200);
+        const disconnectPromise = serialManager.disconnect({ notify: false });
+        updateUI();
+        await disconnectPromise;
+        const connectPromise = serialManager.connect(nextPort, 115200);
+        updateUI();
+        await connectPromise;
         selectedPortIndex = selectedValue;
-        updateUI(true);
+        updateUI();
         await updatePortList();
         configPage.handleDeviceChanged(activeViewId === "view-config");
         debugLog("switch serial port success", { selectedValue });
@@ -477,7 +490,7 @@ async function switchConnectedPort(selectedValue) {
         console.error("Switch port failed:", error);
         alert("Failed to switch device: " + error.message);
         selectedPortIndex = "request";
-        updateUI(false);
+        updateUI();
         await updatePortList();
     }
 }
@@ -501,6 +514,10 @@ hexSendToggle.addEventListener('change', handleTerminalHexToggle);
 rxIdleInput.addEventListener('change', normalizeRxIdleInput);
 
 async function tryConnect(targetPort = null) {
+    if (serialManager.isBusy()) {
+        return;
+    }
+
     debugLog("tryConnect start", { hasTargetPort: Boolean(targetPort), selectedValue: portSelect.value });
     try {
         let portObj = targetPort;
@@ -518,7 +535,9 @@ async function tryConnect(targetPort = null) {
         }
 
         debugLog("serial connect call", { hasPortObj: Boolean(portObj), baudRate: 115200 });
-        const connectedPort = await serialManager.connect(portObj, 115200);
+        const connectPromise = serialManager.connect(portObj, 115200);
+        updateUI();
+        const connectedPort = await connectPromise;
         if (connectedPort) {
             const entries = await serialManager.getPortEntries();
             const connectedIndex = entries.findIndex(entry => entry.port === connectedPort);
@@ -528,7 +547,7 @@ async function tryConnect(targetPort = null) {
             }
         }
         debugLog("serial connect success");
-        updateUI(true);
+        updateUI();
         if (activeViewId === "view-config") {
             configPage.handleDeviceChanged(true);
         }
@@ -536,26 +555,68 @@ async function tryConnect(targetPort = null) {
         debugLog("serial connect failed", error);
         console.error("Connection failed:", error);
         alert("Failed to connect: " + error.message);
-        updateUI(false);
+        updateUI();
     }
 }
 
 async function tryDisconnect() {
+    if (serialManager.isBusy()) {
+        return;
+    }
+
     debugLog("tryDisconnect start");
     try {
         stopIntervalSend();
-        await serialManager.disconnect();
+        const disconnectPromise = serialManager.disconnect();
+        updateUI();
+        await disconnectPromise;
         selectedPortIndex = "request";
         debugLog("tryDisconnect success");
+        updateUI();
     } catch (error) {
         debugLog("tryDisconnect failed", error);
         console.error("Disconnect failed:", error);
-        updateUI(false);
+        updateUI();
     }
 }
 
-function updateUI(connected) {
-    debugLog("updateUI", { connected });
+function updateUI(connected = serialManager.isConnected()) {
+    const state = serialManager.getState();
+    const busy = serialManager.isBusy();
+
+    debugLog("updateUI", { connected, state });
+    portSelect.disabled = busy || !serialManager.isSupported();
+    connectBtn.classList.toggle('disabled', busy);
+    connectBtn.setAttribute('aria-disabled', busy ? 'true' : 'false');
+
+    if (state === "connecting") {
+        connectBtn.classList.remove('connected');
+        connectText.innerText = "Connecting...";
+        statusMessage.innerText = "Status: Connecting...";
+        atCommandInput.disabled = true;
+        sendCmdBtn.disabled = true;
+        sendIntervalInput.disabled = true;
+        intervalSendBtn.disabled = true;
+        netViewPage.handleDisconnected("Status: serial connection is busy.");
+        configPage.handleDisconnected();
+        quickSendPanel.handleDisconnected();
+        return;
+    }
+
+    if (state === "disconnecting") {
+        connectBtn.classList.add('connected');
+        connectText.innerText = "Disconnecting...";
+        statusMessage.innerText = "Status: Disconnecting...";
+        atCommandInput.disabled = true;
+        sendCmdBtn.disabled = true;
+        sendIntervalInput.disabled = true;
+        intervalSendBtn.disabled = true;
+        netViewPage.handleDisconnected("Status: serial connection is busy.");
+        configPage.handleDisconnected();
+        quickSendPanel.handleDisconnected();
+        return;
+    }
+
     if (connected) {
         connectBtn.classList.add('connected');
         connectText.innerText = "Disconnect";
@@ -583,7 +644,14 @@ function updateUI(connected) {
 }
 
 connectBtn.addEventListener('click', () => {
-    debugLog("connect button clicked", { connected: serialManager.isConnected() });
+    if (serialManager.isBusy()) {
+        return;
+    }
+
+    debugLog("connect button clicked", {
+        connected: serialManager.isConnected(),
+        state: serialManager.getState(),
+    });
     if (serialManager.isConnected()) {
         tryDisconnect();
     } else {
@@ -602,6 +670,7 @@ if (serialManager.isSupported()) {
         debugLog("navigator serial disconnect event");
         if (serialManager.port === e.target) {
             tryDisconnect();
+            return;
         }
         updatePortList();
     });
