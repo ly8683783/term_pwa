@@ -57,6 +57,7 @@ const intervalSendBtn = document.getElementById('intervalSendBtn');
 const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
 const COMMAND_HISTORY_MAX = 50;
 const TERMINAL_COPY_WARN_LENGTH = 2000000;
+const TERMINAL_MAX_NODES = 4000;
 const RX_IDLE_DEFAULT_MS = 30;
 debugLog("dom refs resolved", {
     connectBtn: Boolean(connectBtn),
@@ -166,15 +167,71 @@ document.querySelectorAll('.menu-item').forEach(item => {
 });
 
 function writeTerminal(text) {
-    terminalOutput.textContent += text;
+    writeTerminalSystem(text);
+}
+
+function writeTerminalText(text, className) {
+    if (!text) return;
+
+    const span = document.createElement("span");
+    span.className = className;
+    span.appendChild(document.createTextNode(text));
+    terminalOutput.appendChild(span);
+    trimTerminalNodes();
+    scrollTerminalIfNeeded();
+}
+
+function writeTerminalFragment(fragment) {
+    terminalOutput.appendChild(fragment);
+    trimTerminalNodes();
+    scrollTerminalIfNeeded();
+}
+
+function writeTerminalRx(text) {
+    writeTerminalText(text, "terminal-rx");
+}
+
+function writeTerminalTx(text) {
+    writeTerminalText(text, "terminal-tx");
+}
+
+function writeTerminalError(text) {
+    writeTerminalText(text, "terminal-error");
+}
+
+function writeTerminalSystem(text) {
+    writeTerminalText(text, "terminal-system");
+}
+
+function writeTerminalTime(fragment, date = new Date()) {
+    const span = document.createElement("span");
+    span.className = "terminal-time";
+    span.appendChild(document.createTextNode(`[${formatTimestampMs(date)}] `));
+    fragment.appendChild(span);
+}
+
+function scrollTerminalIfNeeded() {
     if (!autoScrollToggle || autoScrollToggle.checked) {
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
     }
 }
 
+function trimTerminalNodes() {
+    while (terminalOutput.childNodes.length > TERMINAL_MAX_NODES) {
+        terminalOutput.removeChild(terminalOutput.firstChild);
+    }
+}
+
 function writeTerminalTxEcho(text, { hex = false } = {}) {
-    const timestamp = showLineTimeToggle.checked ? `[${formatTimestampMs(new Date())}] ` : "";
-    writeTerminal(`${timestamp}> ${hex ? "[HEX] " : ""}${text}\n`);
+    const fragment = document.createDocumentFragment();
+    if (showLineTimeToggle.checked) {
+        writeTerminalTime(fragment);
+    }
+    const span = document.createElement("span");
+    span.className = "terminal-tx";
+    span.appendChild(document.createTextNode(`${hex ? "[HEX] " : ""}${text}\n`));
+    fragment.appendChild(span);
+    writeTerminalFragment(fragment);
 }
 
 function showTerminalNotice(message) {
@@ -217,7 +274,7 @@ async function copyTerminalOutput() {
 
 function clearTerminalOutput() {
     clearUartRxBuffer();
-    terminalOutput.textContent = "";
+    terminalOutput.replaceChildren();
     terminalOutput.scrollTop = 0;
     uartAtLineStart = true;
     showTerminalNotice("Cleared");
@@ -225,24 +282,38 @@ function clearTerminalOutput() {
 
 function writeUartData(data) {
     if (!showLineTimeToggle.checked) {
-        writeTerminal(data);
+        writeTerminalRx(data);
         uartAtLineStart = /(\r|\n)$/.test(data);
         return;
     }
 
-    let output = "";
+    const fragment = document.createDocumentFragment();
+    let rxText = "";
+
+    function flushRxText() {
+        if (!rxText) return;
+        const span = document.createElement("span");
+        span.className = "terminal-rx";
+        span.appendChild(document.createTextNode(rxText));
+        fragment.appendChild(span);
+        rxText = "";
+    }
+
     for (const char of data) {
         if (uartAtLineStart && char !== "\r" && char !== "\n") {
-            output += `[${formatTimestampMs(new Date())}] `;
+            flushRxText();
+            writeTerminalTime(fragment);
             uartAtLineStart = false;
         }
 
-        output += char;
+        rxText += char;
         if (char === "\r" || char === "\n") {
             uartAtLineStart = true;
         }
     }
-    writeTerminal(output);
+
+    flushRxText();
+    writeTerminalFragment(fragment);
 }
 
 function writeUartHexData(bytes) {
@@ -301,10 +372,17 @@ function flushUartHexBuffer() {
     hexRxBuffer = [];
     if (!output) return;
 
+    const line = `${output}\n`;
     if (showLineTimeToggle.checked) {
-        writeTerminal(`[${formatTimestampMs(new Date())}] ${output}\n`);
+        const fragment = document.createDocumentFragment();
+        writeTerminalTime(fragment);
+        const span = document.createElement("span");
+        span.className = "terminal-rx";
+        span.appendChild(document.createTextNode(line));
+        fragment.appendChild(span);
+        writeTerminalFragment(fragment);
     } else {
-        writeTerminal(`${output}\n`);
+        writeTerminalRx(line);
     }
     uartAtLineStart = true;
 }
@@ -758,7 +836,7 @@ async function sendCommand({ clearInput = true } = {}) {
             atCommandInput.value = '';
         }
     } catch (error) {
-        writeTerminal(`Error: ${error.message}\n`);
+        writeTerminalError(`Error: ${error.message}\n`);
     }
 }
 
@@ -779,7 +857,7 @@ function handleTerminalHexToggle() {
     } catch (error) {
         hexSendToggle.checked = !enabled;
         showTerminalNotice("HEX convert failed");
-        writeTerminal(`Error: ${error.message}\n`);
+        writeTerminalError(`Error: ${error.message}\n`);
     }
 }
 
@@ -861,14 +939,14 @@ async function sendTerminalKey(event) {
 
     event.preventDefault();
     if (!serialSession.canWrite("terminal")) {
-        writeTerminal(`${serialSession.getStatusText() || "Error: serial is not connected"}\n`);
+        writeTerminalError(`${serialSession.getStatusText() || "Error: serial is not connected"}\n`);
         return;
     }
 
     try {
         await serialSession.writeText("terminal", text);
     } catch (error) {
-        writeTerminal(`Error: ${error.message}\n`);
+        writeTerminalError(`Error: ${error.message}\n`);
     }
 }
 
@@ -880,11 +958,11 @@ function startIntervalSend() {
 
     const intervalMs = Number(sendIntervalInput.value);
     if (!Number.isFinite(intervalMs) || intervalMs < 10) {
-        writeTerminal("Error: send interval must be at least 10 ms\n");
+        writeTerminalError("Error: send interval must be at least 10 ms\n");
         return;
     }
     if (!atCommandInput.value) {
-        writeTerminal("Error: enter data before starting interval send\n");
+        writeTerminalError("Error: enter data before starting interval send\n");
         return;
     }
 
