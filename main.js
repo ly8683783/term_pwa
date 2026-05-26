@@ -46,6 +46,7 @@ const atCommandInput = document.getElementById('atCommandInput');
 const sendCmdBtn = document.getElementById('sendCmdBtn');
 const autoScrollToggle = document.getElementById('autoScrollToggle');
 const showLineTimeToggle = document.getElementById('showLineTimeToggle');
+const terminalThemeSelect = document.getElementById('terminalThemeSelect');
 const terminalNotice = document.getElementById('terminalNotice');
 const copyTerminalOutputBtn = document.getElementById('copyTerminalOutputBtn');
 const clearTerminalOutputBtn = document.getElementById('clearTerminalOutputBtn');
@@ -56,15 +57,26 @@ const sendIntervalInput = document.getElementById('sendIntervalInput');
 const intervalSendBtn = document.getElementById('intervalSendBtn');
 const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
 const COMMAND_HISTORY_MAX = 50;
+const TERMINAL_THEME_KEY = "lr71TerminalTheme";
+const TERMINAL_DEFAULT_THEME = "bright-dark";
 const TERMINAL_COPY_WARN_LENGTH = 2000000;
 const TERMINAL_MAX_NODES = 4000;
-const RX_IDLE_DEFAULT_MS = 30;
+const RX_IDLE_DEFAULT_MS = 10;
+const COPY_BUTTON_LABEL = "Copy UART output";
+const COPY_BUTTON_ICONS = {
+    idle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7A2 2 0 0 1 10 5H19A2 2 0 0 1 21 7V16A2 2 0 0 1 19 18H17V20A2 2 0 0 1 15 22H6A2 2 0 0 1 4 20V11A2 2 0 0 1 6 9H8V7ZM10 7V16H19V7H10ZM6 11V20H15V18H10A2 2 0 0 1 8 16V11H6Z"></path></svg>',
+    success: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 8.75 6.5 11.5 12.25 4.5"></path></svg>',
+    empty: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" d="M8 4.4v4.1"></path><circle cx="8" cy="11.4" r="0.8" fill="currentColor"></circle></svg>',
+    failed: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"></path></svg>',
+};
 debugLog("dom refs resolved", {
     connectBtn: Boolean(connectBtn),
     portSelect: Boolean(portSelect),
     atCommandInput: Boolean(atCommandInput),
     sendCmdBtn: Boolean(sendCmdBtn),
 });
+rxIdleInput.value = String(RX_IDLE_DEFAULT_MS);
+applyTerminalTheme(loadTerminalTheme());
 
 let netViewPage = null;
 let firmwareUpdateDialog = null;
@@ -79,6 +91,7 @@ let uartAtLineStart = true;
 let selectedPortIndex = "request";
 let activeViewId = "view-terminal";
 let terminalNoticeTimer = null;
+let copySuccessTimer = null;
 let hexRxBuffer = [];
 let textRxBuffer = "";
 let rxFlushTimer = null;
@@ -210,6 +223,25 @@ function writeTerminalTime(fragment, date = new Date()) {
     fragment.appendChild(span);
 }
 
+function loadTerminalTheme() {
+    const stored = localStorage.getItem(TERMINAL_THEME_KEY);
+    return isValidTerminalTheme(stored) ? stored : TERMINAL_DEFAULT_THEME;
+}
+
+function isValidTerminalTheme(theme) {
+    return Boolean(terminalThemeSelect &&
+                   theme &&
+                   Array.from(terminalThemeSelect.options).some(option => option.value === theme));
+}
+
+function applyTerminalTheme(theme) {
+    const nextTheme = isValidTerminalTheme(theme) ? theme : TERMINAL_DEFAULT_THEME;
+    terminalOutput.dataset.theme = nextTheme;
+    if (terminalThemeSelect) {
+        terminalThemeSelect.value = nextTheme;
+    }
+}
+
 function scrollTerminalIfNeeded() {
     if (!autoScrollToggle || autoScrollToggle.checked) {
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
@@ -249,10 +281,39 @@ function showTerminalNotice(message) {
     }, 2000);
 }
 
+function showCopyButtonState(state) {
+    if (!copyTerminalOutputBtn) return;
+
+    const icon = COPY_BUTTON_ICONS[state] || COPY_BUTTON_ICONS.idle;
+    const title = state === "success" ? "Copied" :
+                  state === "empty" ? "Nothing to copy" :
+                  state === "failed" ? "Copy failed" :
+                  COPY_BUTTON_LABEL;
+
+    copyTerminalOutputBtn.classList.remove("copy-state-success", "copy-state-empty", "copy-state-failed");
+    if (state !== "idle") {
+        copyTerminalOutputBtn.classList.add(`copy-state-${state}`);
+    }
+    copyTerminalOutputBtn.innerHTML = icon;
+    copyTerminalOutputBtn.title = title;
+    copyTerminalOutputBtn.setAttribute("aria-label", title);
+
+    if (copySuccessTimer) {
+        clearTimeout(copySuccessTimer);
+        copySuccessTimer = null;
+    }
+
+    if (state !== "idle") {
+        copySuccessTimer = setTimeout(() => {
+            showCopyButtonState("idle");
+        }, 900);
+    }
+}
+
 async function copyTerminalOutput() {
     const text = terminalOutput.textContent;
     if (!text) {
-        showTerminalNotice("Nothing to copy");
+        showCopyButtonState("empty");
         debugLog("No UART output to copy");
         return;
     }
@@ -264,10 +325,10 @@ async function copyTerminalOutput() {
 
     try {
         await navigator.clipboard.writeText(text);
-        showTerminalNotice("Copied");
+        showCopyButtonState("success");
         debugLog("UART output copied", { length: text.length });
     } catch (error) {
-        showTerminalNotice("Copy failed");
+        showCopyButtonState("failed");
         debugLog("UART output copy failed", error);
     }
 }
@@ -615,6 +676,13 @@ autoConnectToggle.addEventListener('change', () => {
 showLineTimeToggle.addEventListener('change', () => {
     uartAtLineStart = true;
 });
+
+if (terminalThemeSelect) {
+    terminalThemeSelect.addEventListener('change', () => {
+        applyTerminalTheme(terminalThemeSelect.value);
+        localStorage.setItem(TERMINAL_THEME_KEY, terminalThemeSelect.value);
+    });
+}
 
 copyTerminalOutputBtn.addEventListener('click', () => {
     copyTerminalOutput().catch(error => {

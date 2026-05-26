@@ -101,6 +101,16 @@
                                 </span>
                                 UART time
                             </label>
+                            <label class="terminal-theme-control">
+                                Theme
+                                <select id="terminalThemeSelect">
+                                    <option value="bright-dark">Bright Dark</option>
+                                    <option value="classic-dark">Classic Dark</option>
+                                    <option value="light">Light</option>
+                                    <option value="amber">Amber</option>
+                                    <option value="high-contrast">High Contrast</option>
+                                </select>
+                            </label>
                             <span id="terminalNotice" class="terminal-notice" aria-live="polite"></span>
                             <button id="copyTerminalOutputBtn" class="terminal-status-button" type="button" title="Copy UART output" aria-label="Copy UART output">
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -128,7 +138,7 @@
                             </label>
                             <label>
                                 RX idle
-                                <input type="number" id="rxIdleInput" min="1" max="1000" step="1" value="30">
+                                <input type="number" id="rxIdleInput" min="1" max="1000" step="1">
                                 ms
                             </label>
                             <label class="toggle-container">

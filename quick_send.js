@@ -2,6 +2,10 @@
 const appModules = window.TermPWA || {};
 const STORAGE_KEY = "lr71QuickSendList";
 const COLLAPSED_KEY = "lr71QuickSendCollapsed";
+const WIDTH_KEY = "lr71QuickSendWidth";
+const DEFAULT_WIDTH = 430;
+const MIN_WIDTH = 340;
+const MOBILE_MEDIA_QUERY = "(max-width: 1180px)";
 
 const DEFAULT_GROUPS = [
     {
@@ -26,17 +30,22 @@ function createQuickSendPanel({
     let connected = false;
     let collapsed = localStorage.getItem(COLLAPSED_KEY) === "true";
     let draggingItemIndex = null;
+    let panelWidth = loadStoredWidth();
+    let resizeState = null;
 
     if (!root) {
         return emptyQuickSendPanel();
     }
 
     render();
+    applyPanelWidth();
     selectGroup(0);
     setConnected(false);
+    window.addEventListener("resize", handleWindowResize);
 
     function render() {
         root.innerHTML = `
+            <div id="quickSendResizer" class="quick-send-resizer" title="Resize Quick Send" aria-hidden="true"></div>
             <div class="quick-send-header">
                 <h3 class="quick-send-title">Quick Send</h3>
                 <button id="quickSendToggle" class="quick-send-toggle" type="button" title="Hide/Show Quick Send"></button>
@@ -60,6 +69,7 @@ function createQuickSendPanel({
             </div>
         `;
 
+        root.querySelector("#quickSendResizer").addEventListener("pointerdown", startResize);
         root.querySelector("#quickSendToggle").addEventListener("click", toggleCollapsed);
         root.querySelector("#quickSendGroup").addEventListener("change", event => {
             selectGroup(Number(event.target.value));
@@ -80,6 +90,87 @@ function createQuickSendPanel({
 
         renderGroups();
         applyCollapsed();
+        applyPanelWidth();
+    }
+
+    function startResize(event) {
+        if (event.button !== 0 || !canResizePanel()) {
+            return;
+        }
+
+        event.preventDefault();
+        resizeState = {
+            startX: event.clientX,
+            startWidth: root.getBoundingClientRect().width,
+        };
+        document.body.classList.add("quick-send-resizing");
+        document.addEventListener("pointermove", resizePanel);
+        document.addEventListener("pointerup", stopResize);
+        document.addEventListener("pointercancel", stopResize);
+    }
+
+    function resizePanel(event) {
+        if (!resizeState) return;
+
+        const nextWidth = resizeState.startWidth + (resizeState.startX - event.clientX);
+        setPanelWidth(nextWidth, { persist: false });
+    }
+
+    function stopResize() {
+        if (!resizeState) return;
+
+        resizeState = null;
+        document.body.classList.remove("quick-send-resizing");
+        document.removeEventListener("pointermove", resizePanel);
+        document.removeEventListener("pointerup", stopResize);
+        document.removeEventListener("pointercancel", stopResize);
+        localStorage.setItem(WIDTH_KEY, String(panelWidth));
+    }
+
+    function handleWindowResize() {
+        applyPanelWidth();
+    }
+
+    function canResizePanel() {
+        return !collapsed &&
+               !window.matchMedia(MOBILE_MEDIA_QUERY).matches &&
+               getMaxPanelWidth() >= MIN_WIDTH;
+    }
+
+    function applyPanelWidth() {
+        if (collapsed || window.matchMedia(MOBILE_MEDIA_QUERY).matches) {
+            return;
+        }
+
+        setPanelWidth(panelWidth, { persist: false });
+    }
+
+    function setPanelWidth(width, { persist = false } = {}) {
+        panelWidth = clampPanelWidth(width);
+        root.style.setProperty("--quick-send-width", `${panelWidth}px`);
+        if (persist) {
+            localStorage.setItem(WIDTH_KEY, String(panelWidth));
+        }
+    }
+
+    function clampPanelWidth(width) {
+        const maxWidth = getMaxPanelWidth();
+        const lower = Math.min(MIN_WIDTH, maxWidth);
+        const upper = Math.max(MIN_WIDTH, maxWidth);
+        const value = Math.round(Number(width) || DEFAULT_WIDTH);
+
+        return Math.min(upper, Math.max(lower, value));
+    }
+
+    function getMaxPanelWidth() {
+        const container = root.closest(".terminal-container");
+        if (!container) {
+            return DEFAULT_WIDTH;
+        }
+
+        const style = window.getComputedStyle(container);
+        const gap = parseFloat(style.columnGap || style.gap || "0") || 0;
+        return Math.floor((container.clientWidth - gap) / 2);
     }
 
     function renderGroups() {
@@ -391,6 +482,7 @@ function createQuickSendPanel({
             toggle.textContent = collapsed ? "<" : ">";
             toggle.title = collapsed ? "Show Quick Send" : "Hide Quick Send";
         }
+        applyPanelWidth();
     }
 
     function saveGroups() {
@@ -437,6 +529,11 @@ function loadGroups() {
 
 function cloneDefaultGroups() {
     return JSON.parse(JSON.stringify(DEFAULT_GROUPS));
+}
+
+function loadStoredWidth() {
+    const width = Number(localStorage.getItem(WIDTH_KEY));
+    return Number.isFinite(width) && width > 0 ? width : DEFAULT_WIDTH;
 }
 
 function normalizeImportedItem(item) {
