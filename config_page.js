@@ -92,10 +92,7 @@ function createConfigPage({
     rootSelector = "#configPage",
 } = {}) {
     const root = document.querySelector(rootSelector);
-    let activeProfileName = null;
-    let activeProfile = null;
-    let activeItems = [];
-    let activeGroups = [];
+    let activeProfileContext = null;
     let itemByVar = new Map();
     let itemByName = new Map();
     let values = new Map();
@@ -143,8 +140,8 @@ function createConfigPage({
             columns.push(column);
         }
 
-        activeGroups.forEach((group, index) => {
-            const items = activeItems.filter(item => item.group === group);
+        getActiveGroups().forEach((group, index) => {
+            const items = getActiveItems().filter(item => item.group === group);
             const card = document.createElement("section");
             card.className = "config-card";
             card.innerHTML = `<h3>${escapeHtml(group)}</h3>`;
@@ -262,9 +259,9 @@ function createConfigPage({
         const importBtn = root.querySelector("#configImportBtn");
         const canUseSession = connected && serialSession.canWrite("config");
         if (readBtn) readBtn.disabled = !canUseSession || reading;
-        if (applyBtn) applyBtn.disabled = !canUseSession || reading || !activeProfile || dirty.size === 0;
-        if (exportBtn) exportBtn.disabled = reading || !activeProfile || loaded.size === 0;
-        if (importBtn) importBtn.disabled = reading || !activeProfile || loaded.size === 0;
+        if (applyBtn) applyBtn.disabled = !canUseSession || reading || !hasActiveProfile() || dirty.size === 0;
+        if (exportBtn) exportBtn.disabled = reading || !hasActiveProfile() || loaded.size === 0;
+        if (importBtn) importBtn.disabled = reading || !hasActiveProfile() || loaded.size === 0;
     }
 
     async function probeHardwareThenRead() {
@@ -284,7 +281,7 @@ function createConfigPage({
 
     async function readFromDevice() {
         ensureConnected();
-        if (!activeProfile) {
+        if (!hasActiveProfile()) {
             throw new Error("hardware profile is not selected");
         }
         reading = true;
@@ -293,7 +290,7 @@ function createConfigPage({
         loaded.clear();
         dirty.clear();
         deviceValues.clear();
-        activeItems.forEach(item => {
+        getActiveItems().forEach(item => {
             updateControl(item);
             updateRowState(item);
         });
@@ -321,7 +318,7 @@ function createConfigPage({
             await sleep(120);
         }
         dirty.clear();
-        activeItems.forEach(updateRowState);
+        getActiveItems().forEach(updateRowState);
         updateButtons();
         setStatus("Apply complete. Refreshing from device...");
         await sleep(300);
@@ -404,11 +401,11 @@ function createConfigPage({
         }
         reading = false;
         readMode = null;
-        activeItems.forEach(item => {
+        getActiveItems().forEach(item => {
             updateControl(item);
             updateRowState(item);
         });
-        const missing = activeItems.length - loaded.size;
+        const missing = getActiveItems().length - loaded.size;
         setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned.` : "No config rows parsed.");
         updateButtons();
         endSession();
@@ -416,10 +413,10 @@ function createConfigPage({
 
     function exportJson() {
         const data = {
-            hardware: activeProfileName,
-            format: activeProfile.format,
+            hardware: getActiveProfileName(),
+            format: getActiveProfile().format,
             exportedAt: new Date().toISOString(),
-            items: activeItems.map(item => ({
+            items: getActiveItems().map(item => ({
                 varNo: item.varNo,
                 name: item.name,
                 value: values.get(item.varNo) || "",
@@ -430,7 +427,7 @@ function createConfigPage({
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `${activeProfileName.toLowerCase()}-config-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+        link.download = `${getActiveProfileName().toLowerCase()}-config-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
         link.click();
         URL.revokeObjectURL(link.href);
     }
@@ -446,8 +443,8 @@ function createConfigPage({
         }
 
         const data = JSON.parse(await file.text());
-        if (!activeProfile || !data || data.format !== activeProfile.format || !Array.isArray(data.items)) {
-            throw new Error(`Invalid ${activeProfileName} config JSON`);
+        if (!hasActiveProfile() || !data || data.format !== getActiveProfile().format || !Array.isArray(data.items)) {
+            throw new Error(`Invalid ${getActiveProfileName()} config JSON`);
         }
 
         let count = 0;
@@ -525,7 +522,7 @@ function createConfigPage({
         updateButtons();
         if (connected && !reading && serialSession.isBusy() && !serialSession.canWrite("config")) {
             setStatus(serialSession.getStatusText());
-        } else if (connected && !reading && !activeProfile) {
+        } else if (connected && !reading && !hasActiveProfile()) {
             setStatus("Connected. Open Configuration or click Read From Device.");
         }
     }
@@ -570,7 +567,7 @@ function createConfigPage({
     }
 
     function isItemDisabled(item) {
-        return !connected || reading || !activeProfile || isReadonlyItem(item) || !loaded.has(item.varNo);
+        return !connected || reading || !hasActiveProfile() || isReadonlyItem(item) || !loaded.has(item.varNo);
     }
 
     function updateTooltip(item) {
@@ -597,21 +594,42 @@ function createConfigPage({
         loaded.clear();
         dirty.clear();
         deviceValues.clear();
-        values = new Map(activeItems.map(item => [item.varNo, item.defaultValue || ""]));
+        values = new Map(getActiveItems().map(item => [item.varNo, item.defaultValue || ""]));
     }
 
     function setActiveProfile(profileName) {
-        activeProfileName = profileName;
-        activeProfile = profileName ? CONFIG_PROFILES[profileName] : null;
-        activeItems = activeProfile ? activeProfile.items : [];
-        activeGroups = activeProfile ? activeProfile.groups : [];
-        itemByVar = new Map(activeItems.map(item => [item.varNo, item]));
-        itemByName = new Map(activeItems.map(item => [item.name.toLowerCase(), item]));
-        values = new Map(activeItems.map(item => [item.varNo, item.defaultValue || ""]));
+        const profile = profileName ? CONFIG_PROFILES[profileName] : null;
+        activeProfileContext = profile ? { name: profileName, profile } : null;
+        const items = getActiveItems();
+        itemByVar = new Map(items.map(item => [item.varNo, item]));
+        itemByName = new Map(items.map(item => [item.name.toLowerCase(), item]));
+        values = new Map(items.map(item => [item.varNo, item.defaultValue || ""]));
         render();
     }
 
-    activeItems.forEach(item => {
+    function getActiveProfile() {
+        return activeProfileContext ? activeProfileContext.profile : null;
+    }
+
+    function getActiveProfileName() {
+        return activeProfileContext ? activeProfileContext.name : "";
+    }
+
+    function getActiveItems() {
+        const profile = getActiveProfile();
+        return profile ? profile.items : [];
+    }
+
+    function getActiveGroups() {
+        const profile = getActiveProfile();
+        return profile ? profile.groups : [];
+    }
+
+    function hasActiveProfile() {
+        return Boolean(activeProfileContext);
+    }
+
+    getActiveItems().forEach(item => {
         updateControl(item);
         updateRowState(item);
     });
