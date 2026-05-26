@@ -19,35 +19,34 @@ function createSerialSession({
         throw new Error("createSerialSession requires serialBus");
     }
 
-    let activeOwner = null;
-    let activeLabel = "";
-    let hardExclusive = false;
-    let refCount = 0;
+    let activeSession = null;
 
     function acquire(owner, label = ownerLabel(owner), options = {}) {
         validateOwner(owner);
 
-        if (activeOwner && activeOwner !== owner) {
-            throw new Error(`Serial is busy: ${activeLabel || ownerLabel(activeOwner)}`);
+        if (activeSession && activeSession.owner !== owner) {
+            throw new Error(`Serial is busy: ${activeSession.label || ownerLabel(activeSession.owner)}`);
         }
 
         const requestedHard = Boolean(options.hard);
-        if (!activeOwner) {
+        if (!activeSession) {
             if (requestedHard) {
                 serialBus.acquireExclusive(owner);
             }
-            activeOwner = owner;
-            activeLabel = label || ownerLabel(owner);
-            hardExclusive = requestedHard;
-            refCount = 1;
+            activeSession = {
+                owner,
+                label: label || ownerLabel(owner),
+                hardExclusive: requestedHard,
+                refCount: 1,
+            };
             notify();
         } else {
-            if (requestedHard && !hardExclusive) {
+            if (requestedHard && !activeSession.hardExclusive) {
                 serialBus.acquireExclusive(owner);
-                hardExclusive = true;
+                activeSession.hardExclusive = true;
                 notify();
             }
-            refCount++;
+            activeSession.refCount++;
         }
 
         let released = false;
@@ -62,22 +61,19 @@ function createSerialSession({
     }
 
     function release(owner) {
-        if (activeOwner !== owner) {
+        if (!activeSession || activeSession.owner !== owner) {
             return;
         }
 
-        refCount = Math.max(0, refCount - 1);
-        if (refCount > 0) {
+        activeSession.refCount = Math.max(0, activeSession.refCount - 1);
+        if (activeSession.refCount > 0) {
             return;
         }
 
-        if (hardExclusive) {
+        if (activeSession.hardExclusive) {
             serialBus.releaseExclusive(owner);
         }
-        activeOwner = null;
-        activeLabel = "";
-        hardExclusive = false;
-        refCount = 0;
+        activeSession = null;
         notify();
     }
 
@@ -119,47 +115,44 @@ function createSerialSession({
         if (!serialManager.isConnected()) {
             throw new Error("serial is not connected");
         }
-        if (activeOwner && activeOwner !== owner) {
-            throw new Error(`Serial is busy: ${activeLabel || ownerLabel(activeOwner)}`);
+        if (activeSession && activeSession.owner !== owner) {
+            throw new Error(`Serial is busy: ${activeSession.label || ownerLabel(activeSession.owner)}`);
         }
     }
 
     function canWrite(owner) {
         return serialManager.isConnected() &&
-               (!activeOwner || activeOwner === owner);
+               (!activeSession || activeSession.owner === owner);
     }
 
     function isBusy() {
-        return Boolean(activeOwner);
+        return Boolean(activeSession);
     }
 
     function getActiveOwner() {
-        return activeOwner;
+        return activeSession ? activeSession.owner : null;
     }
 
     function getStatusText() {
-        if (!activeOwner) {
+        if (!activeSession) {
             return "";
         }
-        return `Busy: ${activeLabel || ownerLabel(activeOwner)}`;
+        return `Busy: ${activeSession.label || ownerLabel(activeSession.owner)}`;
     }
 
     function reset() {
-        if (activeOwner && hardExclusive) {
-            serialBus.releaseExclusive(activeOwner);
+        if (activeSession && activeSession.hardExclusive) {
+            serialBus.releaseExclusive(activeSession.owner);
         }
-        activeOwner = null;
-        activeLabel = "";
-        hardExclusive = false;
-        refCount = 0;
+        activeSession = null;
         notify();
     }
 
     function notify() {
         onStatusChange({
-            activeOwner,
-            activeLabel,
-            hardExclusive,
+            activeOwner: activeSession ? activeSession.owner : null,
+            activeLabel: activeSession ? activeSession.label : "",
+            hardExclusive: Boolean(activeSession && activeSession.hardExclusive),
             statusText: getStatusText(),
         });
     }

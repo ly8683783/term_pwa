@@ -26,7 +26,6 @@ function createNetViewPage({
     const groupTag = document.querySelector(selectors.groupTag || "#netViewGroupTag");
     const svgSelector = selectors.topology || "#topology";
 
-    let isCollecting = false;
     let state = "idle";
     let infoBuffer = "";
     let cycleBuffer = "";
@@ -65,8 +64,12 @@ function createNetViewPage({
         drawTimer = setTimeout(redraw, NETVIEW_RESIZE_DEBOUNCE_MS);
     });
 
+    function isCollecting() {
+        return state !== "idle";
+    }
+
     function handleSerialData(data) {
-        if (!isCollecting) {
+        if (!isCollecting()) {
             return;
         }
 
@@ -96,7 +99,7 @@ function createNetViewPage({
     }
 
     function handleConnected() {
-        if (!isCollecting) {
+        if (!isCollecting()) {
             startButton.disabled = !canStart();
             stopButton.disabled = true;
             setStatus(canStart() ? "Status: ready." : `Status: ${serialSession.getStatusText()}.`);
@@ -104,7 +107,6 @@ function createNetViewPage({
     }
 
     function handleDisconnected(message = "Status: connect a serial device to start NetView.") {
-        isCollecting = false;
         state = "idle";
         clearAllTimers();
         releaseSession();
@@ -124,7 +126,6 @@ function createNetViewPage({
         }
         sessionToken = serialSession.acquire("netview", "NetView");
 
-        isCollecting = true;
         state = "reading_info";
         infoBuffer = "";
         cycleBuffer = "";
@@ -142,7 +143,7 @@ function createNetViewPage({
 
         await serialSession.writeATCommand("netview", "at+ab info");
         infoTimer = setTimeout(() => {
-            if (isCollecting && state === "reading_info") {
+            if (isCollecting() && state === "reading_info") {
                 stop("Status: failed to parse at+ab info; missing Node Addr or Publish Addr.");
             }
         }, NETVIEW_INFO_TIMEOUT_MS);
@@ -150,7 +151,6 @@ function createNetViewPage({
     }
 
     function stop(message = null) {
-        isCollecting = false;
         state = "idle";
         clearAllTimers();
         releaseSession();
@@ -164,7 +164,6 @@ function createNetViewPage({
     }
 
     function clear() {
-        isCollecting = false;
         state = "idle";
         infoBuffer = "";
         cycleBuffer = "";
@@ -184,7 +183,7 @@ function createNetViewPage({
     }
 
     async function startTopology(info) {
-        if (!isCollecting || state !== "reading_info") {
+        if (state !== "reading_info") {
             return;
         }
 
@@ -201,7 +200,7 @@ function createNetViewPage({
     }
 
     async function sendLoraNetCommand() {
-        if (!isCollecting || !serialManager.isConnected() || !groupAddr) {
+        if (!isCollecting() || !serialManager.isConnected() || !groupAddr) {
             return;
         }
 
@@ -213,7 +212,7 @@ function createNetViewPage({
         const cmd = `at+ab loranet ${groupAddr}`;
         await serialSession.writeATCommand("netview", cmd);
         responseTimeoutTimer = setTimeout(() => {
-            if (isCollecting && state === "collecting_topology") {
+            if (isCollecting() && state === "collecting_topology") {
                 stop("Status: no response from at+ab loranet. Please check whether the device is normal.");
             }
         }, NETVIEW_RESPONSE_TIMEOUT_MS);
@@ -228,7 +227,7 @@ function createNetViewPage({
     }
 
     function finishResponseCycle() {
-        if (!isCollecting || state !== "collecting_topology") {
+        if (state !== "collecting_topology") {
             return;
         }
 
@@ -273,7 +272,7 @@ function createNetViewPage({
         }
 
         if (result.empty) {
-            if (isCollecting) {
+            if (isCollecting()) {
                 setStatus(state === "reading_info"
                     ? "Status: reading device info..."
                     : `Status: collecting group ${groupAddr || "--"} from Local ${localNode || "--"}...`);
@@ -281,7 +280,7 @@ function createNetViewPage({
             return result;
         }
 
-        setStatus(isCollecting
+        setStatus(isCollecting()
             ? `Status: collecting group ${groupAddr || "--"} from Local ${result.localNode}. Parsed ${result.nodesCount} nodes and ${result.linksCount} links.`
             : `Status: showing group ${groupAddr || "--"} from Local ${result.localNode}. ${result.nodesCount} nodes and ${result.linksCount} links.`);
         return result;
@@ -309,7 +308,7 @@ function createNetViewPage({
     }
 
     function handleSessionChanged() {
-        if (isCollecting) {
+        if (isCollecting()) {
             return;
         }
         startButton.disabled = !canStart();
@@ -341,7 +340,7 @@ function createNetViewPage({
         redraw,
         stop,
         clear,
-        isCollecting: () => isCollecting,
+        isCollecting,
     };
 }
 
