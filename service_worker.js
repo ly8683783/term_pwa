@@ -1,9 +1,12 @@
-const CACHE_NAME = "amp'ed RF 2026.05.25E";
+importScripts("./app_version.js");
+
+const CACHE_NAME = self.TermPWA.APP_VERSION;
 
 const APP_ASSETS = [
     "./",
     "./index.html",
     "./styles.css",
+    "./app_version.js",
     "./debug_logger.js",
     "./hex_utils.js",
     "./main.js",

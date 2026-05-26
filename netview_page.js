@@ -6,6 +6,10 @@ const NETVIEW_RESPONSE_TIMEOUT_MS = 20000;
 const NETVIEW_DRAW_DEBOUNCE_MS = 500;
 const NETVIEW_RESIZE_DEBOUNCE_MS = 120;
 const parseATInfo = window.TermPWA.parseATInfo;
+const parseLoraNet = window.TermPWA.parseLoraNet;
+const createTopologyState = window.TermPWA.createTopologyState;
+const mergeLoraNetTopology = window.TermPWA.mergeLoraNetTopology;
+const toTopologyData = window.TermPWA.toTopologyData;
 const clearTopology = window.TermPWA.clearTopology;
 const renderTopology = window.TermPWA.renderTopology;
 
@@ -25,7 +29,9 @@ function createNetViewPage({
     let isCollecting = false;
     let state = "idle";
     let infoBuffer = "";
-    let topologyBuffer = "";
+    let cycleBuffer = "";
+    let topologyState = createTopologyState();
+    let topologyData = toTopologyData(topologyState);
     let localNode = null;
     let groupAddr = null;
     let drawTimer = null;
@@ -82,9 +88,9 @@ function createNetViewPage({
                 refreshTimer = null;
                 state = "collecting_topology";
             }
-            topologyBuffer += data;
+            cycleBuffer += data;
             clearTimeout(drawTimer);
-            drawTimer = setTimeout(redraw, NETVIEW_DRAW_DEBOUNCE_MS);
+            drawTimer = setTimeout(mergeAndRedraw, NETVIEW_DRAW_DEBOUNCE_MS);
             armResponseIdleTimer();
         }
     }
@@ -121,7 +127,9 @@ function createNetViewPage({
         isCollecting = true;
         state = "reading_info";
         infoBuffer = "";
-        topologyBuffer = "";
+        cycleBuffer = "";
+        topologyState = createTopologyState();
+        topologyData = toTopologyData(topologyState);
         localNode = null;
         groupAddr = null;
         clearAllTimers();
@@ -150,7 +158,7 @@ function createNetViewPage({
             startButton.disabled = false;
         }
         stopButton.disabled = true;
-        setStatus(message || (topologyBuffer.trim()
+        setStatus(message || (topologyData.nodes.length > 0
             ? "Status: stopped. Showing latest topology data."
             : "Status: stopped. No topology rows received."));
     }
@@ -159,7 +167,9 @@ function createNetViewPage({
         isCollecting = false;
         state = "idle";
         infoBuffer = "";
-        topologyBuffer = "";
+        cycleBuffer = "";
+        topologyState = createTopologyState();
+        topologyData = toTopologyData(topologyState);
         localNode = null;
         groupAddr = null;
         clearAllTimers();
@@ -197,7 +207,7 @@ function createNetViewPage({
 
         clearCycleTimers();
         state = "collecting_topology";
-        topologyBuffer = "";
+        cycleBuffer = "";
         setStatus(`Status: collecting group ${groupAddr} from Local ${localNode}...`);
 
         const cmd = `at+ab loranet ${groupAddr}`;
@@ -227,7 +237,7 @@ function createNetViewPage({
         clearTimeout(responseTimeoutTimer);
         responseTimeoutTimer = null;
         state = "waiting_refresh";
-        redraw();
+        mergeAndRedraw();
         setStatus(`Status: refresh complete. Next refresh in ${NETVIEW_REFRESH_DELAY_MS / 1000}s.`);
 
         clearTimeout(refreshTimer);
@@ -239,10 +249,17 @@ function createNetViewPage({
         }, NETVIEW_REFRESH_DELAY_MS);
     }
 
+    function mergeAndRedraw() {
+        if (cycleBuffer.trim()) {
+            topologyData = mergeLoraNetTopology(topologyState, parseLoraNet(cycleBuffer, localNode));
+        }
+        return redraw();
+    }
+
     function redraw() {
         const result = renderTopology({
             svgSelector,
-            buffer: topologyBuffer,
+            topology: topologyData,
             localNode,
         });
 

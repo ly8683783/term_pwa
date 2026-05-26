@@ -79,6 +79,7 @@ function parseLoraNet(text, localNode) {
 
         linkKeys.add(`${row.relay}->${row.node}`);
         links.push({
+            key: `${row.relay}->${row.node}`,
             source: row.relay,
             target: row.node,
             forwardRssi: row.rssi,
@@ -98,6 +99,7 @@ function parseLoraNet(text, localNode) {
         linkKeys.add(linkKey);
 
         links.push({
+            key: linkKey,
             source: row.relay,
             target: row.node,
             forwardRssi: row.rssi,
@@ -108,6 +110,77 @@ function parseLoraNet(text, localNode) {
     }
 
     return { nodes: Array.from(nodes.values()), links, localNode };
+}
+
+function createTopologyState() {
+    return {
+        nodes: new Map(),
+        links: new Map(),
+    };
+}
+
+function mergeLoraNetTopology(state, parsed) {
+    const target = state || createTopologyState();
+
+    if (!parsed || !parsed.localNode) {
+        return toTopologyData(target, "----");
+    }
+
+    for (const node of parsed.nodes || []) {
+        const old = target.nodes.get(node.id);
+        if (!old) {
+            target.nodes.set(node.id, {
+                ...node,
+                lastSeen: Date.now(),
+            });
+            continue;
+        }
+
+        old.role = mergeRole(old.role, node.role);
+        old.depth = node.depth;
+        old.lastSeen = Date.now();
+    }
+
+    for (const link of parsed.links || []) {
+        const key = link.key || `${link.source}->${link.target}`;
+        const old = target.links.get(key);
+        if (!old) {
+            target.links.set(key, {
+                ...link,
+                key,
+                lastSeen: Date.now(),
+            });
+            continue;
+        }
+
+        old.source = link.source;
+        old.target = link.target;
+        old.forwardRssi = link.forwardRssi !== undefined ? link.forwardRssi : old.forwardRssi;
+        old.reverseRssi = link.reverseRssi !== undefined ? link.reverseRssi : old.reverseRssi;
+        old.hop = link.hop;
+        old.kind = link.kind;
+        old.lastSeen = Date.now();
+    }
+
+    return toTopologyData(target, parsed.localNode);
+}
+
+function toTopologyData(state, localNode = "----") {
+    return {
+        nodes: Array.from(state.nodes.values()),
+        links: Array.from(state.links.values()),
+        localNode,
+    };
+}
+
+function mergeRole(oldRole, newRole) {
+    return roleRank(newRole) > roleRank(oldRole) ? newRole : oldRole;
+}
+
+function roleRank(role) {
+    if (role === "Local") return 3;
+    if (role === "Relay") return 2;
+    return 1;
 }
 
 function formatRssi(rssi) {
@@ -131,5 +204,8 @@ function isBetterRssi(candidate, current) {
 window.TermPWA = window.TermPWA || {};
 window.TermPWA.parseATInfo = parseATInfo;
 window.TermPWA.parseLoraNet = parseLoraNet;
+window.TermPWA.createTopologyState = createTopologyState;
+window.TermPWA.mergeLoraNetTopology = mergeLoraNetTopology;
+window.TermPWA.toTopologyData = toTopologyData;
 window.TermPWA.formatRssi = formatRssi;
 })();

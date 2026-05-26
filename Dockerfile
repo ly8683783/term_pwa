@@ -6,6 +6,7 @@ COPY index.html \
      manifest.json \
      service_worker.js \
      styles.css \
+     app_version.js \
      debug_logger.js \
      hex_utils.js \
      main.js \

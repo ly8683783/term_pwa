@@ -1,7 +1,7 @@
 const debugLog = (message, detail) => window.appDebugLog && window.appDebugLog(message, detail);
 debugLog("main script start");
 const appModules = window.TermPWA || {};
-const APP_CACHE_NAME = "amp'ed RF 2026.05.25E";
+const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
 if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
     debugLog("script globals missing", {
