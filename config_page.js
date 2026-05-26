@@ -94,7 +94,6 @@ function createConfigPage({
     let connected = false;
     let readBuffer = "";
     let readTimer = null;
-    let reading = false;
     let readMode = null;
     let autoReadDone = false;
     let sessionToken = null;
@@ -242,7 +241,7 @@ function createConfigPage({
         const row = root.querySelector(`.config-row[data-var-no="${item.varNo}"]`);
         if (!row) return;
         const isReadonly = isReadonlyItem(item);
-        const isMissing = connected && !reading && !loaded.has(item.varNo);
+        const isMissing = connected && !isReading() && !loaded.has(item.varNo);
         row.classList.toggle("readonly", isReadonly);
         row.classList.toggle("missing", isMissing);
         row.classList.toggle("changed", dirty.has(item.varNo));
@@ -256,16 +255,15 @@ function createConfigPage({
         const exportBtn = root.querySelector("#configExportBtn");
         const importBtn = root.querySelector("#configImportBtn");
         const canUseSession = connected && serialSession.canWrite("config");
-        if (readBtn) readBtn.disabled = !canUseSession || reading;
-        if (applyBtn) applyBtn.disabled = !canUseSession || reading || !hasActiveProfile() || dirty.size === 0;
-        if (exportBtn) exportBtn.disabled = reading || !hasActiveProfile() || loaded.size === 0;
-        if (importBtn) importBtn.disabled = reading || !hasActiveProfile() || loaded.size === 0;
+        if (readBtn) readBtn.disabled = !canUseSession || isReading();
+        if (applyBtn) applyBtn.disabled = !canUseSession || isReading() || !hasActiveProfile() || dirty.size === 0;
+        if (exportBtn) exportBtn.disabled = isReading() || !hasActiveProfile() || loaded.size === 0;
+        if (importBtn) importBtn.disabled = isReading() || !hasActiveProfile() || loaded.size === 0;
     }
 
     async function probeHardwareThenRead() {
         ensureConnected();
         beginSession();
-        reading = true;
         readMode = "hardware";
         readBuffer = "";
         clearDeviceState();
@@ -282,7 +280,6 @@ function createConfigPage({
         if (!hasActiveProfile()) {
             throw new Error("hardware profile is not selected");
         }
-        reading = true;
         readMode = "config";
         readBuffer = "";
         loaded.clear();
@@ -324,7 +321,7 @@ function createConfigPage({
     }
 
     function handleSerialData(text) {
-        if (!reading) return;
+        if (!isReading()) return;
         readBuffer += text;
         if (readMode === "hardware") {
             const hardware = parseHardwareName(readBuffer);
@@ -347,11 +344,10 @@ function createConfigPage({
     }
 
     function finishHardwareProbe(hardware) {
-        if (!reading || readMode !== "hardware") return;
+        if (readMode !== "hardware") return;
 
         clearTimeout(readTimer);
         readTimer = null;
-        reading = false;
         readMode = null;
 
         if (!hardware) {
@@ -379,7 +375,7 @@ function createConfigPage({
     }
 
     function finishRead() {
-        if (!reading || readMode !== "config") return;
+        if (readMode !== "config") return;
 
         let count = 0;
         const re = /^var(\d+)\s+(.+?)\s*=\s*(.*)$/gm;
@@ -399,7 +395,6 @@ function createConfigPage({
             updateRowState(item);
             count++;
         }
-        reading = false;
         readMode = null;
         getActiveItems().forEach(item => {
             updateControl(item);
@@ -446,7 +441,7 @@ function createConfigPage({
         validateImportShape(data);
 
         ensureConnected();
-        if (reading) {
+        if (isReading()) {
             throw new Error("Configuration is busy. Try again after current read completes.");
         }
 
@@ -463,7 +458,6 @@ function createConfigPage({
 
     function handleDisconnected() {
         connected = false;
-        reading = false;
         readMode = null;
         autoReadDone = false;
         clearTimeout(readTimer);
@@ -477,7 +471,6 @@ function createConfigPage({
 
     function handleUnavailable(message) {
         connected = false;
-        reading = false;
         readMode = null;
         autoReadDone = false;
         clearTimeout(readTimer);
@@ -490,14 +483,13 @@ function createConfigPage({
     }
 
     function handleShown() {
-        if (connected && !autoReadDone && !reading) {
+        if (connected && !autoReadDone && !isReading()) {
             autoReadDone = true;
             probeHardwareThenRead().catch(handleError);
         }
     }
 
     function handleDeviceChanged(isConfigVisible = false) {
-        reading = false;
         readMode = null;
         autoReadDone = false;
         clearTimeout(readTimer);
@@ -515,9 +507,9 @@ function createConfigPage({
 
     function handleSessionChanged() {
         updateButtons();
-        if (connected && !reading && serialSession.isBusy() && !serialSession.canWrite("config")) {
+        if (connected && !isReading() && serialSession.isBusy() && !serialSession.canWrite("config")) {
             setStatus(serialSession.getStatusText());
-        } else if (connected && !reading && !hasActiveProfile()) {
+        } else if (connected && !isReading() && !hasActiveProfile()) {
             setStatus("Connected. Open Configuration or click Read From Device.");
         }
     }
@@ -528,7 +520,6 @@ function createConfigPage({
     }
 
     function handleError(error) {
-        reading = false;
         readMode = null;
         clearTimeout(readTimer);
         endSession();
@@ -563,7 +554,7 @@ function createConfigPage({
     }
 
     function isItemDisabled(item) {
-        return !connected || reading || !hasActiveProfile() || isReadonlyItem(item) || !loaded.has(item.varNo);
+        return !connected || isReading() || !hasActiveProfile() || isReadonlyItem(item) || !loaded.has(item.varNo);
     }
 
     function updateTooltip(item) {
@@ -751,6 +742,10 @@ function createConfigPage({
 
     function hasActiveProfile() {
         return Boolean(activeProfileContext);
+    }
+
+    function isReading() {
+        return readMode !== null;
     }
 
     getActiveItems().forEach(item => {

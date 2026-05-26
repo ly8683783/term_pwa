@@ -88,7 +88,6 @@ let commandHistory = loadCommandHistory();
 let commandHistoryIndex = commandHistory.length;
 let commandHistoryDraft = "";
 let uartAtLineStart = true;
-let selectedPortIndex = "request";
 let activeViewId = "view-terminal";
 let terminalNoticeTimer = null;
 let copySuccessTimer = null;
@@ -549,7 +548,6 @@ async function init() {
         const entries = await serialManager.getPortEntries();
         debugLog("auto connect ports", { count: entries.length });
         if (entries.length > 0) {
-            selectedPortIndex = "0";
             tryConnect(entries[0].port);
         }
     }
@@ -579,20 +577,15 @@ async function updatePortList() {
     });
 
     portSelect.appendChild(new Option("Add new device...", "request_new"));
-
-    const currentPortIndex = entries.findIndex(entry => entry.port === serialManager.port);
-    if (currentPortIndex >= 0) {
-        selectedPortIndex = String(currentPortIndex);
-    }
-
-    if (selectedPortIndex !== "request" && entries[selectedPortIndex]) {
-        portSelect.value = selectedPortIndex;
-    } else {
-        selectedPortIndex = "request";
-        portSelect.value = "request";
-    }
+    selectCurrentPort(entries);
 
     return entries;
+}
+
+function selectCurrentPort(entries) {
+    const currentPortIndex = entries.findIndex(entry => entry.port === serialManager.port);
+    portSelect.value = currentPortIndex >= 0 ? String(currentPortIndex) : "request";
+    return currentPortIndex;
 }
 
 portSelect.addEventListener('change', async () => {
@@ -609,23 +602,22 @@ portSelect.addEventListener('change', async () => {
             if (requestedEntry) {
                 const requestedIndex = entries.findIndex(entry => entry.port === requestedEntry.port);
                 if (requestedIndex >= 0) {
-                    selectedPortIndex = String(requestedIndex);
-                    portSelect.value = selectedPortIndex;
+                    portSelect.value = String(requestedIndex);
                 }
             }
         } catch (e) {
             console.error("Device selection cancelled", e);
-        }
-        if (selectedPortIndex !== "request") {
-            portSelect.value = selectedPortIndex;
-        } else {
-            portSelect.value = 'request';
+            await updatePortList();
         }
         return;
     }
 
-    selectedPortIndex = selectedValue;
-    if ((selectedValue === "request") || !serialManager.isConnected()) {
+    if (selectedValue === "request") {
+        await updatePortList();
+        return;
+    }
+
+    if (!serialManager.isConnected()) {
         return;
     }
 
@@ -654,7 +646,6 @@ async function switchConnectedPort(selectedValue) {
         const connectPromise = serialManager.connect(nextPort, 115200);
         updateUI();
         await connectPromise;
-        selectedPortIndex = selectedValue;
         updateUI();
         await updatePortList();
         configPage.handleDeviceChanged(activeViewId === "view-config");
@@ -663,7 +654,6 @@ async function switchConnectedPort(selectedValue) {
         debugLog("switch serial port failed", error);
         console.error("Switch port failed:", error);
         alert("Failed to switch device: " + error.message);
-        selectedPortIndex = "request";
         updateUI();
         await updatePortList();
     }
@@ -711,7 +701,6 @@ async function tryConnect(targetPort = null) {
                 portObj = null;
             } else if (entries[selectedValue]) {
                 portObj = entries[selectedValue].port;
-                selectedPortIndex = selectedValue;
             }
         }
 
@@ -720,12 +709,7 @@ async function tryConnect(targetPort = null) {
         updateUI();
         const connectedPort = await connectPromise;
         if (connectedPort) {
-            const entries = await serialManager.getPortEntries();
-            const connectedIndex = entries.findIndex(entry => entry.port === connectedPort);
-            if (connectedIndex >= 0) {
-                selectedPortIndex = String(connectedIndex);
-                portSelect.value = selectedPortIndex;
-            }
+            await updatePortList();
         }
         debugLog("serial connect success");
         updateUI();
@@ -737,6 +721,7 @@ async function tryConnect(targetPort = null) {
         console.error("Connection failed:", error);
         alert("Failed to connect: " + error.message);
         updateUI();
+        await updatePortList();
     }
 }
 
@@ -751,7 +736,7 @@ async function tryDisconnect() {
         const disconnectPromise = serialManager.disconnect();
         updateUI();
         await disconnectPromise;
-        selectedPortIndex = "request";
+        await updatePortList();
         debugLog("tryDisconnect success");
         updateUI();
     } catch (error) {
