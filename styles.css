@@ -522,7 +522,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 .config-row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(105px, 1fr) 150px 22px;
+    grid-template-columns: minmax(100px, 0.9fr) minmax(60px, 0.7fr) minmax(150px, 1.2fr) 22px;
     align-items: center;
     gap: 8px;
     min-height: 31px;
@@ -542,6 +542,37 @@ input:checked + .slider:before { transform: translateX(16px); }
 .config-label { min-width: 0; color: #5a5f66; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .config-row.readonly .config-label,
 .config-row.missing .config-label { color: #777; }
+.config-diff-area {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(28px, 1fr) 24px;
+    align-items: center;
+    gap: 6px;
+}
+.config-original-value,
+.config-diff-arrow {
+    visibility: hidden;
+}
+.config-row.changed .config-original-value,
+.config-row.changed .config-diff-arrow {
+    visibility: visible;
+}
+.config-original-value {
+    min-width: 0;
+    color: #6b7280;
+    font-family: Consolas, Menlo, Monaco, "Courier New", monospace;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.config-diff-arrow {
+    color: #9a6700;
+    cursor: help;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
 .config-control input,
 .config-control select {
     width: 100%;

@@ -19,7 +19,6 @@ LR71: {
     { varNo: 11, name: "UartFlowControl", group: "UART", control: "bool", defaultValue: "false", range: "true, false, 1, 0", description: "Enable UART hardware flow control." },
     { varNo: 12, name: "UartTimeout", group: "UART", control: "number", defaultValue: "16", min: 0, max: 65535, range: "0 - 65535", description: "UART character timeout." },
     { varNo: 13, name: "CpuMHz", group: "System", control: "select", defaultValue: "50", options: ["16", "32", "48", "50", "64", "80", "96", "100", "112", "128", "144", "150", "160", "176", "192", "200"], range: "Supported CPU clocks", description: "CPU clock in MHz." },
-    { varNo: 14, name: "ATReply", group: "Advanced", control: "text", hidden: true, defaultValue: "AT-AB ", range: "Text", description: "AT reply prefix." },
     { varNo: 15, name: "MeshRelay", group: "Mesh", control: "bool", defaultValue: "false", range: "bool", description: "Enable this device as a Mesh relay node." },
     { varNo: 16, name: "MeshProxy", group: "Mesh", control: "bool", defaultValue: "true", range: "bool", description: "Enable Mesh proxy feature." },
     { varNo: 17, name: "MeshFriend", group: "Mesh", control: "bool", defaultValue: "false", range: "bool", description: "Enable Mesh friend feature." },
@@ -30,16 +29,11 @@ LR71: {
     { varNo: 22, name: "LoraCADInterval", group: "LoRa Radio", control: "number", defaultValue: "500", min: 0, max: 65535, range: "0 - 65535 ms", description: "Legacy CAD interval in milliseconds." },
     { varNo: 23, name: "LoraLoraBand", group: "LoRa Radio", control: "readonly", ro: true, defaultValue: "EU915", range: "Read only", description: "LoRa band/frequency display." },
     { varNo: 24, name: "LoraRfOffset", group: "LoRa Radio", control: "number", defaultValue: "0", range: "-2147483648 - 2147483647", description: "RF frequency offset." },
-    { varNo: 25, name: "LoraPreambleLength", group: "Advanced", control: "number", hidden: true, defaultValue: "8", min: 6, max: 5000, range: "6 - 5000", description: "LoRa preamble length." },
     { varNo: 26, name: "LoraAirDataRate", group: "LoRa Radio", control: "select", defaultValue: "4800", options: ["4800", "9600", "19200", "38400"], range: "300 - 62500", description: "LoRa air data rate. Common LR71 values are listed." },
     { varNo: 27, name: "LoraSF", group: "LoRa Radio", control: "select", defaultValue: "9", options: [["6", "6:64"], ["7", "7:128"], ["8", "8:256"], ["9", "9:512"], ["10", "10:1024"], ["11", "11:2048"], ["12", "12:4096"]], range: "6 - 12", description: "LoRa spreading factor." },
-    { varNo: 28, name: "LoraBW", group: "Advanced", control: "select", hidden: true, defaultValue: "4", options: [["0", "7.8K"], ["1", "10.4K"], ["2", "15.6K"], ["3", "20.8K"], ["4", "31.2K"], ["5", "41.6K"], ["6", "62.5K"], ["7", "125K"], ["8", "250K"], ["9", "500K"]], range: "0 - 9", description: "LoRa bandwidth." },
-    { varNo: 29, name: "LoraCodeRate", group: "Advanced", control: "select", hidden: true, defaultValue: "4", options: [["1", "4/5"], ["2", "4/6"], ["3", "4/7"], ["4", "4/8"]], range: "1 - 4", description: "LoRa coding rate." },
     { varNo: 30, name: "LoraPANID", group: "LoRa Radio", control: "number", defaultValue: "255", min: 255, max: 65280, range: "255 - 65280", description: "LoRa PAN ID." },
     { varNo: 31, name: "LoraPayloadLen", group: "LoRa Radio", control: "number", defaultValue: "128", min: 0, max: 255, range: "0 - 255", description: "LoRa payload length." },
     { varNo: 32, name: "HostEvents", group: "Bypass / Sleep", control: "bool", defaultValue: "true", range: "bool", description: "Enable host event output strings." },
-    { varNo: 33, name: "DebugInfo", group: "Advanced", control: "bool", hidden: true, defaultValue: "0", range: "bool", description: "Enable debug information." },
-    { varNo: 34, name: "TestMode", group: "Advanced", control: "bool", hidden: true, defaultValue: "0", range: "bool", description: "Enable test mode." },
     { varNo: 35, name: "Hardware", group: "System", control: "readonly", ro: true, defaultValue: "LR71", range: "Read only", description: "Hardware model." },
     { varNo: 36, name: "OutMtuSize", group: "System", control: "number", defaultValue: "400", range: "UDP:1-1472, TCP:1-1460", description: "Output MTU size." },
     { varNo: 37, name: "MaxTTL", group: "Mesh", control: "number", defaultValue: "2", min: 0, max: 255, range: "0 - 255", description: "Maximum Mesh TTL." },
@@ -49,10 +43,8 @@ LR71: {
     { varNo: 41, name: "PublishAddr", group: "Mesh", control: "hex", defaultValue: "C001", range: "0000 - FFFF", description: "Publish address." },
     { varNo: 42, name: "SubscribeAddr", group: "Mesh", control: "text", defaultValue: "C001", range: "0000 - FFFF, space separated", description: "Subscribe address list." },
     { varNo: 43, name: "DefaultDstAddr", group: "Mesh", control: "hex", defaultValue: "0000", range: "0000 - FFFF", description: "Default destination address." },
-    { varNo: 44, name: "MeshDbgLevel", group: "Advanced", control: "number", hidden: true, defaultValue: "0", min: 0, max: 255, range: "0 - 255", description: "Mesh debug level." },
     { varNo: 45, name: "AckTimeout", group: "Timing", control: "text", defaultValue: "auto", range: "auto, 1 - 254, disabled", description: "ACK timeout. Use auto for computed timeout or disabled to disable." },
     { varNo: 46, name: "LoraTxRpt", group: "Timing", control: "number", defaultValue: "1", min: 1, max: 5, range: "1 - 5", description: "LoRa transmit repeat count." },
-    { varNo: 47, name: "LoraTxInt", group: "Advanced", control: "text", hidden: true, defaultValue: "auto", range: "auto, 1 - 65535", description: "LoRa TX interval." },
     { varNo: 48, name: "LoraScanRpt", group: "Timing", control: "number", defaultValue: "4", min: 0, max: 255, range: "0 - 255", description: "LoraDiscovery/LoraNet scan repeat count." },
     { varNo: 49, name: "LoraScanInterval", group: "Timing", control: "number", defaultValue: "7", min: 0, max: 255, range: "0 - 255", description: "Scan interval multiplier. Runtime interval is this value times mesh_LoraTxInterval()." },
     { varNo: 50, name: "LoRaRmtPin", group: "System", control: "text", defaultValue: "123456", range: "000000 - ffffff", description: "Remote command PIN, six hex characters." },
@@ -106,6 +98,7 @@ function createConfigPage({
     let readMode = null;
     let autoReadDone = false;
     let sessionToken = null;
+    let pendingImport = null;
 
     if (!root) {
         return emptyConfigPage();
@@ -166,6 +159,10 @@ function createConfigPage({
         row.dataset.varNo = String(item.varNo);
         row.innerHTML = `
             <label class="config-label" for="config-var-${item.varNo}">${escapeHtml(item.name)}</label>
+            <div class="config-diff-area">
+                <span class="config-original-value"></span>
+                <span class="config-diff-arrow" tabindex="0">--&gt;</span>
+            </div>
             <div class="config-control"></div>
             <span class="config-help" tabindex="0">?
                 <span class="config-tooltip" id="config-tip-${item.varNo}">
@@ -249,6 +246,7 @@ function createConfigPage({
         row.classList.toggle("readonly", isReadonly);
         row.classList.toggle("missing", isMissing);
         row.classList.toggle("changed", dirty.has(item.varNo));
+        updateInlineDiff(item);
         updateTooltip(item);
     }
 
@@ -357,6 +355,7 @@ function createConfigPage({
         readMode = null;
 
         if (!hardware) {
+            clearPendingImport();
             setActiveProfile(null);
             setStatus("Failed to detect hardware. Configuration is disabled.");
             updateButtons();
@@ -366,6 +365,7 @@ function createConfigPage({
 
         const profileName = findProfileName(hardware);
         if (!profileName || !CONFIG_PROFILES[profileName].items.length) {
+            clearPendingImport();
             setActiveProfile(null);
             setStatus(`Unsupported hardware: ${hardware}. Configuration is disabled.`);
             updateButtons();
@@ -409,6 +409,11 @@ function createConfigPage({
         setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned.` : "No config rows parsed.");
         updateButtons();
         endSession();
+        try {
+            applyPendingImport();
+        } catch (error) {
+            handleError(error);
+        }
     }
 
     function exportJson() {
@@ -437,30 +442,17 @@ function createConfigPage({
         event.target.value = "";
         if (!file) return;
 
-        if (loaded.size === 0) {
-            setStatus("Read configuration from device before importing JSON.");
-            return;
-        }
-
         const data = JSON.parse(await file.text());
-        if (!hasActiveProfile() || !data || data.format !== getActiveProfile().format || !Array.isArray(data.items)) {
-            throw new Error(`Invalid ${getActiveProfileName()} config JSON`);
+        validateImportShape(data);
+
+        ensureConnected();
+        if (reading) {
+            throw new Error("Configuration is busy. Try again after current read completes.");
         }
 
-        let count = 0;
-        for (const imported of data.items) {
-            const item = itemByVar.get(Number(imported.varNo));
-            if (!item || isReadonlyItem(item) || !loaded.has(item.varNo)) continue;
-            if (imported.name && imported.name !== item.name) continue;
-            const currentValue = values.get(item.varNo) || "";
-            const importedValue = normalizeValue(item, String(imported.value ?? ""));
-            if (importedValue === currentValue) continue;
-            setValue(item, importedValue, true);
-            count++;
-        }
-        setStatus(count
-            ? `Imported ${count} changed writable item(s). Click Apply Changed to write them.`
-            : "Imported JSON matches current device configuration.");
+        pendingImport = createPendingImport(data, file.name);
+        setStatus(`Import selected: ${file.name}. Reading current device configuration before diff...`);
+        await probeHardwareThenRead();
     }
 
     function handleConnected() {
@@ -476,6 +468,7 @@ function createConfigPage({
         autoReadDone = false;
         clearTimeout(readTimer);
         endSession();
+        clearPendingImport();
         clearDeviceState();
         setActiveProfile(null);
         setStatus("Disconnected.");
@@ -489,6 +482,7 @@ function createConfigPage({
         autoReadDone = false;
         clearTimeout(readTimer);
         endSession();
+        clearPendingImport();
         clearDeviceState();
         setActiveProfile(null);
         setStatus(message);
@@ -508,6 +502,7 @@ function createConfigPage({
         autoReadDone = false;
         clearTimeout(readTimer);
         endSession();
+        clearPendingImport();
         clearDeviceState();
         setActiveProfile(null);
         setStatus("Device changed. Configuration must be read again.");
@@ -537,6 +532,7 @@ function createConfigPage({
         readMode = null;
         clearTimeout(readTimer);
         endSession();
+        clearPendingImport();
         setStatus(`Error: ${error.message}`);
         updateButtons();
         debugLog("config page error", error);
@@ -590,11 +586,139 @@ function createConfigPage({
         `;
     }
 
+    function updateInlineDiff(item) {
+        const row = root.querySelector(`.config-row[data-var-no="${item.varNo}"]`);
+        if (!row) return;
+
+        const originalEl = row.querySelector(".config-original-value");
+        const arrowEl = row.querySelector(".config-diff-arrow");
+        if (!originalEl || !arrowEl) return;
+
+        const isChanged = dirty.has(item.varNo);
+        if (!isChanged) {
+            originalEl.textContent = "";
+            originalEl.removeAttribute("title");
+            arrowEl.removeAttribute("title");
+            return;
+        }
+
+        const deviceValue = getDeviceValue(item);
+        const pendingValue = getPendingValue(item);
+        originalEl.textContent = formatConfigValueForDiff(deviceValue);
+        originalEl.title = deviceValue;
+        arrowEl.title = `Device value: ${deviceValue}\nPending value: ${pendingValue}`;
+    }
+
+    function getDeviceValue(item) {
+        return deviceValues.get(item.varNo) || "";
+    }
+
+    function getPendingValue(item) {
+        return values.get(item.varNo) || "";
+    }
+
+    function formatConfigValueForDiff(value) {
+        return String(value || "");
+    }
+
     function clearDeviceState() {
         loaded.clear();
         dirty.clear();
         deviceValues.clear();
         values = new Map(getActiveItems().map(item => [item.varNo, item.defaultValue || ""]));
+    }
+
+    function validateImportShape(data) {
+        if (!data || typeof data !== "object" || !data.format || !Array.isArray(data.items)) {
+            throw new Error("Invalid config JSON");
+        }
+    }
+
+    function createPendingImport(data, fileName) {
+        return {
+            data,
+            fileName: fileName || "config.json",
+        };
+    }
+
+    function clearPendingImport() {
+        pendingImport = null;
+    }
+
+    function applyPendingImport() {
+        if (!pendingImport) {
+            return;
+        }
+
+        const request = pendingImport;
+        pendingImport = null;
+        applyImportedJson(request.data, request.fileName);
+    }
+
+    function applyImportedJson(data, fileName) {
+        if (!hasActiveProfile() || data.format !== getActiveProfile().format) {
+            throw new Error(`Invalid ${getActiveProfileName()} config JSON`);
+        }
+
+        const summary = buildImportSummary(data);
+        applyImportSummary(summary);
+        setStatus(summary.changed
+            ? `Imported ${summary.changed} changed writable item(s) from ${fileName}. Click Apply Changed to write them.`
+            : `Imported ${fileName}; JSON matches current device configuration.`);
+    }
+
+    function buildImportSummary(data) {
+        const summary = {
+            changed: 0,
+            unchanged: 0,
+            skippedReadonly: 0,
+            skippedMissing: 0,
+            skippedUnsupported: 0,
+            skippedNameMismatch: 0,
+            changes: [],
+        };
+
+        for (const imported of data.items) {
+            const item = itemByVar.get(Number(imported.varNo));
+            if (!item) {
+                summary.skippedUnsupported++;
+                continue;
+            }
+            if (imported.name && imported.name !== item.name) {
+                summary.skippedNameMismatch++;
+                continue;
+            }
+            if (isReadonlyItem(item)) {
+                summary.skippedReadonly++;
+                continue;
+            }
+            if (!loaded.has(item.varNo)) {
+                summary.skippedMissing++;
+                continue;
+            }
+
+            const currentValue = values.get(item.varNo) || "";
+            const importedValue = normalizeValue(item, String(imported.value ?? ""));
+            if (importedValue === currentValue) {
+                summary.unchanged++;
+                continue;
+            }
+
+            summary.changed++;
+            summary.changes.push({
+                item,
+                value: importedValue,
+                previousValue: currentValue,
+            });
+        }
+
+        return summary;
+    }
+
+    function applyImportSummary(summary) {
+        for (const change of summary.changes) {
+            setValue(change.item, change.value, true);
+        }
     }
 
     function setActiveProfile(profileName) {
