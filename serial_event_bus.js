@@ -1,8 +1,13 @@
 (function () {
 function createSerialEventBus() {
+    const dataSubscribers = new Map();
     const textSubscribers = new Map();
     const byteSubscribers = new Map();
     let exclusiveOwner = null;
+
+    function subscribeData(owner, handler, options = {}) {
+        return subscribe(dataSubscribers, owner, handler, options);
+    }
 
     function subscribeText(owner, handler, options = {}) {
         return subscribe(textSubscribers, owner, handler, options);
@@ -35,6 +40,7 @@ function createSerialEventBus() {
     }
 
     function emitData({ text = "", bytes = null } = {}) {
+        emit(dataSubscribers, { text, bytes });
         if (bytes) {
             emit(byteSubscribers, bytes);
         }
@@ -78,6 +84,7 @@ function createSerialEventBus() {
     }
 
     return {
+        subscribeData,
         subscribeText,
         subscribeBytes,
         emitData,

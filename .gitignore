@@ -1,3 +1,4 @@
 certs/*.key
 certs/*.csr
 certs/*.srl
+plan.md

@@ -20,7 +20,7 @@ function createQuickSendPanel({
     serialSession,
     appendNewlineToggle,
     writeTerminal = () => {},
-    writeTerminalTxEcho = (text, { hex = false } = {}) => writeTerminal(`> ${hex ? "[HEX] " : ""}${text}\n`),
+    writeTerminalTxEcho = (text, { hex = false } = {}) => writeTerminal(`> ${text}\n`),
     debugLog = () => {},
     rootSelector = "#quickSendPanel",
 } = {}) {

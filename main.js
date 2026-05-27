@@ -3,7 +3,7 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createQuickSendPanel || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createQuickSendPanel || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         SerialTransport: Boolean(appModules.SerialTransport),
@@ -12,8 +12,10 @@ if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.
         createSerialEventBus: Boolean(appModules.createSerialEventBus),
         createSerialSession: Boolean(appModules.createSerialSession),
         createQuickSendPanel: Boolean(appModules.createQuickSendPanel),
+        createTerminalPage: Boolean(appModules.createTerminalPage),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),
+        createTerminalLogStore: Boolean(appModules.createTerminalLogStore),
         hexToBytes: Boolean(appModules.hexToBytes),
     });
     throw new Error("Required page scripts failed to load.");
@@ -41,59 +43,16 @@ const connectBtn = document.getElementById('connectBtn');
 const connectText = document.getElementById('connectText');
 const autoConnectToggle = document.getElementById('autoConnectToggle');
 const statusMessage = document.getElementById('statusMessage');
-const terminalOutput = document.getElementById('terminalOutput');
-const atCommandInput = document.getElementById('atCommandInput');
-const sendCmdBtn = document.getElementById('sendCmdBtn');
-const autoScrollToggle = document.getElementById('autoScrollToggle');
-const showLineTimeToggle = document.getElementById('showLineTimeToggle');
-const terminalThemeSelect = document.getElementById('terminalThemeSelect');
-const terminalNotice = document.getElementById('terminalNotice');
-const copyTerminalOutputBtn = document.getElementById('copyTerminalOutputBtn');
-const clearTerminalOutputBtn = document.getElementById('clearTerminalOutputBtn');
-const hexSendToggle = document.getElementById('hexSendToggle');
-const rxIdleInput = document.getElementById('rxIdleInput');
-const appendNewlineToggle = document.getElementById('appendNewlineToggle');
-const sendIntervalInput = document.getElementById('sendIntervalInput');
-const intervalSendBtn = document.getElementById('intervalSendBtn');
-const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
-const COMMAND_HISTORY_MAX = 50;
-const TERMINAL_THEME_KEY = "lr71TerminalTheme";
-const TERMINAL_DEFAULT_THEME = "bright-dark";
-const TERMINAL_COPY_WARN_LENGTH = 2000000;
-const TERMINAL_MAX_NODES = 4000;
-const RX_IDLE_DEFAULT_MS = 10;
-const COPY_BUTTON_LABEL = "Copy UART output";
-const COPY_BUTTON_ICONS = {
-    idle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7A2 2 0 0 1 10 5H19A2 2 0 0 1 21 7V16A2 2 0 0 1 19 18H17V20A2 2 0 0 1 15 22H6A2 2 0 0 1 4 20V11A2 2 0 0 1 6 9H8V7ZM10 7V16H19V7H10ZM6 11V20H15V18H10A2 2 0 0 1 8 16V11H6Z"></path></svg>',
-    success: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 8.75 6.5 11.5 12.25 4.5"></path></svg>',
-    empty: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" d="M8 4.4v4.1"></path><circle cx="8" cy="11.4" r="0.8" fill="currentColor"></circle></svg>',
-    failed: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"></path></svg>',
-};
 debugLog("dom refs resolved", {
     connectBtn: Boolean(connectBtn),
     portSelect: Boolean(portSelect),
-    atCommandInput: Boolean(atCommandInput),
-    sendCmdBtn: Boolean(sendCmdBtn),
 });
-rxIdleInput.value = String(RX_IDLE_DEFAULT_MS);
-applyTerminalTheme(loadTerminalTheme());
 
 let netViewPage = null;
+let terminalPage = null;
 let firmwareUpdateDialog = null;
 let configPage = null;
-let quickSendPanel = null;
-let intervalSendTimer = null;
-let intervalSendBusy = false;
-let commandHistory = loadCommandHistory();
-let commandHistoryIndex = commandHistory.length;
-let commandHistoryDraft = "";
-let uartAtLineStart = true;
 let activeViewId = "view-terminal";
-let terminalNoticeTimer = null;
-let copySuccessTimer = null;
-let hexRxBuffer = [];
-let textRxBuffer = "";
-let rxFlushTimer = null;
 let waitingServiceWorker = null;
 let serviceWorkerRefreshing = false;
 
@@ -178,296 +137,10 @@ document.querySelectorAll('.menu-item').forEach(item => {
     });
 });
 
-function writeTerminal(text) {
-    writeTerminalSystem(text);
-}
-
-function writeTerminalText(text, className) {
-    if (!text) return;
-
-    const span = document.createElement("span");
-    span.className = className;
-    span.appendChild(document.createTextNode(text));
-    terminalOutput.appendChild(span);
-    trimTerminalNodes();
-    scrollTerminalIfNeeded();
-}
-
-function writeTerminalFragment(fragment) {
-    terminalOutput.appendChild(fragment);
-    trimTerminalNodes();
-    scrollTerminalIfNeeded();
-}
-
-function writeTerminalRx(text) {
-    writeTerminalText(text, "terminal-rx");
-}
-
-function writeTerminalTx(text) {
-    writeTerminalText(text, "terminal-tx");
-}
-
-function writeTerminalError(text) {
-    writeTerminalText(text, "terminal-error");
-}
-
-function writeTerminalSystem(text) {
-    writeTerminalText(text, "terminal-system");
-}
-
-function writeTerminalTime(fragment, date = new Date()) {
-    const span = document.createElement("span");
-    span.className = "terminal-time";
-    span.appendChild(document.createTextNode(`[${formatTimestampMs(date)}] `));
-    fragment.appendChild(span);
-}
-
-function loadTerminalTheme() {
-    const stored = localStorage.getItem(TERMINAL_THEME_KEY);
-    return isValidTerminalTheme(stored) ? stored : TERMINAL_DEFAULT_THEME;
-}
-
-function isValidTerminalTheme(theme) {
-    return Boolean(terminalThemeSelect &&
-                   theme &&
-                   Array.from(terminalThemeSelect.options).some(option => option.value === theme));
-}
-
-function applyTerminalTheme(theme) {
-    const nextTheme = isValidTerminalTheme(theme) ? theme : TERMINAL_DEFAULT_THEME;
-    terminalOutput.dataset.theme = nextTheme;
-    if (terminalThemeSelect) {
-        terminalThemeSelect.value = nextTheme;
-    }
-}
-
-function scrollTerminalIfNeeded() {
-    if (!autoScrollToggle || autoScrollToggle.checked) {
-        terminalOutput.scrollTop = terminalOutput.scrollHeight;
-    }
-}
-
-function trimTerminalNodes() {
-    while (terminalOutput.childNodes.length > TERMINAL_MAX_NODES) {
-        terminalOutput.removeChild(terminalOutput.firstChild);
-    }
-}
-
-function writeTerminalTxEcho(text, { hex = false } = {}) {
-    const fragment = document.createDocumentFragment();
-    if (showLineTimeToggle.checked) {
-        writeTerminalTime(fragment);
-    }
-    const span = document.createElement("span");
-    span.className = "terminal-tx";
-    span.appendChild(document.createTextNode(`${hex ? "[HEX] " : ""}${text}\n`));
-    fragment.appendChild(span);
-    writeTerminalFragment(fragment);
-}
-
-function showTerminalNotice(message) {
-    if (!terminalNotice) return;
-
-    terminalNotice.textContent = message;
-    terminalNotice.classList.add('visible');
-
-    if (terminalNoticeTimer) {
-        clearTimeout(terminalNoticeTimer);
-    }
-
-    terminalNoticeTimer = setTimeout(() => {
-        terminalNotice.classList.remove('visible');
-    }, 2000);
-}
-
-function showCopyButtonState(state) {
-    if (!copyTerminalOutputBtn) return;
-
-    const icon = COPY_BUTTON_ICONS[state] || COPY_BUTTON_ICONS.idle;
-    const title = state === "success" ? "Copied" :
-                  state === "empty" ? "Nothing to copy" :
-                  state === "failed" ? "Copy failed" :
-                  COPY_BUTTON_LABEL;
-
-    copyTerminalOutputBtn.classList.remove("copy-state-success", "copy-state-empty", "copy-state-failed");
-    if (state !== "idle") {
-        copyTerminalOutputBtn.classList.add(`copy-state-${state}`);
-    }
-    copyTerminalOutputBtn.innerHTML = icon;
-    copyTerminalOutputBtn.title = title;
-    copyTerminalOutputBtn.setAttribute("aria-label", title);
-
-    if (copySuccessTimer) {
-        clearTimeout(copySuccessTimer);
-        copySuccessTimer = null;
-    }
-
-    if (state !== "idle") {
-        copySuccessTimer = setTimeout(() => {
-            showCopyButtonState("idle");
-        }, 900);
-    }
-}
-
-async function copyTerminalOutput() {
-    const text = terminalOutput.textContent;
-    if (!text) {
-        showCopyButtonState("empty");
-        debugLog("No UART output to copy");
-        return;
-    }
-
-    if (text.length > TERMINAL_COPY_WARN_LENGTH &&
-        !confirm("UART output is large. Copying may freeze the page. Continue?")) {
-        return;
-    }
-
-    try {
-        await navigator.clipboard.writeText(text);
-        showCopyButtonState("success");
-        debugLog("UART output copied", { length: text.length });
-    } catch (error) {
-        showCopyButtonState("failed");
-        debugLog("UART output copy failed", error);
-    }
-}
-
-function clearTerminalOutput() {
-    clearUartRxBuffer();
-    terminalOutput.replaceChildren();
-    terminalOutput.scrollTop = 0;
-    uartAtLineStart = true;
-    showTerminalNotice("Cleared");
-}
-
-function writeUartData(data) {
-    if (!showLineTimeToggle.checked) {
-        writeTerminalRx(data);
-        uartAtLineStart = /(\r|\n)$/.test(data);
-        return;
-    }
-
-    const fragment = document.createDocumentFragment();
-    let rxText = "";
-
-    function flushRxText() {
-        if (!rxText) return;
-        const span = document.createElement("span");
-        span.className = "terminal-rx";
-        span.appendChild(document.createTextNode(rxText));
-        fragment.appendChild(span);
-        rxText = "";
-    }
-
-    for (const char of data) {
-        if (uartAtLineStart && char !== "\r" && char !== "\n") {
-            flushRxText();
-            writeTerminalTime(fragment);
-            uartAtLineStart = false;
-        }
-
-        rxText += char;
-        if (char === "\r" || char === "\n") {
-            uartAtLineStart = true;
-        }
-    }
-
-    flushRxText();
-    writeTerminalFragment(fragment);
-}
-
-function writeUartHexData(bytes) {
-    hexRxBuffer.push(...bytes);
-    restartUartRxFlushTimer();
-}
-
-function writeUartTextBuffered(data) {
-    textRxBuffer += data;
-    restartUartRxFlushTimer();
-}
-
-function getRxIdleMs() {
-    const value = Number(rxIdleInput.value);
-    if (!Number.isFinite(value) || value < 1) {
-        return RX_IDLE_DEFAULT_MS;
-    }
-    return Math.min(1000, Math.floor(value));
-}
-
-function restartUartRxFlushTimer() {
-    if (rxFlushTimer) {
-        clearTimeout(rxFlushTimer);
-    }
-    rxFlushTimer = setTimeout(flushUartRxBuffer, getRxIdleMs());
-}
-
-function clearUartRxBuffer() {
-    if (rxFlushTimer) {
-        clearTimeout(rxFlushTimer);
-        rxFlushTimer = null;
-    }
-    textRxBuffer = "";
-    hexRxBuffer = [];
-}
-
-function flushUartRxBuffer() {
-    if (rxFlushTimer) {
-        clearTimeout(rxFlushTimer);
-        rxFlushTimer = null;
-    }
-
-    if (hexRxBuffer.length > 0) {
-        flushUartHexBuffer();
-    }
-
-    if (textRxBuffer.length > 0) {
-        const output = textRxBuffer;
-        textRxBuffer = "";
-        writeUartData(output);
-    }
-}
-
-function flushUartHexBuffer() {
-    const output = appModules.bytesToHexText(new Uint8Array(hexRxBuffer));
-    hexRxBuffer = [];
-    if (!output) return;
-
-    const line = `${output}\n`;
-    if (showLineTimeToggle.checked) {
-        const fragment = document.createDocumentFragment();
-        writeTerminalTime(fragment);
-        const span = document.createElement("span");
-        span.className = "terminal-rx";
-        span.appendChild(document.createTextNode(line));
-        fragment.appendChild(span);
-        writeTerminalFragment(fragment);
-    } else {
-        writeTerminalRx(line);
-    }
-    uartAtLineStart = true;
-}
-
-function formatTimestampMs(date) {
-    const pad2 = value => String(value).padStart(2, "0");
-    const pad3 = value => String(value).padStart(3, "0");
-    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
-}
-
 function onDataReceived(data, bytes) {
     const byteLength = bytes ? bytes.length : data.length;
     debugLog("serial data received", { length: byteLength });
     serialBus.emitData({ text: data, bytes });
-}
-
-function handleTerminalSerialData({ text, bytes }) {
-    if (hexSendToggle.checked && bytes) {
-        writeUartHexData(bytes);
-    } else {
-        if (hexRxBuffer.length > 0) {
-            flushUartRxBuffer();
-        }
-        writeUartTextBuffered(text);
-    }
 }
 
 function onDisconnect() {
@@ -475,8 +148,9 @@ function onDisconnect() {
     if (serialSession) {
         serialSession.reset();
     }
-    flushUartRxBuffer();
-    stopIntervalSend();
+    if (terminalPage) {
+        terminalPage.handleDisconnected();
+    }
     updateUI(false);
     updatePortList().catch(error => console.error("Port list update failed:", error));
 }
@@ -491,47 +165,33 @@ const serialSession = appModules.createSerialSession({
     onStatusChange: updateSessionUI,
 });
 debugLog("serial session created");
+terminalPage = appModules.createTerminalPage({
+    serialSession,
+    serialBus,
+    debugLog,
+});
+debugLog("terminal page created");
 netViewPage = appModules.createNetViewPage({
     serialManager,
     serialSession,
-    writeTerminal,
+    writeTerminal: terminalPage.writeSystem,
 });
 debugLog("netview page created");
-quickSendPanel = appModules.createQuickSendPanel({
-    serialSession,
-    appendNewlineToggle,
-    writeTerminal,
-    writeTerminalTxEcho,
-    debugLog,
-});
-debugLog("quick send panel created");
 firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
     serialManager,
     serialSession,
-    writeTerminal,
+    writeTerminal: terminalPage.writeSystem,
     debugLog,
 });
 debugLog("firmware update dialog created");
 configPage = appModules.createConfigPage({
     serialManager,
     serialSession,
-    writeTerminal,
+    writeTerminal: terminalPage.writeSystem,
     debugLog,
 });
 debugLog("configuration page created");
 
-serialBus.subscribeBytes("terminal", bytes => {
-    if (!hexSendToggle.checked) {
-        return;
-    }
-    handleTerminalSerialData({ text: "", bytes });
-});
-serialBus.subscribeText("terminal", text => {
-    if (hexSendToggle.checked) {
-        return;
-    }
-    handleTerminalSerialData({ text, bytes: null });
-});
 serialBus.subscribeText("netview", text => netViewPage.handleSerialData(text));
 serialBus.subscribeText("firmware", text => firmwareUpdateDialog.handleSerialText(text));
 serialBus.subscribeText("config", text => configPage.handleSerialData(text));
@@ -637,9 +297,9 @@ async function switchConnectedPort(selectedValue) {
         }
 
         debugLog("switch serial port start", { selectedValue });
-        stopIntervalSend();
+        terminalPage.stopIntervalSend();
         serialSession.reset();
-        flushUartRxBuffer();
+        terminalPage.handleDisconnected();
         const disconnectPromise = serialManager.disconnect({ notify: false });
         updateUI();
         await disconnectPromise;
@@ -662,27 +322,6 @@ async function switchConnectedPort(selectedValue) {
 autoConnectToggle.addEventListener('change', () => {
     localStorage.setItem('autoConnect', autoConnectToggle.checked);
 });
-
-showLineTimeToggle.addEventListener('change', () => {
-    uartAtLineStart = true;
-});
-
-if (terminalThemeSelect) {
-    terminalThemeSelect.addEventListener('change', () => {
-        applyTerminalTheme(terminalThemeSelect.value);
-        localStorage.setItem(TERMINAL_THEME_KEY, terminalThemeSelect.value);
-    });
-}
-
-copyTerminalOutputBtn.addEventListener('click', () => {
-    copyTerminalOutput().catch(error => {
-        debugLog("UART output copy failed", error);
-    });
-});
-
-clearTerminalOutputBtn.addEventListener('click', clearTerminalOutput);
-hexSendToggle.addEventListener('change', handleTerminalHexToggle);
-rxIdleInput.addEventListener('change', normalizeRxIdleInput);
 
 async function tryConnect(targetPort = null) {
     if (serialManager.isBusy()) {
@@ -732,7 +371,7 @@ async function tryDisconnect() {
 
     debugLog("tryDisconnect start");
     try {
-        stopIntervalSend();
+        terminalPage.stopIntervalSend();
         const disconnectPromise = serialManager.disconnect();
         updateUI();
         await disconnectPromise;
@@ -759,13 +398,9 @@ function updateUI(connected = serialManager.isConnected()) {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connecting...";
         statusMessage.innerText = "Status: Connecting...";
-        atCommandInput.disabled = true;
-        sendCmdBtn.disabled = true;
-        sendIntervalInput.disabled = true;
-        intervalSendBtn.disabled = true;
+        terminalPage.handleDisconnected();
         netViewPage.handleDisconnected("Status: serial connection is busy.");
         configPage.handleDisconnected();
-        quickSendPanel.handleDisconnected();
         return;
     }
 
@@ -773,13 +408,9 @@ function updateUI(connected = serialManager.isConnected()) {
         connectBtn.classList.add('connected');
         connectText.innerText = "Disconnecting...";
         statusMessage.innerText = "Status: Disconnecting...";
-        atCommandInput.disabled = true;
-        sendCmdBtn.disabled = true;
-        sendIntervalInput.disabled = true;
-        intervalSendBtn.disabled = true;
+        terminalPage.handleDisconnected();
         netViewPage.handleDisconnected("Status: serial connection is busy.");
         configPage.handleDisconnected();
-        quickSendPanel.handleDisconnected();
         return;
     }
 
@@ -788,20 +419,15 @@ function updateUI(connected = serialManager.isConnected()) {
         connectText.innerText = "Disconnect";
         netViewPage.handleConnected();
         configPage.handleConnected();
-        quickSendPanel.handleConnected();
+        terminalPage.handleConnected();
         updateSessionUI();
     } else {
-        stopIntervalSend();
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connect";
         statusMessage.innerText = "Status: Disconnected";
-        atCommandInput.disabled = true;
-        sendCmdBtn.disabled = true;
-        sendIntervalInput.disabled = true;
-        intervalSendBtn.disabled = true;
+        terminalPage.handleDisconnected();
         netViewPage.handleDisconnected();
         configPage.handleDisconnected();
-        quickSendPanel.handleDisconnected();
     }
 }
 
@@ -811,22 +437,11 @@ function updateSessionUI() {
     }
 
     const sessionText = serialSession ? serialSession.getStatusText() : "";
-    const terminalReady = serialSession ? serialSession.canWrite("terminal") : true;
 
     statusMessage.innerText = sessionText
         ? `Status: Connected to Serial Device (${sessionText})`
         : "Status: Connected to Serial Device";
-    atCommandInput.disabled = !terminalReady;
-    sendCmdBtn.disabled = !terminalReady;
-    sendIntervalInput.disabled = !terminalReady;
-    intervalSendBtn.disabled = !terminalReady;
-
-    if (!terminalReady) {
-        stopIntervalSend();
-    }
-    if (quickSendPanel && quickSendPanel.handleSessionChanged) {
-        quickSendPanel.handleSessionChanged();
-    }
+    terminalPage.handleSessionChanged();
     if (netViewPage && netViewPage.handleSessionChanged) {
         netViewPage.handleSessionChanged();
     }
@@ -867,206 +482,6 @@ if (serialManager.isSupported()) {
         updatePortList();
     });
 }
-
-function buildTerminalPayload(text) {
-    return appendNewlineToggle.checked ? `${text}\r\n` : text;
-}
-
-async function sendCommand({ clearInput = true } = {}) {
-    const cmd = atCommandInput.value;
-    if (!cmd) return;
-
-    try {
-        if (hexSendToggle.checked) {
-            await serialSession.writeBytes("terminal", appModules.hexToBytes(cmd));
-            writeTerminalTxEcho(cmd, { hex: true });
-        } else {
-            await serialSession.writeText("terminal", buildTerminalPayload(cmd));
-            writeTerminalTxEcho(cmd);
-        }
-        addCommandHistory(cmd);
-        if (clearInput) {
-            atCommandInput.value = '';
-        }
-    } catch (error) {
-        writeTerminalError(`Error: ${error.message}\n`);
-    }
-}
-
-function handleTerminalHexToggle() {
-    const enabled = hexSendToggle.checked;
-    const value = atCommandInput.value;
-
-    if (!enabled) {
-        flushUartRxBuffer();
-    }
-
-    if (!value) return;
-
-    try {
-        atCommandInput.value = enabled ? appModules.textToHexText(value) : appModules.hexTextToText(value);
-        commandHistoryIndex = commandHistory.length;
-        commandHistoryDraft = atCommandInput.value;
-    } catch (error) {
-        hexSendToggle.checked = !enabled;
-        showTerminalNotice("HEX convert failed");
-        writeTerminalError(`Error: ${error.message}\n`);
-    }
-}
-
-function normalizeRxIdleInput() {
-    rxIdleInput.value = String(getRxIdleMs());
-}
-
-function loadCommandHistory() {
-    try {
-        const value = JSON.parse(localStorage.getItem(COMMAND_HISTORY_KEY) || "[]");
-        return Array.isArray(value) ? value.filter(item => typeof item === "string" && item.length > 0) : [];
-    } catch (error) {
-        return [];
-    }
-}
-
-function saveCommandHistory() {
-    localStorage.setItem(COMMAND_HISTORY_KEY, JSON.stringify(commandHistory));
-}
-
-function addCommandHistory(command) {
-    const value = String(command || "");
-    if (!value) return;
-
-    if (commandHistory[commandHistory.length - 1] !== value) {
-        commandHistory.push(value);
-        if (commandHistory.length > COMMAND_HISTORY_MAX) {
-            commandHistory = commandHistory.slice(commandHistory.length - COMMAND_HISTORY_MAX);
-        }
-        saveCommandHistory();
-    }
-    commandHistoryIndex = commandHistory.length;
-    commandHistoryDraft = "";
-}
-
-function browseCommandHistory(direction) {
-    if (commandHistory.length === 0) return;
-
-    if (commandHistoryIndex === commandHistory.length) {
-        commandHistoryDraft = atCommandInput.value;
-    }
-
-    if (direction < 0) {
-        commandHistoryIndex = Math.max(0, commandHistoryIndex - 1);
-        atCommandInput.value = commandHistory[commandHistoryIndex];
-    } else if (commandHistoryIndex < commandHistory.length - 1) {
-        commandHistoryIndex += 1;
-        atCommandInput.value = commandHistory[commandHistoryIndex];
-    } else {
-        commandHistoryIndex = commandHistory.length;
-        atCommandInput.value = commandHistoryDraft;
-    }
-
-    atCommandInput.setSelectionRange(atCommandInput.value.length, atCommandInput.value.length);
-}
-
-function terminalKeyToSerialText(event) {
-    if (event.ctrlKey || event.altKey || event.metaKey) {
-        return null;
-    }
-    if (event.key === "Enter") {
-        return appendNewlineToggle.checked ? "\r\n" : "\r";
-    }
-    if (event.key === "Backspace") {
-        return "\b";
-    }
-    if (event.key === "Tab") {
-        return "\t";
-    }
-    if (event.key.length === 1) {
-        return event.key;
-    }
-    return null;
-}
-
-async function sendTerminalKey(event) {
-    const text = terminalKeyToSerialText(event);
-    if (text === null) return;
-
-    event.preventDefault();
-    if (!serialSession.canWrite("terminal")) {
-        writeTerminalError(`${serialSession.getStatusText() || "Error: serial is not connected"}\n`);
-        return;
-    }
-
-    try {
-        await serialSession.writeText("terminal", text);
-    } catch (error) {
-        writeTerminalError(`Error: ${error.message}\n`);
-    }
-}
-
-function startIntervalSend() {
-    if (intervalSendTimer) {
-        stopIntervalSend();
-        return;
-    }
-
-    const intervalMs = Number(sendIntervalInput.value);
-    if (!Number.isFinite(intervalMs) || intervalMs < 10) {
-        writeTerminalError("Error: send interval must be at least 10 ms\n");
-        return;
-    }
-    if (!atCommandInput.value) {
-        writeTerminalError("Error: enter data before starting interval send\n");
-        return;
-    }
-
-    intervalSendBtn.textContent = "Stop Interval";
-    intervalSendBtn.classList.add("active");
-    sendCommand({ clearInput: false });
-    intervalSendTimer = setInterval(async () => {
-        if (intervalSendBusy) return;
-        intervalSendBusy = true;
-        try {
-            await sendCommand({ clearInput: false });
-        } finally {
-            intervalSendBusy = false;
-        }
-    }, intervalMs);
-}
-
-function stopIntervalSend() {
-    if (intervalSendTimer) {
-        clearInterval(intervalSendTimer);
-        intervalSendTimer = null;
-    }
-    intervalSendBusy = false;
-    if (intervalSendBtn) {
-        intervalSendBtn.textContent = "Start Interval";
-        intervalSendBtn.classList.remove("active");
-    }
-}
-
-terminalOutput.addEventListener('click', () => terminalOutput.focus());
-terminalOutput.addEventListener('keydown', event => {
-    sendTerminalKey(event);
-});
-sendCmdBtn.addEventListener('click', () => sendCommand());
-intervalSendBtn.addEventListener('click', startIntervalSend);
-atCommandInput.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        sendCommand();
-    } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        browseCommandHistory(-1);
-    } else if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        browseCommandHistory(1);
-    }
-});
-atCommandInput.addEventListener('input', () => {
-    commandHistoryIndex = commandHistory.length;
-    commandHistoryDraft = atCommandInput.value;
-});
 
 init().catch(error => {
     debugLog("init failed", error);

@@ -8,6 +8,7 @@ COPY index.html \
      styles.css \
      app_version.js \
      file_picker.js \
+     terminal_log_store.js \
      debug_logger.js \
      hex_utils.js \
      main.js \
@@ -17,6 +18,7 @@ COPY index.html \
      serial_event_bus.js \
      serial_session.js \
      quick_send.js \
+     terminal_page.js \
      netview_parser.js \
      topology_view.js \
      netview_page.js \
