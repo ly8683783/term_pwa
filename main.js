@@ -166,6 +166,7 @@ const serialSession = appModules.createSerialSession({
 });
 debugLog("serial session created");
 terminalPage = appModules.createTerminalPage({
+    rootSelector: "#view-terminal",
     serialSession,
     serialBus,
     debugLog,

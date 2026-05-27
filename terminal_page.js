@@ -24,25 +24,29 @@ const EXPORT_BUTTON_ICONS = {
 };
 
 function createTerminalPage({
+    rootSelector = "#view-terminal",
     serialSession,
     serialBus,
     debugLog = () => {},
 } = {}) {
-    const terminalOutput = document.getElementById("terminalOutput");
-    const atCommandInput = document.getElementById("atCommandInput");
-    const sendCmdBtn = document.getElementById("sendCmdBtn");
-    const autoScrollToggle = document.getElementById("autoScrollToggle");
-    const showLineTimeToggle = document.getElementById("showLineTimeToggle");
-    const terminalThemeSelect = document.getElementById("terminalThemeSelect");
-    const terminalNotice = document.getElementById("terminalNotice");
-    const copyTerminalOutputBtn = document.getElementById("copyTerminalOutputBtn");
-    const exportTerminalLogBtn = document.getElementById("exportTerminalLogBtn");
-    const clearTerminalOutputBtn = document.getElementById("clearTerminalOutputBtn");
-    const hexSendToggle = document.getElementById("hexSendToggle");
-    const rxIdleInput = document.getElementById("rxIdleInput");
-    const appendNewlineToggle = document.getElementById("appendNewlineToggle");
-    const sendIntervalInput = document.getElementById("sendIntervalInput");
-    const intervalSendBtn = document.getElementById("intervalSendBtn");
+    const root = document.querySelector(rootSelector) || document;
+    const findById = id => root.querySelector(`#${id}`);
+
+    const terminalOutput = findById("terminalOutput");
+    const atCommandInput = findById("atCommandInput");
+    const sendCmdBtn = findById("sendCmdBtn");
+    const autoScrollToggle = findById("autoScrollToggle");
+    const showLineTimeToggle = findById("showLineTimeToggle");
+    const terminalThemeSelect = findById("terminalThemeSelect");
+    const terminalNotice = findById("terminalNotice");
+    const copyTerminalOutputBtn = findById("copyTerminalOutputBtn");
+    const exportTerminalLogBtn = findById("exportTerminalLogBtn");
+    const clearTerminalOutputBtn = findById("clearTerminalOutputBtn");
+    const hexSendToggle = findById("hexSendToggle");
+    const rxIdleInput = findById("rxIdleInput");
+    const appendNewlineToggle = findById("appendNewlineToggle");
+    const sendIntervalInput = findById("sendIntervalInput");
+    const intervalSendBtn = findById("intervalSendBtn");
 
     let intervalSendTimer = null;
     let intervalSendBusy = false;
@@ -751,7 +755,8 @@ function createTerminalPage({
         return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}-${pad2(date.getHours())}${pad2(date.getMinutes())}${pad2(date.getSeconds())}`;
     }
 
-    return {
+    // Keep this object as the stable public interface consumed by main.js and sibling pages.
+    return Object.freeze({
         handleConnected,
         handleDisconnected,
         handleSessionChanged,
@@ -760,7 +765,7 @@ function createTerminalPage({
         writeTxEcho,
         clear,
         stopIntervalSend,
-    };
+    });
 }
 
 window.TermPWA = window.TermPWA || {};
