@@ -98,10 +98,13 @@ function createConfigPage({
     let autoReadDone = false;
     let sessionToken = null;
     let pendingImport = null;
+    let activeTooltipAnchor = null;
 
     if (!root) {
         return emptyConfigPage();
     }
+
+    const floatingTooltip = createFloatingTooltip();
 
     render();
 
@@ -173,7 +176,18 @@ function createConfigPage({
             </span>
         `;
         row.querySelector(".config-control").appendChild(createControl(item));
+        bindHelpTooltip(row);
         return row;
+    }
+
+    function bindHelpTooltip(row) {
+        const help = row.querySelector(".config-help");
+        if (!help) return;
+
+        help.addEventListener("mouseenter", () => showFloatingTooltip(help));
+        help.addEventListener("focus", () => showFloatingTooltip(help));
+        help.addEventListener("mouseleave", hideFloatingTooltip);
+        help.addEventListener("blur", hideFloatingTooltip);
     }
 
     function createControl(item) {
@@ -616,6 +630,53 @@ function createConfigPage({
             <em>Status: ${escapeHtml(status)}</em><br>
             <em>Set: at+ab config var${item.varNo}=value</em>
         `;
+        if (activeTooltipAnchor && activeTooltipAnchor.contains(tip)) {
+            showFloatingTooltip(activeTooltipAnchor);
+        }
+    }
+
+    function createFloatingTooltip() {
+        const tooltip = document.createElement("div");
+        tooltip.className = "config-floating-tooltip";
+        document.body.appendChild(tooltip);
+
+        window.addEventListener("resize", hideFloatingTooltip);
+        window.addEventListener("scroll", hideFloatingTooltip, true);
+        return tooltip;
+    }
+
+    function showFloatingTooltip(anchor) {
+        const tip = anchor.querySelector(".config-tooltip");
+        if (!tip) return;
+
+        activeTooltipAnchor = anchor;
+        floatingTooltip.innerHTML = tip.innerHTML;
+        floatingTooltip.classList.add("visible");
+        positionFloatingTooltip(anchor);
+    }
+
+    function hideFloatingTooltip() {
+        activeTooltipAnchor = null;
+        floatingTooltip.classList.remove("visible");
+    }
+
+    function positionFloatingTooltip(anchor) {
+        const rect = anchor.getBoundingClientRect();
+        const tipRect = floatingTooltip.getBoundingClientRect();
+        const margin = 8;
+        const viewportWidth = document.documentElement.clientWidth;
+        const viewportHeight = document.documentElement.clientHeight;
+
+        let left = rect.right - tipRect.width;
+        let top = rect.bottom + 5;
+
+        left = Math.max(margin, Math.min(left, viewportWidth - tipRect.width - margin));
+        if (top + tipRect.height + margin > viewportHeight) {
+            top = Math.max(margin, rect.top - tipRect.height - 5);
+        }
+
+        floatingTooltip.style.left = `${left}px`;
+        floatingTooltip.style.top = `${top}px`;
     }
 
     function updateInlineDiff(item) {

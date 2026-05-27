@@ -621,8 +621,24 @@ input:checked + .slider:before { transform: translateX(16px); }
     text-align: left;
     font-weight: 400;
 }
-.config-help:hover .config-tooltip,
-.config-help:focus .config-tooltip { display: block; }
+.config-floating-tooltip {
+    position: fixed;
+    z-index: 4000;
+    display: none;
+    width: 270px;
+    padding: 9px 10px;
+    border: 1px solid #9ea4a0;
+    border-radius: 5px;
+    background: #fffff4;
+    color: #333;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: left;
+    font-weight: 400;
+    pointer-events: none;
+}
+.config-floating-tooltip.visible { display: block; }
 @media (max-width: 1200px) {
     .config-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
 }

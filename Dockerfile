@@ -1,4 +1,4 @@
-FROM my-http-service
+FROM nginx:alpine
 
 WORKDIR /usr/share/nginx/html
 
