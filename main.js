@@ -3,7 +3,7 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createQuickSendPanel || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         SerialTransport: Boolean(appModules.SerialTransport),
@@ -11,7 +11,6 @@ if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.
         SerialPortManager: Boolean(appModules.SerialPortManager),
         createSerialEventBus: Boolean(appModules.createSerialEventBus),
         createSerialSession: Boolean(appModules.createSerialSession),
-        createQuickSendPanel: Boolean(appModules.createQuickSendPanel),
         createTerminalPage: Boolean(appModules.createTerminalPage),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),

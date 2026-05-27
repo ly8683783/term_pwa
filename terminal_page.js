@@ -68,7 +68,8 @@ function createTerminalPage({
     }
     applyTerminalTheme(loadTerminalTheme());
 
-    const quickSendPanel = appModules.createQuickSendPanel({
+    const quickSendPanel = createTerminalQuickSendPanel({
+        rootSelector: `${rootSelector} #quickSendPanel`,
         serialSession,
         appendNewlineToggle,
         writeTerminal: writeSystem,
@@ -766,6 +767,18 @@ function createTerminalPage({
         clear,
         stopIntervalSend,
     });
+}
+
+function createTerminalQuickSendPanel(options) {
+    if (typeof appModules.createQuickSendPanel !== "function") {
+        return {
+            handleConnected() {},
+            handleDisconnected() {},
+            handleSessionChanged() {},
+        };
+    }
+
+    return appModules.createQuickSendPanel(options);
 }
 
 window.TermPWA = window.TermPWA || {};
