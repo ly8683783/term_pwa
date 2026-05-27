@@ -8,6 +8,8 @@ const TERMINAL_DEFAULT_THEME = "bright-dark";
 const TERMINAL_COPY_WARN_LENGTH = 2000000;
 const TERMINAL_MAX_NODES = 4000;
 const RX_IDLE_DEFAULT_MS = 10;
+const TEXT_COMMAND_PLACEHOLDER = "Enter AT command (e.g. at+ab info)";
+const HEX_COMMAND_PLACEHOLDER = "Enter HEX bytes (e.g. 61 74 2B 61 62 20 69 6E 66 6F)";
 const COPY_BUTTON_LABEL = "Copy UART output";
 const COPY_BUTTON_ICONS = {
     idle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7A2 2 0 0 1 10 5H19A2 2 0 0 1 21 7V16A2 2 0 0 1 19 18H17V20A2 2 0 0 1 15 22H6A2 2 0 0 1 4 20V11A2 2 0 0 1 6 9H8V7ZM10 7V16H19V7H10ZM6 11V20H15V18H10A2 2 0 0 1 8 16V11H6Z"></path></svg>',
@@ -66,6 +68,7 @@ function createTerminalPage({
     if (rxIdleInput) {
         rxIdleInput.value = String(RX_IDLE_DEFAULT_MS);
     }
+    updateCommandPlaceholder();
     applyTerminalTheme(loadTerminalTheme());
 
     const quickSendPanel = createTerminalQuickSendPanel({
@@ -563,6 +566,7 @@ function createTerminalPage({
         if (!enabled) {
             flushUartRxBuffer();
         }
+        updateCommandPlaceholder();
 
         if (!value) return;
 
@@ -575,6 +579,14 @@ function createTerminalPage({
             showTerminalNotice("HEX convert failed");
             writeError(`Error: ${error.message}\n`);
         }
+    }
+
+    function updateCommandPlaceholder() {
+        if (!atCommandInput) return;
+
+        atCommandInput.placeholder = hexSendToggle && hexSendToggle.checked
+            ? HEX_COMMAND_PLACEHOLDER
+            : TEXT_COMMAND_PLACEHOLDER;
     }
 
     function normalizeRxIdleInput() {

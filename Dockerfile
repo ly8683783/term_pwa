@@ -27,6 +27,7 @@ COPY index.html \
      config_page.js \
      ./
 
+COPY assets ./assets
 COPY icons ./icons
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
