@@ -145,8 +145,8 @@ function createConfigPage({
 
         root.querySelector("#configReadBtn").addEventListener("click", () => probeHardwareThenRead().catch(handleError));
         root.querySelector("#configApplyBtn").addEventListener("click", () => applyChanged().catch(handleError));
-        root.querySelector("#configExportBtn").addEventListener("click", exportJson);
-        root.querySelector("#configImportBtn").addEventListener("click", () => root.querySelector("#configImportInput").click());
+        root.querySelector("#configExportBtn").addEventListener("click", () => exportJson().catch(handleError));
+        root.querySelector("#configImportBtn").addEventListener("click", () => chooseImportJson().catch(handleError));
         root.querySelector("#configImportInput").addEventListener("change", event => importJson(event).catch(handleError));
 
         updateButtons();
@@ -411,7 +411,7 @@ function createConfigPage({
         }
     }
 
-    function exportJson() {
+    async function exportJson() {
         const data = {
             hardware: getActiveProfileName(),
             format: getActiveProfile().format,
@@ -424,12 +424,49 @@ function createConfigPage({
                 readonly: isReadonlyItem(item),
             })),
         };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `${getActiveProfileName().toLowerCase()}-config-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-        link.click();
-        URL.revokeObjectURL(link.href);
+        const text = JSON.stringify(data, null, 2);
+        const suggestedName = `${getActiveProfileName().toLowerCase()}-config-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+        const picker = window.TermPWA.filePicker;
+        if (picker && picker.supportsSavePicker()) {
+            const saved = await picker.saveConfigJson({ suggestedName, text });
+            if (saved) {
+                setStatus(`Exported ${suggestedName}.`);
+            }
+            return;
+        }
+
+        if (picker) {
+            picker.downloadTextFile({
+                suggestedName,
+                text,
+                type: "application/json",
+            });
+            setStatus(`Exported ${suggestedName}.`);
+        } else {
+            const blob = new Blob([text], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = suggestedName;
+            link.click();
+            URL.revokeObjectURL(link.href);
+            setStatus(`Exported ${suggestedName}.`);
+        }
+    }
+
+    async function chooseImportJson() {
+        const picker = window.TermPWA.filePicker;
+        if (picker && picker.supportsOpenPicker()) {
+            const picked = await picker.openConfigJson();
+            if (!picked) {
+                return;
+            }
+            await importJsonText(picked.text, picked.name);
+            return;
+        }
+
+        const input = root.querySelector("#configImportInput");
+        input.value = "";
+        input.click();
     }
 
     async function importJson(event) {
@@ -437,7 +474,11 @@ function createConfigPage({
         event.target.value = "";
         if (!file) return;
 
-        const data = JSON.parse(await file.text());
+        await importJsonText(await file.text(), file.name);
+    }
+
+    async function importJsonText(text, fileName) {
+        const data = JSON.parse(text);
         validateImportShape(data);
 
         ensureConnected();
@@ -445,8 +486,8 @@ function createConfigPage({
             throw new Error("Configuration is busy. Try again after current read completes.");
         }
 
-        pendingImport = createPendingImport(data, file.name);
-        setStatus(`Import selected: ${file.name}. Reading current device configuration before diff...`);
+        pendingImport = createPendingImport(data, fileName);
+        setStatus(`Import selected: ${fileName}. Reading current device configuration before diff...`);
         await probeHardwareThenRead();
     }
 

@@ -7,6 +7,7 @@ COPY index.html \
      service_worker.js \
      styles.css \
      app_version.js \
+     file_picker.js \
      debug_logger.js \
      hex_utils.js \
      main.js \

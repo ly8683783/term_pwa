@@ -39,8 +39,13 @@ function createFirmwareUpdateDialog({
     });
 
     selectButton.addEventListener("click", () => {
-        fileInput.value = "";
-        fileInput.click();
+        chooseFirmwareFile().catch(error => {
+            selectedFile = null;
+            selectedFileBytes = null;
+            fileInfo.textContent = "No file selected";
+            setStatus(`File read failed: ${error.message}`);
+            debugLog("firmware file read failed", error);
+        });
     });
 
     fileInput.addEventListener("change", () => {
@@ -53,18 +58,47 @@ function createFirmwareUpdateDialog({
         });
     });
 
+    async function chooseFirmwareFile() {
+        const picker = window.TermPWA.filePicker;
+        if (picker && picker.supportsOpenPicker()) {
+            const picked = await picker.openFirmwareBin();
+            if (!picked) {
+                setStatus("No firmware file selected.");
+                return;
+            }
+            setSelectedFirmware(picked);
+            return;
+        }
+
+        fileInput.value = "";
+        fileInput.click();
+    }
+
     async function handleFileSelected() {
-        selectedFile = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
-        if (selectedFile) {
-            fileInfo.textContent = `${selectedFile.name} (${selectedFile.size} bytes)`;
-            setStatus("Reading firmware file...");
-            selectedFileBytes = new Uint8Array(await selectedFile.arrayBuffer());
-            setStatus("Firmware file selected.");
-        } else {
+        const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        if (!file) {
+            selectedFile = null;
             selectedFileBytes = null;
             fileInfo.textContent = "No file selected";
             setStatus("No firmware file selected.");
+            setProgress(0);
+            return;
         }
+
+        setStatus("Reading firmware file...");
+        setSelectedFirmware({
+            file,
+            name: file.name,
+            size: file.size,
+            bytes: new Uint8Array(await file.arrayBuffer()),
+        });
+    }
+
+    function setSelectedFirmware({ file, name, size, bytes }) {
+        selectedFile = file || { name, size };
+        selectedFileBytes = bytes;
+        fileInfo.textContent = `${name} (${size} bytes)`;
+        setStatus("Firmware file selected.");
         setProgress(0);
     }
 
