@@ -17,7 +17,9 @@
     <header>
         <div class="left-section">
             <div class="logo-container">
-                <img class="brand-logo" src="./assets/ampedrf-logo.svg" alt="Amp'edRF Wireless Technology">
+                <div class="header-logo-text" aria-hidden="true">
+                    Amp<span class="apostrophe"></span>ed<span class="amp-rf">RF</span>
+                </div>
                 <div id="appVersionInfo" class="version-info">Application Version: loading...</div>
             </div>
         </div>
@@ -60,7 +62,11 @@
 
     <div class="app-container">
         <div class="sidebar">
-            <a href="#" class="menu-item active" data-target="view-terminal">
+            <a href="#" class="menu-item active" data-target="view-welcome">
+                <svg viewBox="0 0 24 24"><path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg>
+                Welcome
+            </a>
+            <a href="#" class="menu-item" data-target="view-terminal">
                 <svg viewBox="0 0 24 24"><path d="M4,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M4,6V18H20V6H4M6,8L11,12L6,16V13L8.5,12L6,11V8M12,15H18V17H12V15Z"/></svg>
                 Terminal(AT)
             </a>
@@ -79,8 +85,28 @@
         </div>
 
         <div class="main-content">
+            <!-- Welcome View -->
+            <div id="view-welcome" class="view-panel active">
+                <div class="welcome-container">
+                    <div class="welcome-logo-container">
+                        <div class="welcome-logo-text" aria-hidden="true">
+                            Amp<span class="apostrophe"></span>ed<span class="amp-rf">RF</span>
+                        </div>
+                        <h2 class="welcome-subtitle">Amp'ed RF Web Configurator</h2>
+                        <div id="welcomeVersionInfo" class="welcome-version-info">Application Version: loading...</div>
+                    </div>
+                    <div class="welcome-hints">
+                        <ul>
+                            <li>Connect a device to begin.</li>
+                            <li>Use Terminal for manual AT commands.</li>
+                            <li>Firmware Update is available for supported devices.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <!-- Terminal View -->
-            <div id="view-terminal" class="view-panel active">
+            <div id="view-terminal" class="view-panel">
                 <div class="terminal-container">
                     <div class="terminal-main">
                         <div class="terminal-status-row">

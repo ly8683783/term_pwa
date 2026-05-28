@@ -51,12 +51,16 @@ let netViewPage = null;
 let terminalPage = null;
 let firmwareUpdateDialog = null;
 let configPage = null;
-let activeViewId = "view-terminal";
+let activeViewId = "view-welcome";
 let waitingServiceWorker = null;
 let serviceWorkerRefreshing = false;
 
 if (appVersionInfo) {
     appVersionInfo.textContent = `Application Version: ${APP_CACHE_NAME}`;
+}
+const welcomeVersionInfo = document.getElementById('welcomeVersionInfo');
+if (welcomeVersionInfo) {
+    welcomeVersionInfo.textContent = `Application Version: ${APP_CACHE_NAME}`;
 }
 
 function registerServiceWorker() {

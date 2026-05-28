@@ -35,11 +35,6 @@ header {
 
 .left-section { display: flex; align-items: center; }
 .logo-container { display: flex; flex-direction: column; align-items: flex-start; margin-right: 20px; min-width: 250px; }
-.brand-logo {
-    display: block;
-    width: 180px;
-    height: auto;
-}
 .version-info { font-size: 11px; color: #666; margin-top: 0; }
 
 .pwa-update-prompt {
@@ -805,4 +800,85 @@ input:checked + .slider:before { transform: translateX(16px); }
 .firmware-progress-row progress {
     flex: 1;
     height: 14px;
+}
+
+/* Welcome View */
+.welcome-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #333;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+.welcome-logo-container {
+    text-align: center;
+    margin-bottom: 40px;
+}
+.welcome-logo-text {
+    font-size: 72px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: #333;
+    line-height: 1;
+}
+.welcome-logo-text .apostrophe {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-color: var(--primary-yellow);
+    border-radius: 50%;
+    margin: 0 2px;
+    transform: translateY(-44px);
+}
+.welcome-logo-text .amp-rf {
+    color: var(--primary-green);
+}
+.welcome-subtitle {
+    font-size: 24px;
+    font-weight: 400;
+    color: #666;
+    margin: 10px 0;
+}
+.welcome-version-info {
+    font-size: 14px;
+    color: #999;
+    margin-top: 5px;
+}
+.welcome-hints {
+    background: #f8f9fa;
+    padding: 24px 40px;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+.welcome-hints ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #555;
+    line-height: 1.8;
+    font-size: 16px;
+}
+
+/* Header CSS Logo */
+.header-logo-text {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: #333;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.header-logo-text .apostrophe {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: var(--primary-yellow);
+    border-radius: 50%;
+    margin: 0 1px;
+    transform: translateY(-18px);
+}
+.header-logo-text .amp-rf {
+    color: var(--primary-green);
 }
