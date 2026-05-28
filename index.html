@@ -29,13 +29,22 @@
                 <select id="portSelect">
                     <option value="request">Select your device...</option>
                 </select>
-                <label class="toggle-container">
-                    <div class="switch">
-                        <input type="checkbox" id="autoConnectToggle">
-                        <span class="slider"></span>
-                    </div>
-                    Auto-connect
-                </label>
+                <div class="header-toggle-row">
+                    <label class="toggle-container">
+                        <div class="switch">
+                            <input type="checkbox" id="autoConnectToggle">
+                            <span class="slider"></span>
+                        </div>
+                        Auto-connect
+                    </label>
+                    <label class="toggle-container">
+                        <div class="switch">
+                            <input type="checkbox" id="autoDetectToggle">
+                            <span class="slider"></span>
+                        </div>
+                        Auto-detect
+                    </label>
+                </div>
             </div>
 
             <div class="action-buttons">
@@ -70,11 +79,11 @@
                 <svg viewBox="0 0 24 24"><path d="M4,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M4,6V18H20V6H4M6,8L11,12L6,16V13L8.5,12L6,11V8M12,15H18V17H12V15Z"/></svg>
                 Terminal(AT)
             </a>
-            <a href="#" class="menu-item" data-target="view-config">
+            <a href="#" class="menu-item" data-target="view-config" data-feature="configuration">
                 <svg viewBox="0 0 24 24"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.35 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.97 21.68,8.76L19.68,5.3C19.58,5.09 19.33,5.03 19.12,5.11L16.64,6.11C16.12,5.71 15.56,5.39 14.94,5.13L14.57,2.47C14.53,2.25 14.33,2.08 14.11,2.08H10.11C9.89,2.08 9.69,2.25 9.65,2.47L9.28,5.13C8.66,5.39 8.1,5.71 7.58,6.11L5.1,5.11C4.89,5.03 4.64,5.09 4.54,5.3L2.54,8.76C2.44,8.97 2.49,9.22 2.68,9.37L4.79,11.03C4.75,11.35 4.72,11.67 4.72,12C4.72,12.33 4.75,12.65 4.79,12.97L2.68,14.63C2.49,14.78 2.44,15.03 2.54,15.24L4.54,18.7C4.64,18.91 4.89,18.97 5.1,18.89L7.58,17.89C8.1,18.29 8.66,18.61 9.28,18.87L9.65,21.53C9.69,21.75 9.89,21.92 10.11,21.92H14.11C14.33,21.92 14.53,21.75 14.57,21.53L14.94,18.87C15.56,18.61 16.12,18.29 16.64,17.89L19.12,18.89C19.33,18.97 19.58,18.91 19.68,18.7L21.68,15.24C21.78,15.03 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>
                 Configuration
             </a>
-            <a href="#" class="menu-item" data-target="view-netview">
+            <a href="#" class="menu-item" data-target="view-netview" data-feature="netview">
                 <svg viewBox="0 0 24 24"><path d="M17,13H13V17H11V13H7V11H11V7H13V11H17V13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
                 NetView
             </a>
@@ -96,6 +105,12 @@
                         <div id="welcomeVersionInfo" class="welcome-version-info">Application Version: loading...</div>
                     </div>
                     <div class="welcome-hints">
+                        <div class="welcome-device-card">
+                            <div class="welcome-device-title">Device</div>
+                            <div id="welcomeDeviceName" class="welcome-device-name">Unknown</div>
+                            <div id="welcomeDeviceStatus" class="welcome-device-status">Connect a device, then detect it.</div>
+                            <button id="welcomeDetectDeviceBtn" class="welcome-detect-button" type="button" disabled>Detect Device</button>
+                        </div>
                         <ul>
                             <li>Connect a device to begin.</li>
                             <li>Use Terminal for manual AT commands.</li>
@@ -259,6 +274,8 @@
     <script src="./app_version.js"></script>
     <script src="./file_picker.js"></script>
     <script src="./terminal_log_store.js"></script>
+    <script src="./device_profile.js"></script>
+    <script src="./device_detector.js"></script>
     <script src="./hex_utils.js"></script>
     <script src="./netview_parser.js"></script>
     <script src="./topology_view.js"></script>

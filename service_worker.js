@@ -9,6 +9,8 @@ const APP_ASSETS = [
     "./app_version.js",
     "./file_picker.js",
     "./terminal_log_store.js",
+    "./device_profile.js",
+    "./device_detector.js",
     "./debug_logger.js",
     "./hex_utils.js",
     "./main.js",

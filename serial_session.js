@@ -5,6 +5,7 @@ const SESSION_OWNER_LABELS = {
     "netview": "NetView",
     "config": "Configuration",
     "firmware": "Firmware Update",
+    "device-detect": "Device Detection",
 };
 
 function createSerialSession({

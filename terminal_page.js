@@ -750,6 +750,12 @@ function createTerminalPage({
         }
     }
 
+    function handleShown() {
+        if (quickSendPanel && quickSendPanel.handleShown) {
+            quickSendPanel.handleShown();
+        }
+    }
+
     function setTerminalReady(ready) {
         if (atCommandInput) atCommandInput.disabled = !ready;
         if (sendCmdBtn) sendCmdBtn.disabled = !ready;
@@ -773,6 +779,7 @@ function createTerminalPage({
         handleConnected,
         handleDisconnected,
         handleSessionChanged,
+        handleShown,
         writeSystem,
         writeError,
         writeTxEcho,
@@ -787,6 +794,7 @@ function createTerminalQuickSendPanel(options) {
             handleConnected() {},
             handleDisconnected() {},
             handleSessionChanged() {},
+            handleShown() {},
         };
     }
 

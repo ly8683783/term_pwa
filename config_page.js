@@ -69,10 +69,82 @@ LR71: {
     { varNo: 69, name: "CadMode", group: "LoRa Radio", control: "select", defaultValue: "1", options: [["0", "Disabled"], ["1", "Dynamic Delay"]], range: "0 - 1", description: "CAD mode. 0 disables CAD-assisted timing; 1 enables dynamic CAD delay." },
     ],
 },
-WF88: {
-    format: "wf88-config-v1",
-    groups: [],
-    items: [],
+WF88_M: {
+    format: "wf88m-config-v1",
+    groups: ["System", "UART", "WiFi Network", "TCP / UDP Legacy", "IPv6 & DNS", "MQTT Client", "Mesh", "Sleep / GPIO"],
+    items: [
+    { varNo: 1, name: "BuildVersion", group: "System", control: "readonly", ro: true, defaultValue: "260227A", range: "Read only", description: "Firmware build version string (Format: YYMMDD + Revision)." },
+    { varNo: 2, name: "DeviceName", group: "System", control: "text", defaultValue: "Amped WiFi", range: "Text", description: "The friendly name of the device used for identification." },
+    { varNo: 3, name: "STA_MAC_ADDR", group: "System", control: "readonly", ro: true, defaultValue: "", range: "Read only", description: "Permanent Station MAC address assigned during production." },
+    { varNo: 25, name: "Hardware", group: "System", control: "readonly", ro: true, defaultValue: "WF88-M", range: "Read only", description: "Hardware model identifier." },
+    { varNo: 26, name: "CpuMHz", group: "System", control: "select", defaultValue: "200", options: ["100", "160", "200"], range: "100 - 200", description: "System clock frequency. Higher values increase performance but consume more power." },
+    { varNo: 70, name: "LogOutput", group: "System", control: "select", defaultValue: "0", options: [["0", "None"], ["1", "Bypass Only"], ["2", "Full Debug"]], range: "0, 1, 2", description: "Debug log level. 0=Silent (Production), 1=Filtered logs, 2=All debug messages forced." },
+
+    { varNo: 15, name: "UartBaudrate", group: "UART", control: "select", defaultValue: "115200", options: ["9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"], range: "9600 - 921600", description: "Baud rate for the main AT command/data interface." },
+    { varNo: 16, name: "UartParity", group: "UART", control: "select", defaultValue: "none", options: ["none", "even", "odd"], range: "none, even, odd", description: "UART parity bit configuration." },
+    { varNo: 17, name: "UartDataBits", group: "UART", control: "select", defaultValue: "8", options: ["5", "6", "7", "8"], range: "5, 6, 7, 8", description: "Number of data bits per UART frame." },
+    { varNo: 18, name: "UartStopBits", group: "UART", control: "select", defaultValue: "1", options: ["1", "2"], range: "1, 2", description: "Number of stop bits per UART frame." },
+    { varNo: 19, name: "UartFlowControl", group: "UART", control: "bool", defaultValue: "false", range: "bool", description: "Enable Hardware (RTS/CTS) flow control to prevent buffer overflows." },
+    { varNo: 20, name: "UartTimeout", group: "UART", control: "number", defaultValue: "16", min: 0, max: 65535, range: "0 - 65535", description: "UART character timeout in milliseconds used to trigger packet end in Bypass mode." },
+
+    { varNo: 4, name: "DHCPMode", group: "WiFi Network", control: "bool", defaultValue: "true", range: "bool", description: "Enable DHCP to automatically obtain IP address. If false, static IP is required." },
+    { varNo: 5, name: "IPAddress", group: "WiFi Network", control: "text", defaultValue: "192.168.1.2", range: "IP", description: "Static IP address used when DHCP is disabled." },
+    { varNo: 6, name: "NetMask", group: "WiFi Network", control: "text", defaultValue: "255.255.255.0", range: "IP", description: "Subnet mask for static IP configuration." },
+    { varNo: 7, name: "GateWay", group: "WiFi Network", control: "text", defaultValue: "192.168.1.1", range: "IP", description: "Default gateway for static IP configuration." },
+    { varNo: 8, name: "SSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "Target WiFi Access Point name." },
+    { varNo: 9, name: "PassPhrase", group: "WiFi Network", control: "text", defaultValue: "12345678", range: "Text", description: "WiFi security password (WPA/WPA2 Key)." },
+    { varNo: 10, name: "AuthType", group: "WiFi Network", control: "select", defaultValue: "1", options: [["0", "OPEN"], ["1", "WPA2"], ["2", "WEP"]], range: "0-2", description: "Security authentication mode of the WiFi network." },
+    { varNo: 27, name: "Channel", group: "WiFi Network", control: "number", defaultValue: "6", min: 1, max: 14, range: "1 - 14", description: "WiFi RF channel index (relevant for AP mode or specific scan)." },
+    { varNo: 28, name: "DeviceMode", group: "WiFi Network", control: "select", defaultValue: "STA", options: ["STA", "AP"], range: "STA, AP", description: "Operation mode: Station (Client) or Access Point." },
+    { varNo: 30, name: "MaxSTACount", group: "WiFi Network", control: "number", defaultValue: "14", min: 1, max: 32, range: "1 - 32", description: "Maximum number of clients allowed to connect in AP mode." },
+    { varNo: 35, name: "WiFiSleepTime", group: "WiFi Network", control: "number", defaultValue: "1000", range: "ms", description: "DTIM interval or sleep duration between beacon checks in power-save mode." },
+    { varNo: 39, name: "WsmFirmware", group: "WiFi Network", control: "text", defaultValue: "wsm_V3.2.3.bin", range: "Filename", description: "Filename of the WiFi Subsystem (WSM) firmware image." },
+    { varNo: 40, name: "WsmBootloader", group: "WiFi Network", control: "text", defaultValue: "bootloader.bin", range: "Filename", description: "Filename of the WSM bootloader." },
+    { varNo: 41, name: "WsmSdd", group: "WiFi Network", control: "text", defaultValue: "sdd_6010.bin", range: "Filename", description: "System Definition Data file for WiFi hardware calibration." },
+    { varNo: 64, name: "APP_AutoStart", group: "WiFi Network", control: "bool", defaultValue: "false", range: "bool", description: "Automatically connect to WiFi and start the network task on power-up." },
+    { varNo: 65, name: "AutoSSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "Default SSID used for AutoStart mode." },
+
+    { varNo: 11, name: "HostIPAddr", group: "TCP / UDP Legacy", control: "text", defaultValue: "192.168.1.3", range: "IP", description: "Remote server IP address for legacy single-connection Bypass mode." },
+    { varNo: 12, name: "IPProtocol", group: "TCP / UDP Legacy", control: "select", defaultValue: "UDP", options: ["TCP", "UDP", "TCP_CLIENT"], range: "TCP, UDP...", description: "Protocol type used for legacy network task." },
+    { varNo: 13, name: "HostPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Destination port on the remote server." },
+    { varNo: 14, name: "LocalPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Local listening or source port." },
+    { varNo: 29, name: "OutMtuSize", group: "TCP / UDP Legacy", control: "number", defaultValue: "1024", min: 64, max: 1500, range: "64 - 1500", description: "Maximum Transmission Unit for outgoing network packets." },
+    { varNo: 31, name: "MPMode", group: "TCP / UDP Legacy", control: "bool", defaultValue: "false", range: "bool", description: "Multi-Packet mode: enables addressed packet headers for multiple clients in Bypass mode." },
+    { varNo: 36, name: "KeepAlive", group: "TCP / UDP Legacy", control: "number", defaultValue: "60", range: "sec", description: "TCP keep-alive interval to maintain connection through firewalls." },
+    { varNo: 38, name: "StationInactive", group: "TCP / UDP Legacy", control: "number", defaultValue: "120", range: "sec", description: "Timeout for disconnecting inactive clients in AP mode." },
+    { varNo: 53, name: "LINKTYPE", group: "TCP / UDP Legacy", control: "select", defaultValue: "0", options: [["0", "TCP/UDP"], ["1", "MQTT"]], range: "0, 1", description: "Switch startup network task between standard socket bridge or MQTT client." },
+
+    { varNo: 50, name: "localIPv6addrs", group: "IPv6 & DNS", control: "readonly", ro: true, defaultValue: "", range: "IPv6", description: "The link-local IPv6 address assigned to the WiFi interface." },
+    { varNo: 51, name: "remoteIPv6addrs", group: "IPv6 & DNS", control: "text", defaultValue: "", range: "IPv6", description: "Static remote IPv6 peer address." },
+    { varNo: 52, name: "AddrType", group: "IPv6 & DNS", control: "select", defaultValue: "0", options: [["0", "IPv4"], ["1", "IPv6"]], range: "0, 1", description: "Preferred IP version for network operations." },
+    { varNo: 57, name: "DNS1V4", group: "IPv6 & DNS", control: "text", defaultValue: "8.8.8.8", range: "IP", description: "Primary IPv4 DNS server." },
+    { varNo: 58, name: "DNS1V6", group: "IPv6 & DNS", control: "text", defaultValue: "2001:4860:4860::8888", range: "IPv6", description: "Primary IPv6 DNS server." },
+    { varNo: 59, name: "DNS2V4", group: "IPv6 & DNS", control: "text", defaultValue: "1.1.1.1", range: "IP", description: "Secondary IPv4 DNS server." },
+    { varNo: 60, name: "DNS2V6", group: "IPv6 & DNS", control: "text", defaultValue: "2606:4700:4700::1111", range: "IPv6", description: "Secondary IPv6 DNS server." },
+
+    { varNo: 42, name: "MQTTServerIP", group: "MQTT Client", control: "text", defaultValue: "91.121.93.94", range: "IP / Host", description: "MQTT Broker address." },
+    { varNo: 43, name: "MQTTServerPort", group: "MQTT Client", control: "number", defaultValue: "1883", range: "1-65535", description: "MQTT Broker port (1883 for non-TLS, 8883 for TLS)." },
+    { varNo: 44, name: "MQTTServerUsrName", group: "MQTT Client", control: "text", defaultValue: "admin", range: "Text", description: "MQTT authentication username." },
+    { varNo: 45, name: "MQTTServerPasswd", group: "MQTT Client", control: "text", defaultValue: "password", range: "Text", description: "MQTT authentication password." },
+    { varNo: 46, name: "MQTTSubscribeTopic", group: "MQTT Client", control: "text", defaultValue: "SToC", range: "Topic", description: "Topic that the device subscribes to for commands (Server-to-Client)." },
+    { varNo: 47, name: "MQTTPubishTopic", group: "MQTT Client", control: "text", defaultValue: "CToS", range: "Topic", description: "Topic where the device publishes its data (Client-to-Server)." },
+    { varNo: 48, name: "MQTTQoS", group: "MQTT Client", control: "select", defaultValue: "0", options: ["0", "1", "2"], range: "0-2", description: "MQTT Quality of Service level for publishing." },
+    { varNo: 49, name: "MQTTAuthType", group: "MQTT Client", control: "select", defaultValue: "1", options: [["0", "None"], ["1", "Password"], ["2", "Cert"], ["4", "TLS/SSL"]], range: "0, 1, 2, 4", description: "Security mode for MQTT connection." },
+    { varNo: 54, name: "MQTTCaCrt", group: "MQTT Client", control: "text", defaultValue: "ca.crt", range: "Filename", description: "Root CA certificate for TLS verification." },
+    { varNo: 55, name: "MQTTClinetCrt", group: "MQTT Client", control: "text", defaultValue: "client.crt", range: "Filename", description: "Client certificate for mutual TLS authentication." },
+    { varNo: 56, name: "MQTTClinetKey", group: "MQTT Client", control: "text", defaultValue: "client.key", range: "Filename", description: "Client private key for mutual TLS authentication." },
+    { varNo: 69, name: "MQTTClientID", group: "MQTT Client", control: "text", defaultValue: "amped_mqtt_client", range: "Text", description: "Unique identifier for the MQTT connection." },
+
+    { varNo: 33, name: "HostShallowSleepEn", group: "Sleep / GPIO", control: "bool", defaultValue: "false", range: "bool", description: "Enable CPU shallow sleep during IDLE to save power." },
+    { varNo: 34, name: "HostDeepSleepEn", group: "Sleep / GPIO", control: "bool", defaultValue: "false", range: "bool", description: "Enable CPU deep sleep (power down peripherals) during IDLE." },
+    { varNo: 67, name: "MQTTGpioEn", group: "Sleep / GPIO", control: "bool", defaultValue: "false", range: "bool", description: "Allow control of hardware GPIO pins via MQTT messages." },
+    { varNo: 68, name: "GPIOModeSet", group: "Sleep / GPIO", control: "text", defaultValue: "IN,IN...", range: "CSV", description: "Initial mode configuration (IN/OUT) for all available GPIO pins." },
+
+    { varNo: 61, name: "MESH_ID", group: "Mesh", control: "text", defaultValue: "mymesh12345", range: "Text", description: "Identifier for the MESH network." },
+    { varNo: 62, name: "MESH_PassPhrase", group: "Mesh", control: "text", defaultValue: "12345678", range: "Text", description: "Security key for the MESH network." },
+    { varNo: 63, name: "MESH_AuthType", group: "Mesh", control: "select", defaultValue: "2", options: ["0", "1", "2"], range: "0-2", description: "Authentication algorithm used in MESH mode." },
+    { varNo: 22, name: "HostEvents", group: "System", control: "bool", defaultValue: "true", range: "bool", description: "Enable or disable unsolicited +EVENT: messages on UART." },
+    ],
 },
 };
 
@@ -99,6 +171,7 @@ function createConfigPage({
     let sessionToken = null;
     let pendingImport = null;
     let activeTooltipAnchor = null;
+    let configUnavailableStatus = "";
 
     if (!root) {
         return emptyConfigPage();
@@ -280,6 +353,7 @@ function createConfigPage({
         beginSession();
         readMode = "hardware";
         readBuffer = "";
+        configUnavailableStatus = "";
         clearDeviceState();
         setActiveProfile(null);
         setStatus("Detecting hardware...");
@@ -367,7 +441,8 @@ function createConfigPage({
         if (!hardware) {
             clearPendingImport();
             setActiveProfile(null);
-            setStatus("Failed to detect hardware. Configuration is disabled.");
+            configUnavailableStatus = "Failed to detect hardware. Configuration is disabled.";
+            setStatus(configUnavailableStatus);
             updateButtons();
             endSession();
             return;
@@ -377,12 +452,14 @@ function createConfigPage({
         if (!profileName || !CONFIG_PROFILES[profileName].items.length) {
             clearPendingImport();
             setActiveProfile(null);
-            setStatus(`Unsupported hardware: ${hardware}. Configuration is disabled.`);
+            configUnavailableStatus = `Unsupported hardware: ${hardware}. Configuration is disabled.`;
+            setStatus(configUnavailableStatus);
             updateButtons();
             endSession();
             return;
         }
 
+        configUnavailableStatus = "";
         setActiveProfile(profileName);
         setStatus(`Detected hardware: ${profileName}. Reading configuration...`);
         readFromDevice().catch(handleError);
@@ -515,6 +592,7 @@ function createConfigPage({
         connected = false;
         readMode = null;
         autoReadDone = false;
+        configUnavailableStatus = "";
         clearTimeout(readTimer);
         endSession();
         clearPendingImport();
@@ -528,6 +606,7 @@ function createConfigPage({
         connected = false;
         readMode = null;
         autoReadDone = false;
+        configUnavailableStatus = "";
         clearTimeout(readTimer);
         endSession();
         clearPendingImport();
@@ -547,6 +626,7 @@ function createConfigPage({
     function handleDeviceChanged(isConfigVisible = false) {
         readMode = null;
         autoReadDone = false;
+        configUnavailableStatus = "";
         clearTimeout(readTimer);
         endSession();
         clearPendingImport();
@@ -564,6 +644,8 @@ function createConfigPage({
         updateButtons();
         if (connected && !isReading() && serialSession.isBusy() && !serialSession.canWrite("config")) {
             setStatus(serialSession.getStatusText());
+        } else if (connected && !isReading() && configUnavailableStatus) {
+            setStatus(configUnavailableStatus);
         } else if (connected && !isReading() && !hasActiveProfile()) {
             setStatus("Connected. Open Configuration or click Read From Device.");
         }
@@ -882,8 +964,12 @@ function parseHardwareName(text) {
 }
 
 function findProfileName(hardwareName) {
-    const normalized = String(hardwareName || "").trim().toUpperCase();
-    return Object.keys(CONFIG_PROFILES).find(name => name.toUpperCase() === normalized) || null;
+    const profileName = window.TermPWA.normalizeDeviceProfileName
+        ? window.TermPWA.normalizeDeviceProfileName(hardwareName)
+        : null;
+    const deviceProfile = profileName ? window.TermPWA.getDeviceProfile(profileName) : null;
+    const configProfile = deviceProfile ? deviceProfile.configProfile : null;
+    return configProfile && CONFIG_PROFILES[configProfile] ? configProfile : null;
 }
 
 function normalizeValue(item, value) {

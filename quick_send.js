@@ -1,11 +1,10 @@
 (function () {
 const appModules = window.TermPWA || {};
 const STORAGE_KEY = "lr71QuickSendList";
-const COLLAPSED_KEY = "lr71QuickSendCollapsed";
-const WIDTH_KEY = "lr71QuickSendWidth";
-const DEFAULT_WIDTH = 430;
-const MIN_WIDTH = 340;
-const MOBILE_MEDIA_QUERY = "(max-width: 1180px)";
+const QUICK_SEND_MIN_WIDTH = 340;
+const QUICK_SEND_MAX_WIDTH = 640;
+const QUICK_SEND_WIDTH_RATIO = 0.382;
+const QUICK_SEND_MOBILE_QUERY = "(max-width: 820px)";
 
 const DEFAULT_GROUPS = [
     {
@@ -28,9 +27,10 @@ function createQuickSendPanel({
     let groups = loadGroups();
     let currentIndex = 0;
     let connected = false;
-    let collapsed = localStorage.getItem(COLLAPSED_KEY) === "true";
+    let collapsed = false;
     let draggingItemIndex = null;
-    let panelWidth = loadStoredWidth();
+    // 0 means "use the default golden-ratio width" for the current terminal container.
+    let panelWidth = 0;
     let resizeState = null;
 
     if (!root) {
@@ -113,7 +113,7 @@ function createQuickSendPanel({
         if (!resizeState) return;
 
         const nextWidth = resizeState.startWidth + (resizeState.startX - event.clientX);
-        setPanelWidth(nextWidth, { persist: false });
+        setPanelWidth(nextWidth);
     }
 
     function stopResize() {
@@ -124,7 +124,6 @@ function createQuickSendPanel({
         document.removeEventListener("pointermove", resizePanel);
         document.removeEventListener("pointerup", stopResize);
         document.removeEventListener("pointercancel", stopResize);
-        localStorage.setItem(WIDTH_KEY, String(panelWidth));
     }
 
     function handleWindowResize() {
@@ -133,44 +132,50 @@ function createQuickSendPanel({
 
     function canResizePanel() {
         return !collapsed &&
-               !window.matchMedia(MOBILE_MEDIA_QUERY).matches &&
-               getMaxPanelWidth() >= MIN_WIDTH;
+               !isMobileLayout() &&
+               getContainerWidth() >= QUICK_SEND_MIN_WIDTH;
     }
 
     function applyPanelWidth() {
-        if (collapsed || window.matchMedia(MOBILE_MEDIA_QUERY).matches) {
+        if (collapsed || isMobileLayout()) {
             return;
         }
 
-        setPanelWidth(panelWidth, { persist: false });
+        const width = panelWidth || calcDefaultPanelWidth();
+        root.style.setProperty("--quick-send-width", `${clampPanelWidth(width)}px`);
     }
 
-    function setPanelWidth(width, { persist = false } = {}) {
+    function setPanelWidth(width) {
         panelWidth = clampPanelWidth(width);
         root.style.setProperty("--quick-send-width", `${panelWidth}px`);
-        if (persist) {
-            localStorage.setItem(WIDTH_KEY, String(panelWidth));
-        }
     }
 
     function clampPanelWidth(width) {
-        const maxWidth = getMaxPanelWidth();
-        const lower = Math.min(MIN_WIDTH, maxWidth);
-        const upper = Math.max(MIN_WIDTH, maxWidth);
-        const value = Math.round(Number(width) || DEFAULT_WIDTH);
+        const containerWidth = getContainerWidth();
+        const upper = Math.min(QUICK_SEND_MAX_WIDTH, Math.max(QUICK_SEND_MIN_WIDTH, containerWidth || QUICK_SEND_MAX_WIDTH));
+        const value = Math.round(Number(width) || calcDefaultPanelWidth());
 
-        return Math.min(upper, Math.max(lower, value));
+        return Math.min(upper, Math.max(QUICK_SEND_MIN_WIDTH, value));
     }
 
-    function getMaxPanelWidth() {
-        const container = root.closest(".terminal-container");
-        if (!container) {
-            return DEFAULT_WIDTH;
+    function calcDefaultPanelWidth() {
+        const containerWidth = getContainerWidth();
+        if (containerWidth <= 0) {
+            // The terminal tab may be hidden during startup; handleShown() recalculates
+            // the golden-ratio width after the container becomes measurable.
+            return QUICK_SEND_MAX_WIDTH;
         }
 
-        const style = window.getComputedStyle(container);
-        const gap = parseFloat(style.columnGap || style.gap || "0") || 0;
-        return Math.floor((container.clientWidth - gap) / 2);
+        return Math.round(containerWidth * QUICK_SEND_WIDTH_RATIO);
+    }
+
+    function getContainerWidth() {
+        const container = root.closest(".terminal-container");
+        return container ? container.clientWidth : 0;
+    }
+
+    function isMobileLayout() {
+        return window.matchMedia(QUICK_SEND_MOBILE_QUERY).matches;
     }
 
     function renderGroups() {
@@ -471,7 +476,6 @@ function createQuickSendPanel({
 
     function toggleCollapsed() {
         collapsed = !collapsed;
-        localStorage.setItem(COLLAPSED_KEY, collapsed ? "true" : "false");
         applyCollapsed();
     }
 
@@ -504,6 +508,9 @@ function createQuickSendPanel({
                 setStatus("Ready.");
             }
         },
+        handleShown() {
+            applyPanelWidth();
+        },
     };
 }
 
@@ -531,11 +538,6 @@ function cloneDefaultGroups() {
     return JSON.parse(JSON.stringify(DEFAULT_GROUPS));
 }
 
-function loadStoredWidth() {
-    const width = Number(localStorage.getItem(WIDTH_KEY));
-    return Number.isFinite(width) && width > 0 ? width : DEFAULT_WIDTH;
-}
-
 function normalizeImportedItem(item) {
     if (!item || typeof item !== "object") {
         return null;
@@ -560,6 +562,7 @@ function emptyQuickSendPanel() {
         handleConnected() {},
         handleDisconnected() {},
         handleSessionChanged() {},
+        handleShown() {},
     };
 }
 

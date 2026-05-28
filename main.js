@@ -3,7 +3,7 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.createDeviceDetector || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         SerialTransport: Boolean(appModules.SerialTransport),
@@ -15,6 +15,7 @@ if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),
         createTerminalLogStore: Boolean(appModules.createTerminalLogStore),
+        createDeviceDetector: Boolean(appModules.createDeviceDetector),
         hexToBytes: Boolean(appModules.hexToBytes),
     });
     throw new Error("Required page scripts failed to load.");
@@ -41,17 +42,25 @@ const pwaUpdateBtn = document.getElementById('pwaUpdateBtn');
 const connectBtn = document.getElementById('connectBtn');
 const connectText = document.getElementById('connectText');
 const autoConnectToggle = document.getElementById('autoConnectToggle');
+const autoDetectToggle = document.getElementById('autoDetectToggle');
 const statusMessage = document.getElementById('statusMessage');
+const welcomeDetectDeviceBtn = document.getElementById('welcomeDetectDeviceBtn');
+const welcomeDeviceName = document.getElementById('welcomeDeviceName');
+const welcomeDeviceStatus = document.getElementById('welcomeDeviceStatus');
 debugLog("dom refs resolved", {
     connectBtn: Boolean(connectBtn),
     portSelect: Boolean(portSelect),
+    autoDetectToggle: Boolean(autoDetectToggle),
 });
 
 let netViewPage = null;
 let terminalPage = null;
 let firmwareUpdateDialog = null;
 let configPage = null;
+let deviceDetector = null;
 let activeViewId = "view-welcome";
+let activeDeviceProfileName = "UNKNOWN";
+let welcomeStatusText = "Connect a device, then detect it.";
 let waitingServiceWorker = null;
 let serviceWorkerRefreshing = false;
 
@@ -121,22 +130,14 @@ document.querySelectorAll('.menu-item').forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
         const targetId = item.getAttribute('data-target');
+        const feature = item.getAttribute('data-feature');
+        if (feature && !hasActiveCapability(feature)) {
+            return;
+        }
         if (activeViewId === "view-netview" && targetId !== "view-netview") {
             netViewPage.stop("Status: stopped because NetView page was left.");
         }
-        activeViewId = targetId;
-
-        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-        item.classList.add('active');
-
-        document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
-        document.getElementById(targetId).classList.add('active');
-
-        if (targetId === 'view-netview') {
-            netViewPage.redraw();
-        } else if (targetId === 'view-config') {
-            configPage.handleShown();
-        }
+        switchView(targetId);
     });
 });
 
@@ -151,6 +152,7 @@ function onDisconnect() {
     if (serialSession) {
         serialSession.reset();
     }
+    setActiveDeviceProfile("UNKNOWN", "Serial disconnected.");
     if (terminalPage) {
         terminalPage.handleDisconnected();
     }
@@ -195,16 +197,27 @@ configPage = appModules.createConfigPage({
     debugLog,
 });
 debugLog("configuration page created");
+deviceDetector = appModules.createDeviceDetector({
+    serialSession,
+    serialBus,
+    debugLog,
+});
+debugLog("device detector created");
 
 serialBus.subscribeText("netview", text => netViewPage.handleSerialData(text));
 serialBus.subscribeText("firmware", text => firmwareUpdateDialog.handleSerialText(text));
 serialBus.subscribeText("config", text => configPage.handleSerialData(text));
+updateFeatureVisibility();
+renderWelcomeDevice();
 
 async function init() {
     debugLog("init start");
     const autoConnect = localStorage.getItem('autoConnect') === 'true';
+    const storedAutoDetect = localStorage.getItem('autoDetect');
+    const autoDetect = storedAutoDetect === null ? true : storedAutoDetect === 'true';
     autoConnectToggle.checked = autoConnect;
-    debugLog("auto connect setting", { autoConnect });
+    autoDetectToggle.checked = autoDetect;
+    debugLog("auto connect setting", { autoConnect, autoDetect });
 
     await updatePortList();
 
@@ -304,6 +317,7 @@ async function switchConnectedPort(selectedValue) {
         terminalPage.stopIntervalSend();
         serialSession.reset();
         terminalPage.handleDisconnected();
+        setActiveDeviceProfile("UNKNOWN", "Switching serial device...");
         const disconnectPromise = serialManager.disconnect({ notify: false });
         updateUI();
         await disconnectPromise;
@@ -325,6 +339,10 @@ async function switchConnectedPort(selectedValue) {
 
 autoConnectToggle.addEventListener('change', () => {
     localStorage.setItem('autoConnect', autoConnectToggle.checked);
+});
+
+autoDetectToggle.addEventListener('change', () => {
+    localStorage.setItem('autoDetect', autoDetectToggle.checked);
 });
 
 async function tryConnect(targetPort = null) {
@@ -356,6 +374,12 @@ async function tryConnect(targetPort = null) {
         }
         debugLog("serial connect success");
         updateUI();
+        if (autoDetectToggle.checked) {
+            setActiveDeviceProfile("UNKNOWN", "Detecting device...");
+            await detectDevice();
+        } else {
+            setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.");
+        }
         if (activeViewId === "view-config") {
             configPage.handleDeviceChanged(true);
         }
@@ -376,6 +400,7 @@ async function tryDisconnect() {
     debugLog("tryDisconnect start");
     try {
         terminalPage.stopIntervalSend();
+        setActiveDeviceProfile("UNKNOWN", "Disconnecting...");
         const disconnectPromise = serialManager.disconnect();
         updateUI();
         await disconnectPromise;
@@ -405,6 +430,7 @@ function updateUI(connected = serialManager.isConnected()) {
         terminalPage.handleDisconnected();
         netViewPage.handleDisconnected("Status: serial connection is busy.");
         configPage.handleDisconnected();
+        renderWelcomeDevice("Connecting...");
         return;
     }
 
@@ -415,6 +441,7 @@ function updateUI(connected = serialManager.isConnected()) {
         terminalPage.handleDisconnected();
         netViewPage.handleDisconnected("Status: serial connection is busy.");
         configPage.handleDisconnected();
+        renderWelcomeDevice("Disconnecting...");
         return;
     }
 
@@ -425,6 +452,7 @@ function updateUI(connected = serialManager.isConnected()) {
         configPage.handleConnected();
         terminalPage.handleConnected();
         updateSessionUI();
+        renderWelcomeDevice();
     } else {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connect";
@@ -432,6 +460,7 @@ function updateUI(connected = serialManager.isConnected()) {
         terminalPage.handleDisconnected();
         netViewPage.handleDisconnected();
         configPage.handleDisconnected();
+        renderWelcomeDevice("Connect a device, then detect it.");
     }
 }
 
@@ -452,6 +481,7 @@ function updateSessionUI() {
     if (configPage && configPage.handleSessionChanged) {
         configPage.handleSessionChanged();
     }
+    renderWelcomeDevice();
 }
 
 connectBtn.addEventListener('click', () => {
@@ -469,6 +499,121 @@ connectBtn.addEventListener('click', () => {
         tryConnect();
     }
 });
+
+if (welcomeDetectDeviceBtn) {
+    welcomeDetectDeviceBtn.addEventListener("click", () => {
+        detectDevice().catch(error => {
+            debugLog("device detect failed", error);
+            setWelcomeStatus(`Detect failed: ${error.message}`);
+        });
+    });
+}
+
+async function detectDevice() {
+    if (!serialManager.isConnected()) {
+        setWelcomeStatus("Connect a device first.");
+        return;
+    }
+    if (serialManager.isBusy()) {
+        setWelcomeStatus("Serial is busy. Try again later.");
+        return;
+    }
+
+    setWelcomeStatus("Checking bootloader...");
+    const result = await deviceDetector.detect();
+    const profileName = result.profileName || "UNKNOWN";
+    const message = result.mode === "bootloader"
+        ? "Flashloader detected."
+        : result.mode === "application"
+            ? `${profileName} application detected.`
+            : "Device type is unknown.";
+
+    setActiveDeviceProfile(profileName, message);
+    debugLog("device detect result", { profileName, mode: result.mode });
+}
+
+function setActiveDeviceProfile(profileName, statusText = "") {
+    activeDeviceProfileName = appModules.normalizeDeviceProfileName(profileName) || "UNKNOWN";
+    if (statusText) {
+        welcomeStatusText = statusText;
+    }
+    updateFeatureVisibility();
+    renderWelcomeDevice();
+}
+
+function setWelcomeStatus(statusText) {
+    welcomeStatusText = statusText;
+    renderWelcomeDevice();
+}
+
+function renderWelcomeDevice(statusOverride = "") {
+    const profile = appModules.getDeviceProfile
+        ? appModules.getDeviceProfile(activeDeviceProfileName)
+        : { name: "Unknown", capabilities: ["terminal", "firmwareUpdate"] };
+    const connected = serialManager && serialManager.isConnected();
+    const busy = serialManager && serialManager.isBusy();
+
+    if (welcomeDeviceName) {
+        welcomeDeviceName.textContent = profile.name || "Unknown";
+    }
+    if (welcomeDeviceStatus) {
+        welcomeDeviceStatus.textContent = statusOverride || welcomeStatusText ||
+            (connected ? "Device connected. Click Detect Device." : "Connect a device, then detect it.");
+    }
+    if (welcomeDetectDeviceBtn) {
+        welcomeDetectDeviceBtn.disabled = !connected || busy;
+        welcomeDetectDeviceBtn.textContent = busy && serialSession.getActiveOwner() === "device-detect"
+            ? "Detecting..."
+            : "Detect Device";
+    }
+}
+
+function hasActiveCapability(capability) {
+    return appModules.hasDeviceCapability
+        ? appModules.hasDeviceCapability(activeDeviceProfileName, capability)
+        : false;
+}
+
+function updateFeatureVisibility() {
+    document.querySelectorAll(".menu-item[data-feature]").forEach(item => {
+        const feature = item.getAttribute("data-feature");
+        const visible = hasActiveCapability(feature);
+        item.hidden = !visible;
+        item.setAttribute("aria-hidden", visible ? "false" : "true");
+    });
+
+    const activeItem = document.querySelector(`.menu-item[data-target="${activeViewId}"]`);
+    if (activeItem && activeItem.hidden) {
+        if (activeViewId === "view-netview") {
+            netViewPage.stop("Status: stopped because NetView is unavailable for this device.");
+        }
+        switchView("view-welcome");
+    }
+}
+
+function switchView(targetId) {
+    activeViewId = targetId;
+
+    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+    const activeItem = document.querySelector(`.menu-item[data-target="${targetId}"]`);
+    if (activeItem && !activeItem.hidden) {
+        activeItem.classList.add('active');
+    }
+
+    document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
+    const targetView = document.getElementById(targetId);
+    if (targetView) {
+        targetView.classList.add('active');
+    }
+
+    if (targetId === 'view-netview') {
+        netViewPage.redraw();
+    } else if (targetId === 'view-config') {
+        configPage.handleShown();
+    } else if (targetId === 'view-terminal') {
+        terminalPage.handleShown();
+    }
+}
 
 if (serialManager.isSupported()) {
     debugLog("register navigator.serial events");
