@@ -276,7 +276,7 @@ portSelect.addEventListener('change', async () => {
     }
 
     const selectedValue = portSelect.value;
-    if (portSelect.value === 'request_new') {
+    if (selectedValue === 'request_new') {
         try {
             const requestedEntry = await serialManager.requestNewPortEntry();
             const entries = await updatePortList();
@@ -284,6 +284,7 @@ portSelect.addEventListener('change', async () => {
                 const requestedIndex = entries.findIndex(entry => entry.port === requestedEntry.port);
                 if (requestedIndex >= 0) {
                     portSelect.value = String(requestedIndex);
+                    await tryConnect(requestedEntry.port);
                 }
             }
         } catch (e) {
@@ -298,11 +299,20 @@ portSelect.addEventListener('change', async () => {
         return;
     }
 
-    if (!serialManager.isConnected()) {
+    const entries = await serialManager.getPortEntries();
+    const targetPort = entries[selectedValue] && entries[selectedValue].port;
+    if (!targetPort) {
         return;
     }
 
-    await switchConnectedPort(selectedValue);
+    if (serialManager.isConnected()) {
+        if (targetPort === serialManager.port) {
+            return;
+        }
+        await switchConnectedPort(selectedValue);
+    } else {
+        await tryConnect(targetPort);
+    }
 });
 
 async function switchConnectedPort(selectedValue) {
@@ -322,15 +332,12 @@ async function switchConnectedPort(selectedValue) {
         serialSession.reset();
         terminalPage.handleDisconnected();
         setActiveDeviceProfile("UNKNOWN", "Switching serial device...");
+        
         const disconnectPromise = serialManager.disconnect({ notify: false });
         updateUI();
         await disconnectPromise;
-        const connectPromise = serialManager.connect(nextPort, 115200);
-        updateUI();
-        await connectPromise;
-        updateUI();
-        await updatePortList();
-        configPage.handleDeviceChanged(activeViewId === "view-config");
+        
+        await performConnection(nextPort);
         debugLog("switch serial port success", { selectedValue });
     } catch (error) {
         debugLog("switch serial port failed", error);
@@ -369,30 +376,36 @@ async function tryConnect(targetPort = null) {
             }
         }
 
-        debugLog("serial connect call", { hasPortObj: Boolean(portObj), baudRate: 115200 });
-        const connectPromise = serialManager.connect(portObj, 115200);
-        updateUI();
-        const connectedPort = await connectPromise;
-        if (connectedPort) {
-            await updatePortList();
-        }
-        debugLog("serial connect success");
-        updateUI();
-        if (autoDetectToggle.checked) {
-            setActiveDeviceProfile("UNKNOWN", "Detecting device...");
-            await detectDevice();
-        } else {
-            setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.");
-        }
-        if (activeViewId === "view-config") {
-            configPage.handleDeviceChanged(true);
-        }
+        await performConnection(portObj);
     } catch (error) {
         debugLog("serial connect failed", error);
         console.error("Connection failed:", error);
         alert("Failed to connect: " + error.message);
         updateUI();
         await updatePortList();
+    }
+}
+
+async function performConnection(portObj) {
+    debugLog("serial connect call", { hasPortObj: Boolean(portObj), baudRate: 115200 });
+    const connectPromise = serialManager.connect(portObj, 115200);
+    updateUI();
+    const connectedPort = await connectPromise;
+    if (connectedPort) {
+        await updatePortList();
+    }
+    debugLog("serial connect success");
+    updateUI();
+    
+    if (autoDetectToggle.checked) {
+        setActiveDeviceProfile("UNKNOWN", "Detecting device...");
+        await detectDevice();
+    } else {
+        setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.");
+    }
+    
+    if (activeViewId === "view-config") {
+        configPage.handleDeviceChanged(true);
     }
 }
 
