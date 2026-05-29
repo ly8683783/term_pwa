@@ -12,7 +12,7 @@ const APP_ASSETS = [
     "./js/utils/terminal_log_store.js",
     "./js/core/device_profile.js",
     "./js/core/device_detector.js",
-    "./js/utils/debug_logger.js",
+    "./js/core/debug_logger.js",
     "./js/utils/hex_utils.js",
     "./js/core/main.js",
     "./js/serial/serial_transport.js",
