@@ -30,7 +30,6 @@ const APP_ASSETS = [
     "./js/features/firmware_update.js",
     "./js/features/config_page.js",
     "./manifest.json",
-    "./assets/ampedrf-logo.svg",
     "./icons/icon.svg",
     "./icons/icon-192.png",
     "./icons/icon-512.png",
