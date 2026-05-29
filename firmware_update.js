@@ -12,6 +12,7 @@ function createFirmwareUpdateDialog({
     const enterButton = document.querySelector(selectors.enterButton || "#firmwareEnterFlashloaderBtn");
     const selectButton = document.querySelector(selectors.selectButton || "#firmwareSelectBtn");
     const loadButton = document.querySelector(selectors.loadButton || "#firmwareLoadBtn");
+    const cancelButton = document.querySelector(selectors.cancelButton || "#firmwareCancelBtn");
     const fileInput = document.querySelector(selectors.fileInput || "#firmwareFileInput");
     const terminalOutput = document.querySelector(selectors.terminalOutput || "#firmwareUartOutput");
     const statusElement = document.querySelector(selectors.status || "#firmwareUpdateStatus");
@@ -22,6 +23,8 @@ function createFirmwareUpdateDialog({
     let selectedFile = null;
     let selectedFileBytes = null;
     let isLoading = false;
+    let currentSender = null;
+    let cancelRequested = false;
 
     updateButton.addEventListener("click", open);
     closeButton.addEventListener("click", close);
@@ -104,8 +107,15 @@ function createFirmwareUpdateDialog({
 
     loadButton.addEventListener("click", () => {
         handleLoad().catch(error => {
-            setStatus(`Load failed: ${error.message}`);
+            showFirmwareError(error);
             debugLog("firmware load failed", error);
+        });
+    });
+
+    cancelButton.addEventListener("click", () => {
+        handleCancel().catch(error => {
+            setStatus(`Cancel failed: ${error.message}`, "error");
+            debugLog("firmware cancel failed", error);
         });
     });
 
@@ -174,15 +184,19 @@ function createFirmwareUpdateDialog({
         }
 
         setBusy(true);
+        cancelRequested = false;
         setProgress(0);
-        setStatus(`Loading ${selectedFile.name} by YMODEM-CRC...`);
+        setStatus(`Loading ${selectedFile.name} by YMODEM-CRC...`, "running");
 
         try {
             await serialSession.runExclusive("firmware", "Firmware Update", async () => {
                 const bytes = selectedFileBytes;
-                serialManager.clearByteQueue();
+                // A previous cancelled/failed transfer may have left waitByte()
+                // listeners behind. Reset both queued bytes and pending waiters
+                // before starting a new YMODEM session.
+                serialManager.resetByteState(new Error("YMODEM start reset"));
 
-                const sender = window.TermPWA.createYModemSender({
+                currentSender = window.TermPWA.createYModemSender({
                     writeBytes: data => serialSession.writeBytes("firmware", data),
                     waitByte: options => serialManager.waitByte(options),
                     onProgress: handleYModemProgress,
@@ -192,7 +206,7 @@ function createFirmwareUpdateDialog({
                     },
                 });
 
-                await sender.sendFile({
+                await currentSender.sendFile({
                     name: selectedFile.name,
                     bytes,
                 });
@@ -200,10 +214,32 @@ function createFirmwareUpdateDialog({
                 hard: true,
             });
 
-            setStatus("Firmware load finished.");
+            setStatus("Firmware load finished.", "success");
+        } catch (error) {
+            showFirmwareError(error);
+            if (!cancelRequested) {
+                await tryCancelCurrentSender();
+            }
+            debugLog("firmware load failed", error);
         } finally {
+            // Always clear queued bytes and pending waiters so the next Load
+            // starts from a clean serial-byte state.
+            serialManager.resetByteState(new Error("YMODEM cleanup reset"));
+            currentSender = null;
+            cancelRequested = false;
             setBusy(false);
         }
+    }
+
+    async function handleCancel() {
+        if (!isLoading || !currentSender) {
+            return;
+        }
+
+        cancelRequested = true;
+        setStatus("Cancelling firmware update...", "running");
+        appendOutput("[YMODEM] Cancel requested\r\n");
+        await currentSender.cancel();
     }
 
     function handleSerialText(text) {
@@ -241,8 +277,12 @@ function createFirmwareUpdateDialog({
         return `> ${text}\r\n`;
     }
 
-    function setStatus(message) {
+    function setStatus(message, state = "") {
         statusElement.textContent = message;
+        statusElement.classList.remove("running", "success", "error");
+        if (state) {
+            statusElement.classList.add(state);
+        }
     }
 
     function setProgress(percent) {
@@ -254,15 +294,15 @@ function createFirmwareUpdateDialog({
     function handleYModemProgress(progress) {
         setProgress(progress.percent);
         if (progress.phase === "waiting-c") {
-            setStatus("Waiting for Flashloader 'C'. Select Application/Executable if needed.");
+            setStatus("Waiting for Flashloader 'C'. Select Application/Executable if needed.", "running");
         } else if (progress.phase === "header") {
-            setStatus("Sending YMODEM header...");
+            setStatus("Sending YMODEM header...", "running");
         } else if (progress.phase === "data") {
-            setStatus(`Sending firmware ${progress.sentBytes}/${progress.totalBytes} bytes...`);
+            setStatus(`Sending firmware ${progress.sentBytes}/${progress.totalBytes} bytes...`, "running");
         } else if (progress.phase === "finish") {
-            setStatus("Finishing YMODEM transfer...");
+            setStatus("Finishing YMODEM transfer...", "running");
         } else if (progress.phase === "done") {
-            setStatus("Firmware load finished.");
+            setStatus("Firmware load finished.", "success");
         }
     }
 
@@ -272,6 +312,77 @@ function createFirmwareUpdateDialog({
         selectButton.disabled = busy;
         loadButton.disabled = busy;
         closeButton.disabled = busy;
+        cancelButton.disabled = !busy;
+    }
+
+    async function tryCancelCurrentSender() {
+        if (!currentSender) {
+            return;
+        }
+
+        try {
+            await currentSender.cancel();
+            appendOutput("[YMODEM] Sent cancel to receiver after failure\r\n");
+        } catch (error) {
+            debugLog("firmware failure cancel failed", error);
+        }
+    }
+
+    function showFirmwareError(error) {
+        const info = classifyFirmwareError(error);
+        setStatus(info.type === "user-cancelled" ? info.message : `Load failed: ${info.message}`, "error");
+        appendOutput(`[ERROR] ${info.message}\r\n`);
+        if (info.hint) {
+            appendOutput(`[HINT] ${info.hint}\r\n`);
+        }
+    }
+
+    function classifyFirmwareError(error) {
+        const message = error && error.message ? error.message : String(error || "unknown error");
+
+        if (message.includes("YMODEM transfer cancelled")) {
+            return {
+                type: "user-cancelled",
+                message: "Firmware update cancelled.",
+                hint: "You can select Load again after the Flashloader is ready.",
+            };
+        }
+        if (message.includes("Timed out waiting for serial byte")) {
+            return {
+                type: "timeout",
+                message: "timeout waiting for Flashloader response.",
+                hint: "Check that the Flashloader is in Application/Executable upload mode and still connected.",
+            };
+        }
+        if (message.includes("Receiver cancelled")) {
+            return {
+                type: "receiver-cancelled",
+                message: "receiver cancelled the YMODEM transfer.",
+                hint: "Return to the Flashloader upload menu and retry.",
+            };
+        }
+        if (message.includes("Retry limit exceeded")) {
+            return {
+                type: "retry-limit",
+                message: "retry limit exceeded while sending packet.",
+                hint: "The serial link or Flashloader rejected packets repeatedly.",
+            };
+        }
+        if (message.includes("Port not connected") ||
+            message.includes("serial is not connected") ||
+            message.includes("Serial port disconnected")) {
+            return {
+                type: "serial-disconnected",
+                message: "serial port disconnected during firmware update.",
+                hint: "Reconnect the device and restart the Flashloader upload flow.",
+            };
+        }
+
+        return {
+            type: "generic",
+            message,
+            hint: "",
+        };
     }
 
     function ensureConnected() {

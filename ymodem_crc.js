@@ -26,6 +26,7 @@ function createYModemSender({
     }
 
     let cancelled = false;
+    let cancelWaiters = [];
 
     async function sendFile({ name, bytes }) {
         if (!name) {
@@ -80,6 +81,10 @@ function createYModemSender({
 
     function cancel() {
         cancelled = true;
+        const error = new Error("YMODEM transfer cancelled");
+        const waiters = cancelWaiters;
+        cancelWaiters = [];
+        waiters.forEach(reject => reject(error));
         return writeBytes(new Uint8Array([CAN, CAN]));
     }
 
@@ -112,12 +117,42 @@ function createYModemSender({
     async function waitAnyByte(expectedBytes, timeoutMs, label) {
         throwIfCancelled();
         const expected = new Set(expectedBytes);
-        const byte = await waitByte({
-            timeoutMs,
-            accept: value => expected.has(value),
+        const cancelToken = createCancelToken();
+        try {
+            const byte = await Promise.race([
+                waitByte({
+                    timeoutMs,
+                    accept: value => expected.has(value),
+                }),
+                cancelToken.promise,
+            ]);
+            throwIfCancelled();
+            return byte;
+        } finally {
+            cancelToken.dispose();
+        }
+    }
+
+    function createCancelToken() {
+        if (cancelled) {
+            return {
+                promise: Promise.reject(new Error("YMODEM transfer cancelled")),
+                dispose() {},
+            };
+        }
+
+        let rejectToken = null;
+        const promise = new Promise((resolve, reject) => {
+            rejectToken = reject;
+            cancelWaiters.push(reject);
         });
-        throwIfCancelled();
-        return byte;
+
+        return {
+            promise,
+            dispose() {
+                cancelWaiters = cancelWaiters.filter(reject => reject !== rejectToken);
+            },
+        };
     }
 
     async function ignoreOptionalAck() {

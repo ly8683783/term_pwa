@@ -77,13 +77,13 @@ WF88_M: {
     { varNo: 2, name: "DeviceName", group: "System", control: "text", defaultValue: "Amped WiFi", range: "Text", description: "The friendly name of the device used for identification." },
     { varNo: 3, name: "STA_MAC_ADDR", group: "System", control: "readonly", ro: true, defaultValue: "", range: "Read only", description: "Permanent Station MAC address assigned during production." },
     { varNo: 25, name: "Hardware", group: "System", control: "readonly", ro: true, defaultValue: "WF88-M", range: "Read only", description: "Hardware model identifier." },
-    { varNo: 26, name: "CpuMHz", group: "System", control: "select", defaultValue: "200", options: ["100", "160", "200"], range: "100 - 200", description: "System clock frequency. Higher values increase performance but consume more power." },
+    { varNo: 26, name: "CpuMHz", group: "System", control: "number", defaultValue: "200", min: 26, max: 230, range: "26 - 230", description: "System clock frequency. Firmware accepts any value from 26 to 230 MHz." },
     { varNo: 70, name: "LogOutput", group: "System", control: "select", defaultValue: "0", options: [["0", "None"], ["1", "Bypass Only"], ["2", "Full Debug"]], range: "0, 1, 2", description: "Debug log level. 0=Silent (Production), 1=Filtered logs, 2=All debug messages forced." },
 
-    { varNo: 15, name: "UartBaudrate", group: "UART", control: "select", defaultValue: "115200", options: ["9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"], range: "9600 - 921600", description: "Baud rate for the main AT command/data interface." },
+    { varNo: 15, name: "UartBaudrate", group: "UART", control: "select", defaultValue: "115200", options: ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600", "1000000", "2000000", "2250000"], range: "300 - 2250000", description: "Baud rate for the main AT command/data interface." },
     { varNo: 16, name: "UartParity", group: "UART", control: "select", defaultValue: "none", options: ["none", "even", "odd"], range: "none, even, odd", description: "UART parity bit configuration." },
-    { varNo: 17, name: "UartDataBits", group: "UART", control: "select", defaultValue: "8", options: ["5", "6", "7", "8"], range: "5, 6, 7, 8", description: "Number of data bits per UART frame." },
-    { varNo: 18, name: "UartStopBits", group: "UART", control: "select", defaultValue: "1", options: ["1", "2"], range: "1, 2", description: "Number of stop bits per UART frame." },
+    { varNo: 17, name: "UartDataBits", group: "UART", control: "select", defaultValue: "8", options: ["8", "9"], range: "8, 9", description: "Number of data bits per UART frame." },
+    { varNo: 18, name: "UartStopBits", group: "UART", control: "select", defaultValue: "1", options: ["1", ".5", "2", "1.5"], range: "1, .5, 2, 1.5", description: "Number of stop bits per UART frame." },
     { varNo: 19, name: "UartFlowControl", group: "UART", control: "bool", defaultValue: "false", range: "bool", description: "Enable Hardware (RTS/CTS) flow control to prevent buffer overflows." },
     { varNo: 20, name: "UartTimeout", group: "UART", control: "number", defaultValue: "16", min: 0, max: 65535, range: "0 - 65535", description: "UART character timeout in milliseconds used to trigger packet end in Bypass mode." },
 
@@ -93,9 +93,9 @@ WF88_M: {
     { varNo: 7, name: "GateWay", group: "WiFi Network", control: "text", defaultValue: "192.168.1.1", range: "IP", description: "Default gateway for static IP configuration." },
     { varNo: 8, name: "SSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "Target WiFi Access Point name." },
     { varNo: 9, name: "PassPhrase", group: "WiFi Network", control: "text", defaultValue: "12345678", range: "Text", description: "WiFi security password (WPA/WPA2 Key)." },
-    { varNo: 10, name: "AuthType", group: "WiFi Network", control: "select", defaultValue: "1", options: [["0", "OPEN"], ["1", "WPA2"], ["2", "WEP"]], range: "0-2", description: "Security authentication mode of the WiFi network." },
+    { varNo: 10, name: "AuthType", group: "WiFi Network", control: "select", defaultValue: "1", options: [["0", "NONE"], ["1", "WPA2-PSK"], ["2", "WPA3-SAE"]], range: "0-2", description: "Security authentication mode of the WiFi network." },
     { varNo: 27, name: "Channel", group: "WiFi Network", control: "number", defaultValue: "6", min: 1, max: 14, range: "1 - 14", description: "WiFi RF channel index (relevant for AP mode or specific scan)." },
-    { varNo: 28, name: "DeviceMode", group: "WiFi Network", control: "select", defaultValue: "STA", options: ["STA", "AP"], range: "STA, AP", description: "Operation mode: Station (Client) or Access Point." },
+    { varNo: 28, name: "DeviceMode", group: "WiFi Network", control: "select", defaultValue: "0", options: [["0", "STA"], ["1", "AP"], ["2", "AP-STA"], ["3", "MP"], ["4", "AP-MP"]], range: "0, 1, 2, 3, 4", description: "Operation mode: Station (Client), Access Point, or mixed modes." },
     { varNo: 30, name: "MaxSTACount", group: "WiFi Network", control: "number", defaultValue: "14", min: 1, max: 32, range: "1 - 32", description: "Maximum number of clients allowed to connect in AP mode." },
     { varNo: 35, name: "WiFiSleepTime", group: "WiFi Network", control: "number", defaultValue: "1000", range: "ms", description: "DTIM interval or sleep duration between beacon checks in power-save mode." },
     { varNo: 39, name: "WsmFirmware", group: "WiFi Network", control: "text", defaultValue: "wsm_V3.2.3.bin", range: "Filename", description: "Filename of the WiFi Subsystem (WSM) firmware image." },
@@ -105,10 +105,10 @@ WF88_M: {
     { varNo: 65, name: "AutoSSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "Default SSID used for AutoStart mode." },
 
     { varNo: 11, name: "HostIPAddr", group: "TCP / UDP Legacy", control: "text", defaultValue: "192.168.1.3", range: "IP", description: "Remote server IP address for legacy single-connection Bypass mode." },
-    { varNo: 12, name: "IPProtocol", group: "TCP / UDP Legacy", control: "select", defaultValue: "UDP", options: ["TCP", "UDP", "TCP_CLIENT"], range: "TCP, UDP...", description: "Protocol type used for legacy network task." },
+    { varNo: 12, name: "IPProtocol", group: "TCP / UDP Legacy", control: "select", defaultValue: "1", options: [["0", "TCP"], ["1", "UDP"], ["2", "TCP Client"]], range: "0, 1, 2", description: "Protocol type used for legacy network task." },
     { varNo: 13, name: "HostPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Destination port on the remote server." },
     { varNo: 14, name: "LocalPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Local listening or source port." },
-    { varNo: 29, name: "OutMtuSize", group: "TCP / UDP Legacy", control: "number", defaultValue: "1024", min: 64, max: 1500, range: "64 - 1500", description: "Maximum Transmission Unit for outgoing network packets." },
+    { varNo: 29, name: "OutMtuSize", group: "TCP / UDP Legacy", control: "number", defaultValue: "1024", min: 1, max: 1472, range: "UDP: 1 - 1472, TCP: 1 - 1460", description: "Maximum Transmission Unit for outgoing network packets. Firmware enforces a protocol-dependent upper bound." },
     { varNo: 31, name: "MPMode", group: "TCP / UDP Legacy", control: "bool", defaultValue: "false", range: "bool", description: "Multi-Packet mode: enables addressed packet headers for multiple clients in Bypass mode." },
     { varNo: 36, name: "KeepAlive", group: "TCP / UDP Legacy", control: "number", defaultValue: "60", range: "sec", description: "TCP keep-alive interval to maintain connection through firewalls." },
     { varNo: 38, name: "StationInactive", group: "TCP / UDP Legacy", control: "number", defaultValue: "120", range: "sec", description: "Timeout for disconnecting inactive clients in AP mode." },
@@ -129,7 +129,7 @@ WF88_M: {
     { varNo: 46, name: "MQTTSubscribeTopic", group: "MQTT Client", control: "text", defaultValue: "SToC", range: "Topic", description: "Topic that the device subscribes to for commands (Server-to-Client)." },
     { varNo: 47, name: "MQTTPubishTopic", group: "MQTT Client", control: "text", defaultValue: "CToS", range: "Topic", description: "Topic where the device publishes its data (Client-to-Server)." },
     { varNo: 48, name: "MQTTQoS", group: "MQTT Client", control: "select", defaultValue: "0", options: ["0", "1", "2"], range: "0-2", description: "MQTT Quality of Service level for publishing." },
-    { varNo: 49, name: "MQTTAuthType", group: "MQTT Client", control: "select", defaultValue: "1", options: [["0", "None"], ["1", "Password"], ["2", "Cert"], ["4", "TLS/SSL"]], range: "0, 1, 2, 4", description: "Security mode for MQTT connection." },
+    { varNo: 49, name: "MQTTAuthType", group: "MQTT Client", control: "select", defaultValue: "1", options: [["0", "Username/Password"], ["1", "Single"], ["2", "2-HandShake"], ["4", "None"]], range: "0, 1, 2, 4", description: "Security mode for MQTT connection." },
     { varNo: 54, name: "MQTTCaCrt", group: "MQTT Client", control: "text", defaultValue: "ca.crt", range: "Filename", description: "Root CA certificate for TLS verification." },
     { varNo: 55, name: "MQTTClinetCrt", group: "MQTT Client", control: "text", defaultValue: "client.crt", range: "Filename", description: "Client certificate for mutual TLS authentication." },
     { varNo: 56, name: "MQTTClinetKey", group: "MQTT Client", control: "text", defaultValue: "client.key", range: "Filename", description: "Client private key for mutual TLS authentication." },
@@ -142,7 +142,7 @@ WF88_M: {
 
     { varNo: 61, name: "MESH_ID", group: "Mesh", control: "text", defaultValue: "mymesh12345", range: "Text", description: "Identifier for the MESH network." },
     { varNo: 62, name: "MESH_PassPhrase", group: "Mesh", control: "text", defaultValue: "12345678", range: "Text", description: "Security key for the MESH network." },
-    { varNo: 63, name: "MESH_AuthType", group: "Mesh", control: "select", defaultValue: "2", options: ["0", "1", "2"], range: "0-2", description: "Authentication algorithm used in MESH mode." },
+    { varNo: 63, name: "MESH_AuthType", group: "Mesh", control: "select", defaultValue: "2", options: [["0", "NONE"], ["1", "WPA2-PSK"], ["2", "WPA3-SAE"]], range: "0-2", description: "Authentication algorithm used in MESH mode." },
     { varNo: 22, name: "HostEvents", group: "System", control: "bool", defaultValue: "true", range: "bool", description: "Enable or disable unsolicited +EVENT: messages on UART." },
     ],
 },
@@ -298,7 +298,7 @@ function createConfigPage({
         const normalized = normalizeValue(item, value);
         values.set(item.varNo, normalized);
         if (userChanged && !isReadonlyItem(item) && loaded.has(item.varNo)) {
-            if (normalized === (deviceValues.get(item.varNo) || "")) {
+            if (normalized === (deviceValues.get(item.varNo) ?? "")) {
                 dirty.delete(item.varNo);
             } else {
                 dirty.add(item.varNo);
@@ -312,10 +312,10 @@ function createConfigPage({
     function updateControl(item) {
         const control = root.querySelector(`#config-var-${item.varNo}`);
         if (!control) return;
-        const value = values.get(item.varNo) || "";
+        const value = values.get(item.varNo) ?? "";
         control.disabled = isItemDisabled(item);
         if (item.control === "bool") {
-            control.checked = value === "true" || value === "1";
+            control.checked = value === true || value === "true" || value === "1";
         } else if (item.control === "select") {
             ensureSelectOption(control, value);
             control.value = value;
@@ -394,7 +394,7 @@ function createConfigPage({
         for (const varNo of pending) {
             const item = itemByVar.get(varNo);
             if (!item || isReadonlyItem(item) || !loaded.has(varNo)) continue;
-            const value = normalizeForCommand(item, values.get(varNo) || "");
+            const value = normalizeForCommand(item, values.get(varNo) ?? "");
             const cmd = `at+ab config var${varNo}=${value}`;
             await serialSession.writeATCommand("config", cmd);
             writeTerminal(`> [Configuration] ${cmd}\n`);
@@ -510,7 +510,7 @@ function createConfigPage({
             items: getActiveItems().map(item => ({
                 varNo: item.varNo,
                 name: item.name,
-                value: values.get(item.varNo) || "",
+                value: values.get(item.varNo) ?? "",
                 loaded: loaded.has(item.varNo),
                 readonly: isReadonlyItem(item),
             })),
@@ -785,22 +785,22 @@ function createConfigPage({
     }
 
     function getDeviceValue(item) {
-        return deviceValues.get(item.varNo) || "";
+        return deviceValues.get(item.varNo) ?? "";
     }
 
     function getPendingValue(item) {
-        return values.get(item.varNo) || "";
+        return values.get(item.varNo) ?? "";
     }
 
     function formatConfigValueForDiff(value) {
-        return String(value || "");
+        return String(value ?? "");
     }
 
     function clearDeviceState() {
         loaded.clear();
         dirty.clear();
         deviceValues.clear();
-        values = new Map(getActiveItems().map(item => [item.varNo, item.defaultValue || ""]));
+        values = new Map(getActiveItems().map(item => [item.varNo, item.defaultValue ?? ""]));
     }
 
     function validateImportShape(data) {
@@ -872,9 +872,9 @@ function createConfigPage({
                 continue;
             }
 
-            const currentValue = values.get(item.varNo) || "";
+            const currentValue = values.get(item.varNo) ?? "";
             const importedValue = normalizeValue(item, String(imported.value ?? ""));
-            if (importedValue === currentValue) {
+            if (String(importedValue ?? "") === String(currentValue ?? "")) {
                 summary.unchanged++;
                 continue;
             }
@@ -902,7 +902,7 @@ function createConfigPage({
         const items = getActiveItems();
         itemByVar = new Map(items.map(item => [item.varNo, item]));
         itemByName = new Map(items.map(item => [item.name.toLowerCase(), item]));
-        values = new Map(items.map(item => [item.varNo, item.defaultValue || ""]));
+        values = new Map(items.map(item => [item.varNo, item.defaultValue ?? ""]));
         render();
     }
 
@@ -974,7 +974,7 @@ function findProfileName(hardwareName) {
 
 function normalizeValue(item, value) {
     if (item.control === "bool") {
-        return value === "1" || value === "true" ? "true" : "false";
+        return value === true || value === "1" || value === "true" ? "true" : "false";
     }
     if (item.control === "hex") {
         return value.toUpperCase();
@@ -984,7 +984,7 @@ function normalizeValue(item, value) {
 
 function normalizeForCommand(item, value) {
     if (item.control === "bool") {
-        return value === "true" || value === "1" ? "true" : "false";
+        return value === true || value === "true" || value === "1" ? "true" : "false";
     }
     return value;
 }
@@ -992,7 +992,7 @@ function normalizeForCommand(item, value) {
 function ensureSelectOption(select, value) {
     if (value === "") return;
     for (const option of select.options) {
-        if (option.value === value) {
+        if (String(option.value) === String(value)) {
             return;
         }
     }

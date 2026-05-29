@@ -1,5 +1,5 @@
 (function () {
-const FIRMWARE_PICKER_ID = "lr71-firmware-bin";
+const FIRMWARE_PICKER_ID = "amped-firmware-bin";
 const CONFIG_PICKER_ID = "lr71-config-json";
 
 function supportsOpenPicker() {

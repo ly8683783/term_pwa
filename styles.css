@@ -780,8 +780,19 @@ input:checked + .slider:before { transform: translateX(16px); }
     background: white;
     color: #333;
 }
+.firmware-actions button.danger {
+    background: #c62828;
+    color: #fff;
+}
+.firmware-actions button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
 .firmware-file-info { color: #475467; font-size: 12px; }
 .firmware-status { color: #344054; font-size: 13px; font-weight: 700; }
+.firmware-status.running { color: #0f766e; }
+.firmware-status.success { color: #2e7d32; }
+.firmware-status.error { color: #c62828; }
 
 .firmware-uart {
     flex: 1;
