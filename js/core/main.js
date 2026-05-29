@@ -179,13 +179,13 @@ terminalPage = appModules.createTerminalPage({
     debugLog,
 });
 debugLog("terminal page created");
-    netViewPage = appModules.createNetViewPage({
-        serialManager,
-        serialSession,
-        writeTerminal: (text) => terminalPage && terminalPage.writeTxEcho(text, { hex: false })
-    });
+netViewPage = appModules.createNetViewPage({
+    serialManager,
+    serialSession,
+    writeTerminal: (text) => terminalPage && terminalPage.writeTxEcho(text, { hex: false })
+});
 
-    netViewWF88Page = appModules.createNetViewWF88Page();
+netViewWF88Page = appModules.createNetViewWF88Page();
 
     firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
     serialManager,
