@@ -10,9 +10,16 @@
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles_wf88.css">
 
 </head>
 <body>
+    <!-- Hidden SVG Definitions for reuse -->
+    <svg style="display: none;">
+        <defs>
+            <path id="icon-netview" d="M17,13H13V17H11V13H7V11H11V7H13V11H17V13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+        </defs>
+    </svg>
 
     <header>
         <div class="left-section">
@@ -84,8 +91,12 @@
                 Configuration
             </a>
             <a href="#" class="menu-item" data-target="view-netview" data-feature="netview">
-                <svg viewBox="0 0 24 24"><path d="M17,13H13V17H11V13H7V11H11V7H13V11H17V13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
+                <svg viewBox="0 0 24 24"><use href="#icon-netview"/></svg>
                 NetView
+            </a>
+            <a href="#" class="menu-item" data-target="view-netview-wf88" data-feature="netview-wf88">
+                <svg viewBox="0 0 24 24"><use href="#icon-netview"/></svg>
+                NetView (WF88)
             </a>
             <a href="#" class="menu-item" data-target="view-docs">
                 <svg viewBox="0 0 24 24"><path d="M19,2L14,6.5V17.5L19,13V2M6.5,5C4.55,5 2.45,5.4 1,6.5V21C2.45,19.9 4.55,19.5 6.5,19.5C8.45,19.5 10.55,19.9 12,21C13.45,19.9 15.55,19.5 17.5,19.5C19.45,19.5 21.55,19.9 23,21V6.5C21.55,5.4 19.45,5 17.5,5C15.55,5 13.45,5.4 12,6.5C10.55,5.4 8.45,5 6.5,5Z"/></svg>
@@ -225,6 +236,43 @@
                 </div>
             </div>
 
+            <!-- NetView WF88 View -->
+            <div id="view-netview-wf88" class="view-panel">
+                <div class="wf88-layout">
+                    <section class="wf88-panel">
+                        <h2>Data Input</h2>
+                        <textarea id="wf88Input">{
+  "version": "1.0",
+  "originator": "00:04:3E:26:00:2D",
+  "collect_ms": 6975,
+  "responses": 0,
+  "nodes": [
+    {"mac": "00:04:3E:26:00:2D", "hop": 1, "links": 1},
+    {"mac": "00:80:E1:9B:21:54", "hop": 0, "links": 1}
+  ],
+  "edges": [
+    {"from": "00:04:3E:26:00:2D", "to": "00:80:E1:9B:21:54", "rssi": -46, "state": "ESTAB"}
+  ]
+}</textarea>
+                        <button id="wf88DrawBtn" class="btn-solid btn-connect">Draw Topology</button>
+                        <p class="wf88-hint">
+                            贴入 AT+WF NETTOPO 命令输出的完整 JSON 数据。<br>
+                            节点颜色表示 Hop (绿=GW, 蓝=1, 橙=2, 红=3)。连线颜色/粗细表示 RSSI。
+                        </p>
+                    </section>
+                
+                    <section class="wf88-view-panel">
+                        <h2 style="margin-top: 0; margin-bottom: 10px;">WiFi Mesh Topology (WF88-M)</h2>
+                        <div id="wf88Status" class="netview-status">Status: Waiting for JSON data...</div>
+                        <div class="canvas-wrap">
+                            <div id="wf88StatsTag" class="group-tag" style="background: #ffe36e; color: #2c2c2c;">Originator: --</div>
+                            <svg id="wf88Topology" aria-label="WiFi Mesh topology graph"></svg>
+                            <div id="wf88Tooltip" class="wf88-tooltip"></div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
             <!-- Docs View -->
             <div id="view-docs" class="view-panel">
                 <h2 style="margin-top: 0;">Documentation</h2>
@@ -281,6 +329,7 @@
     <script src="./netview_parser.js"></script>
     <script src="./topology_view.js"></script>
     <script src="./netview_page.js"></script>
+    <script src="./netview_wf88_page.js"></script>
     <script src="./serial_transport.js"></script>
     <script src="./serial_port_store.js"></script>
     <script src="./serial_port.js"></script>

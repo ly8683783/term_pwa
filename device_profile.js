@@ -16,7 +16,7 @@ const DEVICE_PROFILES = {
     "WF88-M": {
         name: "WF88-M",
         configProfile: "WF88_M",
-        capabilities: ["terminal", "firmwareUpdate", "configuration"],
+        capabilities: ["terminal", "firmwareUpdate", "configuration", "netview-wf88"],
     },
 };
 

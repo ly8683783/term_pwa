@@ -3,9 +3,10 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.createNetViewPage || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.createDeviceDetector || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.createNetViewWF88Page || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.createDeviceDetector || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
+        createNetViewWF88Page: Boolean(appModules.createNetViewWF88Page),
         SerialTransport: Boolean(appModules.SerialTransport),
         SerialPortStore: Boolean(appModules.SerialPortStore),
         SerialPortManager: Boolean(appModules.SerialPortManager),
@@ -54,6 +55,7 @@ debugLog("dom refs resolved", {
 });
 
 let netViewPage = null;
+let netViewWF88Page = null;
 let terminalPage = null;
 let firmwareUpdateDialog = null;
 let configPage = null;
@@ -177,13 +179,15 @@ terminalPage = appModules.createTerminalPage({
     debugLog,
 });
 debugLog("terminal page created");
-netViewPage = appModules.createNetViewPage({
-    serialManager,
-    serialSession,
-    writeTerminal: terminalPage.writeSystem,
-});
-debugLog("netview page created");
-firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
+    netViewPage = appModules.createNetViewPage({
+        serialManager,
+        serialSession,
+        writeTerminal: (text) => terminalPage && terminalPage.writeTxEcho(text, { hex: false })
+    });
+
+    netViewWF88Page = appModules.createNetViewWF88Page();
+
+    firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
     serialManager,
     serialSession,
     writeTerminal: terminalPage.writeSystem,
@@ -608,6 +612,10 @@ function switchView(targetId) {
 
     if (targetId === 'view-netview') {
         netViewPage.redraw();
+    } else if (targetId === 'view-netview-wf88') {
+        if (netViewWF88Page && netViewWF88Page.redraw) {
+            netViewWF88Page.redraw();
+        }
     } else if (targetId === 'view-config') {
         configPage.handleShown();
     } else if (targetId === 'view-terminal') {

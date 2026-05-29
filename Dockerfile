@@ -24,6 +24,8 @@ COPY index.html \
      netview_parser.js \
      topology_view.js \
      netview_page.js \
+     netview_wf88_page.js \
+     styles_wf88.css \
      ymodem_crc.js \
      firmware_update.js \
      config_page.js \
