@@ -183,15 +183,20 @@ function createTerminalPage({
     }
 
     function writeTxEcho(text, { hex = false } = {}) {
-        appendTerminalLog({ dir: "tx", mode: hex ? "hex" : "text", text: `${text}\n` });
+        const line = `${text}\n`;
+        const txDate = new Date();
+        const logText = isUartTimeEnabled()
+            ? `${formatTimestampPrefix(txDate)}${line}`
+            : line;
+        appendTerminalLog({ dir: "tx", mode: hex ? "hex" : "text", text: logText });
 
         const fragment = document.createDocumentFragment();
-        if (showLineTimeToggle && showLineTimeToggle.checked) {
-            writeTerminalTime(fragment);
+        if (isUartTimeEnabled()) {
+            writeTerminalTime(fragment, txDate);
         }
         const span = document.createElement("span");
         span.className = "terminal-tx";
-        span.appendChild(document.createTextNode(`${text}\n`));
+        span.appendChild(document.createTextNode(line));
         fragment.appendChild(span);
         writeTerminalFragment(fragment);
     }
@@ -406,13 +411,16 @@ function createTerminalPage({
     }
 
     function writeUartData(data) {
-        if (!showLineTimeToggle || !showLineTimeToggle.checked) {
+        if (!isUartTimeEnabled()) {
             writeTerminalRxView(data);
+            appendTerminalLog({ dir: "rx", mode: "text", text: data });
             uartAtLineStart = /(\r|\n)$/.test(data);
             return;
         }
 
         const fragment = document.createDocumentFragment();
+        const timestampDate = new Date();
+        let logText = "";
         let rxText = "";
 
         function flushRxText() {
@@ -421,13 +429,15 @@ function createTerminalPage({
             span.className = "terminal-rx";
             span.appendChild(document.createTextNode(rxText));
             fragment.appendChild(span);
+            logText += rxText;
             rxText = "";
         }
 
         for (const char of data) {
             if (uartAtLineStart && char !== "\r" && char !== "\n") {
                 flushRxText();
-                writeTerminalTime(fragment);
+                writeTerminalTime(fragment, timestampDate);
+                logText += formatTimestampPrefix(timestampDate);
                 uartAtLineStart = false;
             }
 
@@ -439,6 +449,7 @@ function createTerminalPage({
 
         flushRxText();
         writeTerminalFragment(fragment);
+        appendTerminalLog({ dir: "rx", mode: "text", text: logText });
     }
 
     function writeUartHexData(bytes) {
@@ -498,16 +509,19 @@ function createTerminalPage({
         if (!output) return;
 
         const line = `${output}\n`;
-        if (showLineTimeToggle && showLineTimeToggle.checked) {
+        if (isUartTimeEnabled()) {
+            const timestampDate = new Date();
             const fragment = document.createDocumentFragment();
-            writeTerminalTime(fragment);
+            writeTerminalTime(fragment, timestampDate);
             const span = document.createElement("span");
             span.className = "terminal-rx";
             span.appendChild(document.createTextNode(line));
             fragment.appendChild(span);
             writeTerminalFragment(fragment);
+            appendTerminalLog({ dir: "rx", mode: "hex", text: `${formatTimestampPrefix(timestampDate)}${line}` });
         } else {
             writeTerminalRxView(line);
+            appendTerminalLog({ dir: "rx", mode: "hex", text: line });
         }
         uartAtLineStart = true;
     }
@@ -517,10 +531,6 @@ function createTerminalPage({
             if (!bytes) {
                 return;
             }
-            const output = appModules.bytesToHexText(bytes);
-            if (output) {
-                appendTerminalLog({ dir: "rx", mode: "hex", text: `${output}\n` });
-            }
             writeUartHexData(bytes);
             return;
         }
@@ -529,7 +539,6 @@ function createTerminalPage({
             flushUartRxBuffer();
         }
         if (text) {
-            appendTerminalLog({ dir: "rx", mode: "text", text });
             writeUartTextBuffered(text);
         }
     }
@@ -593,6 +602,14 @@ function createTerminalPage({
         if (rxIdleInput) {
             rxIdleInput.value = String(getRxIdleMs());
         }
+    }
+
+    function isUartTimeEnabled() {
+        return Boolean(showLineTimeToggle && showLineTimeToggle.checked);
+    }
+
+    function formatTimestampPrefix(date) {
+        return `[${formatTimestampMs(date)}] `;
     }
 
     function loadCommandHistory() {

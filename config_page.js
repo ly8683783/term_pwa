@@ -236,8 +236,8 @@ function createConfigPage({
             <label class="config-label" for="config-var-${item.varNo}">${escapeHtml(item.name)}</label>
             <div class="config-diff-area">
                 <span class="config-original-value"></span>
-                <span class="config-diff-arrow" tabindex="0">--&gt;</span>
             </div>
+            <span class="config-diff-arrow" tabindex="0">--&gt;</span>
             <div class="config-control"></div>
             <span class="config-help" tabindex="0">?
                 <span class="config-tooltip" id="config-tip-${item.varNo}">

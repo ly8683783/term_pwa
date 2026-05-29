@@ -485,7 +485,7 @@ input:checked + .slider:before { transform: translateX(16px); }
 .config-row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(100px, 0.9fr) minmax(60px, 0.7fr) minmax(150px, 1.2fr) 22px;
+    grid-template-columns: minmax(100px, 0.9fr) minmax(60px, 0.7fr) 24px minmax(150px, 1.2fr) 22px;
     align-items: center;
     gap: 8px;
     min-height: 31px;
@@ -507,10 +507,6 @@ input:checked + .slider:before { transform: translateX(16px); }
 .config-row.missing .config-label { color: #777; }
 .config-diff-area {
     min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(28px, 1fr) 24px;
-    align-items: center;
-    gap: 6px;
 }
 .config-original-value,
 .config-diff-arrow {
@@ -535,6 +531,7 @@ input:checked + .slider:before { transform: translateX(16px); }
     font-size: 12px;
     font-weight: 700;
     text-align: center;
+    line-height: 1;
 }
 .config-control input,
 .config-control select {

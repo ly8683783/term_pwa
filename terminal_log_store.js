@@ -155,21 +155,7 @@ function createTerminalLogStore({ debugLog = () => {} } = {}) {
     }
 
     function formatEntry(entry) {
-        const timestamp = formatTimestampMs(new Date(entry.ts || Date.now()));
-        const dir = String(entry.dir || "system").toUpperCase();
-        const mode = String(entry.mode || "text").toUpperCase();
-        const body = String(entry.text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-        const lines = body.endsWith("\n") ? body.slice(0, -1).split("\n") : body.split("\n");
-
-        return lines
-            .map(line => `[${timestamp}] ${dir} ${mode} ${line}\n`)
-            .join("");
-    }
-
-    function formatTimestampMs(date) {
-        const pad2 = value => String(value).padStart(2, "0");
-        const pad3 = value => String(value).padStart(3, "0");
-        return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
+        return String(entry.text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     }
 
     openDb();
