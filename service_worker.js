@@ -1,6 +1,6 @@
-importScripts("./js/core/app_version.js");
+const CACHE_NAME = "20260529A";
 
-const CACHE_NAME = self.TermPWA.APP_VERSION;
+importScripts("./js/core/app_version.js");
 
 const APP_ASSETS = [
     "./",

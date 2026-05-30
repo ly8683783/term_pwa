@@ -1,6 +1,7 @@
 (function () {
 const appModules = window.TermPWA || {};
 const STORAGE_KEY = "lr71QuickSendList";
+const INDEX_STORAGE_KEY = "lr71QuickSendIndex";
 const QUICK_SEND_MIN_WIDTH = 340;
 const QUICK_SEND_MAX_WIDTH = 640;
 const QUICK_SEND_WIDTH_RATIO = 0.382;
@@ -25,7 +26,7 @@ function createQuickSendPanel({
 } = {}) {
     const root = document.querySelector(rootSelector);
     let groups = loadGroups();
-    let currentIndex = 0;
+    let currentIndex = parseInt(localStorage.getItem(INDEX_STORAGE_KEY)) || 0;
     let connected = false;
     let collapsed = false;
     let draggingItemIndex = null;
@@ -39,7 +40,7 @@ function createQuickSendPanel({
 
     render();
     applyPanelWidth();
-    selectGroup(0);
+    selectGroup(currentIndex);
     setConnected(false);
     window.addEventListener("resize", handleWindowResize);
 
@@ -304,6 +305,7 @@ function createQuickSendPanel({
 
     function selectGroup(index) {
         currentIndex = Number.isInteger(index) && groups[index] ? index : 0;
+        localStorage.setItem(INDEX_STORAGE_KEY, currentIndex);
         renderGroups();
         renderItems();
     }
@@ -491,6 +493,7 @@ function createQuickSendPanel({
 
     function saveGroups() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+        localStorage.setItem(INDEX_STORAGE_KEY, currentIndex);
     }
 
     return {
