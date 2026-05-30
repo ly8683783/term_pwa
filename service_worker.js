@@ -1,4 +1,4 @@
-const CACHE_NAME = "20260529A";
+const CACHE_NAME = "20260530A";
 
 importScripts("./js/core/app_version.js");
 
