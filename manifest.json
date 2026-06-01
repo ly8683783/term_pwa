@@ -1,7 +1,7 @@
 {
-  "name": "LR71 LoRaNet Web Terminal",
-  "short_name": "LR71 Web",
-  "description": "Web Serial terminal, configuration, topology, and firmware update tool for LR71 LoRaNet devices.",
+  "name": "Amp'ed RF Web Terminal",
+  "short_name": "Amp'ed RF Term",
+  "description": "Web Serial terminal, configuration, topology, and firmware update tool for Amp'ed RF devices.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

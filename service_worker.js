@@ -1,6 +1,6 @@
-const CACHE_NAME = "20260530A";
-
 importScripts("./js/core/app_version.js");
+
+const CACHE_NAME = `term-pwa-${(self.TermPWA && self.TermPWA.APP_VERSION) || "dev"}`;
 
 const APP_ASSETS = [
     "./",
