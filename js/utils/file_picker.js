@@ -50,6 +50,10 @@ async function openFirmwareBin() {
     };
 }
 
+function getFirmwarePickerId() {
+    return FIRMWARE_PICKER_ID;
+}
+
 async function openConfigJson() {
     const file = await openSingleFile({
         id: CONFIG_PICKER_ID,
@@ -108,6 +112,7 @@ window.TermPWA = window.TermPWA || {};
 window.TermPWA.filePicker = {
     supportsOpenPicker,
     supportsSavePicker,
+    getFirmwarePickerId,
     openFirmwareBin,
     openConfigJson,
     saveConfigJson,

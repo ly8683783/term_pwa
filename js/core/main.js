@@ -136,9 +136,6 @@ document.querySelectorAll('.menu-item').forEach(item => {
         if (feature && !hasActiveCapability(feature)) {
             return;
         }
-        if (activeViewId === "view-netview" && targetId !== "view-netview") {
-            netViewPage.stop("Status: stopped because NetView page was left.");
-        }
         switchView(targetId);
     });
 });
@@ -611,6 +608,13 @@ function updateFeatureVisibility() {
 }
 
 function switchView(targetId) {
+    const previousViewId = activeViewId;
+
+    if (previousViewId === targetId) {
+        return;
+    }
+
+    handleBeforeViewLeave(previousViewId, targetId);
     activeViewId = targetId;
 
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
@@ -637,6 +641,19 @@ function switchView(targetId) {
         terminalPage.handleShown();
     } else if (targetId === 'view-firmware') {
         firmwareUpdateDialog.handleShown();
+    }
+}
+
+function handleBeforeViewLeave(fromViewId, toViewId) {
+    if (fromViewId === "view-netview" && toViewId !== "view-netview") {
+        netViewPage.stop("Status: stopped because NetView page was left.");
+    }
+
+    if (fromViewId === "view-netview-wf88" &&
+        toViewId !== "view-netview-wf88" &&
+        netViewWF88Page &&
+        typeof netViewWF88Page.stop === "function") {
+        netViewWF88Page.stop("Status: stopped because NetView page was left.");
     }
 }
 

@@ -57,8 +57,23 @@ function createFirmwareUpdateDialog({
 
     async function chooseFirmwareFile() {
         const picker = window.TermPWA.filePicker;
-        if (picker && picker.supportsOpenPicker()) {
+        const supportsOpenPicker = Boolean(picker && picker.supportsOpenPicker());
+        const pickerContext = getFirmwarePickerContext();
+
+        debugLog("firmware file picker start", {
+            supportsOpenPicker,
+            pickerId: picker && picker.getFirmwarePickerId ? picker.getFirmwarePickerId() : null,
+            context: pickerContext,
+        });
+
+        if (supportsOpenPicker) {
             const picked = await picker.openFirmwareBin();
+            debugLog("firmware file picker result", {
+                via: "showOpenFilePicker",
+                picked: Boolean(picked),
+                name: picked ? picked.name : null,
+                context: pickerContext,
+            });
             if (!picked) {
                 setStatus("No firmware file selected.");
                 return;
@@ -67,6 +82,10 @@ function createFirmwareUpdateDialog({
             return;
         }
 
+        debugLog("firmware file picker fallback", {
+            via: "input[type=file]",
+            context: pickerContext,
+        });
         fileInput.value = "";
         fileInput.click();
     }
@@ -271,6 +290,23 @@ function createFirmwareUpdateDialog({
             tagName === "TEXTAREA" ||
             tagName === "SELECT" ||
             target.isContentEditable;
+    }
+
+    function getFirmwarePickerContext() {
+        const displayMode = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches
+            ? "standalone"
+            : "browser";
+
+        return {
+            origin: window.location.origin,
+            href: window.location.href,
+            protocol: window.location.protocol,
+            host: window.location.host,
+            pathname: window.location.pathname,
+            isSecureContext: window.isSecureContext,
+            displayMode,
+            serviceWorkerControlled: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller),
+        };
     }
 
     function formatSentKey(text) {
