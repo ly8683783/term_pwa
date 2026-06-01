@@ -4,11 +4,11 @@ function createFirmwareUpdateDialog({
     serialSession,
     writeTerminal = () => {},
     debugLog = () => {},
+    showPage = () => {},
+    isPageActive = () => false,
     selectors = {},
 } = {}) {
     const updateButton = document.querySelector(selectors.updateButton || "#firmwareUpdateBtn");
-    const overlay = document.querySelector(selectors.overlay || "#firmwareUpdateOverlay");
-    const closeButton = document.querySelector(selectors.closeButton || "#firmwareUpdateClose");
     const enterButton = document.querySelector(selectors.enterButton || "#firmwareEnterFlashloaderBtn");
     const selectButton = document.querySelector(selectors.selectButton || "#firmwareSelectBtn");
     const loadButton = document.querySelector(selectors.loadButton || "#firmwareLoadBtn");
@@ -27,12 +27,6 @@ function createFirmwareUpdateDialog({
     let cancelRequested = false;
 
     updateButton.addEventListener("click", open);
-    closeButton.addEventListener("click", close);
-    overlay.addEventListener("click", event => {
-        if ((event.target === overlay) && !isLoading) {
-            close();
-        }
-    });
 
     enterButton.addEventListener("click", () => {
         enterFlashloader().catch(error => {
@@ -120,7 +114,7 @@ function createFirmwareUpdateDialog({
     });
 
     document.addEventListener("keydown", event => {
-        if (!overlay.classList.contains("active")) {
+        if (!isPageActive()) {
             return;
         }
         if (isLoading) {
@@ -130,7 +124,7 @@ function createFirmwareUpdateDialog({
         if (event.ctrlKey || event.altKey || event.metaKey) {
             return;
         }
-        if (event.target === fileInput) {
+        if (isEditableTarget(event.target)) {
             return;
         }
 
@@ -147,16 +141,17 @@ function createFirmwareUpdateDialog({
     });
 
     function open() {
-        overlay.classList.add("active");
+        showPage();
+    }
+
+    function handleShown() {
+        debugLog("firmware page shown");
+        if (isLoading) {
+            return;
+        }
         setStatus(serialManager.isConnected()
             ? "Ready. Press number keys, Space, or Enter to control Flashloader."
             : "Connect serial before using firmware update.");
-        debugLog("firmware dialog opened");
-    }
-
-    function close() {
-        overlay.classList.remove("active");
-        debugLog("firmware dialog closed");
     }
 
     async function enterFlashloader() {
@@ -243,7 +238,7 @@ function createFirmwareUpdateDialog({
     }
 
     function handleSerialText(text) {
-        if (!overlay.classList.contains("active")) {
+        if (!isPageActive() && !isLoading) {
             return;
         }
         appendOutput(text);
@@ -265,6 +260,17 @@ function createFirmwareUpdateDialog({
             return event.key;
         }
         return null;
+    }
+
+    function isEditableTarget(target) {
+        if (!target) {
+            return false;
+        }
+        const tagName = target.tagName;
+        return tagName === "INPUT" ||
+            tagName === "TEXTAREA" ||
+            tagName === "SELECT" ||
+            target.isContentEditable;
     }
 
     function formatSentKey(text) {
@@ -311,7 +317,6 @@ function createFirmwareUpdateDialog({
         enterButton.disabled = busy;
         selectButton.disabled = busy;
         loadButton.disabled = busy;
-        closeButton.disabled = busy;
         cancelButton.disabled = !busy;
     }
 
@@ -393,7 +398,7 @@ function createFirmwareUpdateDialog({
 
     return {
         open,
-        close,
+        handleShown,
         handleSerialText,
     };
 }

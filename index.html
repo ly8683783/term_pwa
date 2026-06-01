@@ -102,6 +102,10 @@
                 <svg viewBox="0 0 24 24"><path d="M19,2L14,6.5V17.5L19,13V2M6.5,5C4.55,5 2.45,5.4 1,6.5V21C2.45,19.9 4.55,19.5 6.5,19.5C8.45,19.5 10.55,19.9 12,21C13.45,19.9 15.55,19.5 17.5,19.5C19.45,19.5 21.55,19.9 23,21V6.5C21.55,5.4 19.45,5 17.5,5C15.55,5 13.45,5.4 12,6.5C10.55,5.4 8.45,5 6.5,5Z"/></svg>
                 Documentation
             </a>
+            <a href="#" class="menu-item" data-target="view-firmware">
+                <svg viewBox="0 0 24 24"><path d="M15,9H9V15H15V9M13,13H11V11H13V13M18,15V13H20V11H18V9H20V7H18V5H16V3H14V5H12V3H10V5H8V3H6V5H4V7H6V9H4V11H6V13H4V15H6V17H4V19H6V21H8V19H10V21H12V19H14V21H16V19H18V21H20V19H18V17H20V15H18M16,17H8V7H16V17Z"/></svg>
+                Firmware Update
+            </a>
         </div>
 
         <div class="main-content">
@@ -216,6 +220,31 @@
                 </div>
             </div>
 
+            <!-- Firmware Update View -->
+            <div id="view-firmware" class="view-panel">
+                <div class="firmware-page" role="region" aria-labelledby="firmwareUpdateTitle">
+                    <div class="firmware-header">
+                        <h3 id="firmwareUpdateTitle">Firmware Update</h3>
+                    </div>
+                    <div class="firmware-body">
+                        <div class="firmware-actions">
+                            <button id="firmwareEnterFlashloaderBtn" type="button">Enter Flashloader</button>
+                            <button id="firmwareSelectBtn" class="secondary" type="button">Select</button>
+                            <button id="firmwareLoadBtn" type="button">Load</button>
+                            <button id="firmwareCancelBtn" class="danger" type="button" disabled>Cancel</button>
+                            <input id="firmwareFileInput" type="file" accept=".bin,application/octet-stream" hidden>
+                            <span id="firmwareFileInfo" class="firmware-file-info">No file selected</span>
+                        </div>
+                        <div id="firmwareUpdateStatus" class="firmware-status">Connect serial before using firmware update.</div>
+                        <pre id="firmwareUartOutput" class="firmware-uart"></pre>
+                        <div class="firmware-progress-row">
+                            <progress id="firmwareProgress" value="0" max="100"></progress>
+                            <span id="firmwareProgressText">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Configuration View -->
             <div id="view-config" class="view-panel">
                 <div id="configPage" class="config-page"></div>
@@ -291,31 +320,6 @@
             </span>
         </div>
         <pre id="debugLogOutput" class="debug-log-output"></pre>
-    </div>
-
-    <div id="firmwareUpdateOverlay" class="firmware-overlay">
-        <div class="firmware-dialog" role="dialog" aria-modal="true" aria-labelledby="firmwareUpdateTitle">
-            <div class="firmware-header">
-                <h3 id="firmwareUpdateTitle">Firmware Update</h3>
-                <button id="firmwareUpdateClose" class="firmware-close" type="button" aria-label="Close">&times;</button>
-            </div>
-            <div class="firmware-body">
-                <div class="firmware-actions">
-                    <button id="firmwareEnterFlashloaderBtn" type="button">Enter Flashloader</button>
-                    <button id="firmwareSelectBtn" class="secondary" type="button">Select</button>
-                    <button id="firmwareLoadBtn" type="button">Load</button>
-                    <button id="firmwareCancelBtn" class="danger" type="button" disabled>Cancel</button>
-                    <input id="firmwareFileInput" type="file" accept=".bin,application/octet-stream" hidden>
-                    <span id="firmwareFileInfo" class="firmware-file-info">No file selected</span>
-                </div>
-                <div id="firmwareUpdateStatus" class="firmware-status">Connect serial before using firmware update.</div>
-                <pre id="firmwareUartOutput" class="firmware-uart"></pre>
-                <div class="firmware-progress-row">
-                    <progress id="firmwareProgress" value="0" max="100"></progress>
-                    <span id="firmwareProgressText">0%</span>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="./js/core/debug_logger.js"></script>

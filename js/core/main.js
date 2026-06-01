@@ -187,11 +187,13 @@ netViewPage = appModules.createNetViewPage({
 
 netViewWF88Page = appModules.createNetViewWF88Page();
 
-    firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
+firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
     serialManager,
     serialSession,
     writeTerminal: terminalPage.writeSystem,
     debugLog,
+    showPage: () => switchView("view-firmware"),
+    isPageActive: () => activeViewId === "view-firmware",
 });
 debugLog("firmware update dialog created");
 configPage = appModules.createConfigPage({
@@ -633,6 +635,8 @@ function switchView(targetId) {
         configPage.handleShown();
     } else if (targetId === 'view-terminal') {
         terminalPage.handleShown();
+    } else if (targetId === 'view-firmware') {
+        firmwareUpdateDialog.handleShown();
     }
 }
 
