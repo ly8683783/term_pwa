@@ -3,7 +3,7 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.createNetViewPage || !appModules.createNetViewWF88Page || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createTerminalLogStore || !appModules.createDeviceDetector || !appModules.hexToBytes) {
+if (!appModules.createNetViewPage || !appModules.createNetViewWF88Page || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createSystemMonitorPage || !appModules.createTerminalLogStore || !appModules.createDeviceDetector || !appModules.hexToBytes) {
     debugLog("script globals missing", {
         createNetViewPage: Boolean(appModules.createNetViewPage),
         createNetViewWF88Page: Boolean(appModules.createNetViewWF88Page),
@@ -15,6 +15,7 @@ if (!appModules.createNetViewPage || !appModules.createNetViewWF88Page || !appMo
         createTerminalPage: Boolean(appModules.createTerminalPage),
         createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
         createConfigPage: Boolean(appModules.createConfigPage),
+        createSystemMonitorPage: Boolean(appModules.createSystemMonitorPage),
         createTerminalLogStore: Boolean(appModules.createTerminalLogStore),
         createDeviceDetector: Boolean(appModules.createDeviceDetector),
         hexToBytes: Boolean(appModules.hexToBytes),
@@ -59,6 +60,7 @@ let netViewWF88Page = null;
 let terminalPage = null;
 let firmwareUpdateDialog = null;
 let configPage = null;
+let systemMonitorPage = null;
 let deviceDetector = null;
 let activeViewId = "view-welcome";
 let activeDeviceProfileName = "UNKNOWN";
@@ -200,6 +202,11 @@ configPage = appModules.createConfigPage({
     debugLog,
 });
 debugLog("configuration page created");
+systemMonitorPage = appModules.createSystemMonitorPage({
+    rootSelector: "#view-system-monitor",
+    debugLog,
+});
+debugLog("system monitor page created");
 deviceDetector = appModules.createDeviceDetector({
     serialSession,
     serialBus,
@@ -641,6 +648,8 @@ function switchView(targetId) {
         terminalPage.handleShown();
     } else if (targetId === 'view-firmware') {
         firmwareUpdateDialog.handleShown();
+    } else if (targetId === 'view-system-monitor') {
+        systemMonitorPage.handleShown();
     }
 }
 
@@ -654,6 +663,13 @@ function handleBeforeViewLeave(fromViewId, toViewId) {
         netViewWF88Page &&
         typeof netViewWF88Page.stop === "function") {
         netViewWF88Page.stop("Status: stopped because NetView page was left.");
+    }
+
+    if (fromViewId === "view-system-monitor" &&
+        toViewId !== "view-system-monitor" &&
+        systemMonitorPage &&
+        typeof systemMonitorPage.handleHidden === "function") {
+        systemMonitorPage.handleHidden();
     }
 }
 

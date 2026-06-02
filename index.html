@@ -94,6 +94,10 @@
                 <svg viewBox="0 0 24 24"><use href="#icon-netview"/></svg>
                 NetView
             </a>
+            <a href="#" class="menu-item" data-target="view-system-monitor" data-feature="system-monitor">
+                <svg viewBox="0 0 24 24"><path d="M3,13H7L9,5L13,19L16,11H21V13H17.3L12.8,22L9.2,10L8.5,15H3V13Z"/></svg>
+                System Monitor
+            </a>
             <a href="#" class="menu-item" data-target="view-netview-wf88" data-feature="netview-wf88">
                 <svg viewBox="0 0 24 24"><use href="#icon-netview"/></svg>
                 NetView (WF88)
@@ -252,16 +256,148 @@
 
             <!-- NetView View -->
             <div id="view-netview" class="view-panel">
-                <h2 style="margin-top: 0; margin-bottom: 10px;">LoRaNet Topology</h2>
-                <div class="netview-controls">
-                    <button id="btnStartNetView" disabled>Start</button>
-                    <button id="btnStopNetView" disabled>Stop</button>
-                    <button id="btnClearNetView">Clear</button>
+                <div class="page-toolbar">
+                    <h2>LoRaNet Topology</h2>
+                    <div class="netview-controls">
+                        <button id="btnStartNetView" disabled>Start</button>
+                        <button id="btnStopNetView" disabled>Stop</button>
+                        <button id="btnClearNetView">Clear</button>
+                    </div>
                 </div>
                 <div id="netViewStatus" class="netview-status">Status: connect a serial device to start NetView.</div>
                 <div class="canvas-wrap">
                     <div id="netViewGroupTag" class="group-tag">Group --</div>
                     <svg id="topology" aria-label="LoRaNet topology graph"></svg>
+                </div>
+            </div>
+
+            <!-- System Monitor View -->
+            <div id="view-system-monitor" class="view-panel">
+                <div class="monitor-page">
+                    <div class="page-toolbar">
+                        <h2 class="monitor-title">System Monitor</h2>
+                        <div class="netview-controls monitor-controls">
+                            <label class="monitor-interval">
+                                Sampling interval
+                                <input id="systemMonitorInterval" type="number" min="500" max="60000" step="500" value="2000">
+                                ms
+                            </label>
+                            <button id="btnStartSystemMonitor" disabled>Start</button>
+                            <button id="btnStopSystemMonitor" disabled>Stop</button>
+                            <button id="btnClearSystemMonitor">Clear</button>
+                        </div>
+                    </div>
+                    <div id="systemMonitorStatus" class="netview-status">Status: monitor is idle.</div>
+
+                    <section class="monitor-summary" aria-label="LR71 summary">
+                        <div><span>Node</span><strong>0071</strong></div>
+                        <div><span>Air rate</span><strong>19200 bps</strong></div>
+                        <div><span>Relay</span><strong>0</strong></div>
+                        <div><span>CAD mode</span><strong>on-dynamic</strong></div>
+                        <div><span>Radio</span><strong>RX_WAIT_DONE</strong></div>
+                        <div><span>Uptime</span><strong>8600 s</strong></div>
+                        <div><span>TX / RX</span><strong>0 / 0</strong></div>
+                        <div><span>Recover</span><strong>0</strong></div>
+                        <div><span>Legacy</span><strong>0</strong></div>
+                        <div><span>Relay delay</span><strong id="systemMonitorSummaryRelayDelay">t1 40..95</strong></div>
+                    </section>
+
+                    <div class="monitor-grid">
+                        <div class="monitor-main-column">
+                            <div class="monitor-chart-layout">
+                                <div class="monitor-chart-stack">
+                                    <section class="monitor-chart-panel">
+                                        <div class="monitor-panel-header">
+                                            <h3 class="monitor-panel-title">EWMA</h3>
+                                            <div class="monitor-panel-legend">
+                                                <span class="retry">retry_ewma_q8</span>
+                                                <span class="rxerr">rxerr_ewma_q8</span>
+                                            </div>
+                                        </div>
+                                        <div class="monitor-chart monitor-line-chart">
+                                            <svg id="systemMonitorEwmaChart" aria-label="retry and rx error ewma chart"></svg>
+                                        </div>
+                                    </section>
+
+                                    <section class="monitor-chart-panel">
+                                        <div class="monitor-panel-header">
+                                            <h3 class="monitor-panel-title">Relay Delay</h3>
+                                            <div class="monitor-panel-legend">
+                                                <span class="delay">relay_delay ms</span>
+                                            </div>
+                                        </div>
+                                        <div class="monitor-chart monitor-line-chart">
+                                            <svg id="systemMonitorRelayChart" aria-label="relay delay chart"></svg>
+                                        </div>
+                                    </section>
+
+                                    <section class="monitor-topology-panel monitor-topology-inline-panel">
+                                        <h3>Neighbor Topology</h3>
+                                        <div class="canvas-wrap monitor-topology-wrap monitor-topology-inline-wrap">
+                                            <div id="systemMonitorTopologyTag" class="group-tag">Neighbors --</div>
+                                            <svg id="systemMonitorTopology" aria-label="neighbor topology preview"></svg>
+                                            <div id="systemMonitorTopologyTooltip" class="monitor-topology-tooltip" hidden></div>
+                                        </div>
+                                    </section>
+                                </div>
+
+                                <section class="monitor-chart-panel monitor-bar-panel">
+                                    <div class="monitor-panel-header">
+                                        <h3 class="monitor-panel-title">Delay Bucket</h3>
+                                    </div>
+                                    <div class="monitor-chart monitor-bar-chart" aria-label="delay bucket histogram">
+                                        <div style="--bar:12%"><span></span><strong>t0</strong></div>
+                                        <div style="--bar:42%"><span></span><strong>t1</strong></div>
+                                        <div style="--bar:28%"><span></span><strong>t2</strong></div>
+                                        <div style="--bar:18%"><span></span><strong>t3</strong></div>
+                                        <div style="--bar:8%"><span></span><strong>t4</strong></div>
+                                        <div style="--bar:4%"><span></span><strong>t5</strong></div>
+                                        <div style="--bar:2%"><span></span><strong>t6</strong></div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+
+                        <div class="monitor-side-column">
+                            <section class="monitor-side-panel monitor-queue-panel">
+                                <h3>Task Queue</h3>
+                                <table class="monitor-table monitor-queue-table">
+                                    <thead><tr><th>Name</th><th>Used</th><th>Free</th><th>Depth</th><th>Load</th></tr></thead>
+                                    <tbody>
+                                        <tr><td>LoRa Simple</td><td>0</td><td>20</td><td>20</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>LoRa Interface</td><td>0</td><td>20</td><td>20</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>AT Command</td><td>0</td><td>16</td><td>16</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>Mesh Bearer</td><td>0</td><td>192</td><td>192</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>Mesh Network</td><td>0</td><td>192</td><td>192</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>Mesh Transport</td><td>0</td><td>192</td><td>192</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>Mesh Access</td><td>0</td><td>192</td><td>192</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>Mesh OnOff</td><td>0</td><td>192</td><td>192</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>Mesh StartTimer</td><td>0</td><td>120</td><td>120</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                        <tr><td>Mesh Send</td><td>0</td><td>512</td><td>512</td><td><span style="--load:0%" class="queue-load"></span></td></tr>
+                                    </tbody>
+                                </table>
+                            </section>
+
+                            <section class="monitor-side-panel">
+                                <h3>LoRa Detail</h3>
+                                <div class="monitor-detail-grid">
+                                    <span>continue_read</span><strong>Open</strong>
+                                    <span>sniff_active</span><strong>0</strong>
+                                    <span>recovering</span><strong>0</strong>
+                                    <span>sw_last_irq</span><strong>0x0042</strong>
+                                    <span>irq_drop_count</span><strong>0</strong>
+                                    <span>irq_queue_waiting</span><strong>0</strong>
+                                    <span>cad_retry</span><strong>0</strong>
+                                    <span>tx_len / rx_len</span><strong>0 / 0</strong>
+                                    <span>chip_mode</span><strong>RX</strong>
+                                    <span>cmd_status</span><strong>RFU</strong>
+                                    <span>hw_irq</span><strong>0x0000</strong>
+                                    <span>errors</span><strong>0x0000</strong>
+                                    <span>pkt_type</span><strong>LORA</strong>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -344,6 +480,7 @@
     <script src="./js/utils/ymodem_crc.js"></script>
     <script src="./js/features/firmware_update.js"></script>
     <script src="./js/features/config_page.js"></script>
+    <script src="./js/features/system_monitor_page.js"></script>
 
     <script src="./js/core/main.js"></script>
 </body>

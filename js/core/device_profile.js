@@ -11,7 +11,7 @@ const DEVICE_PROFILES = {
     LR71: {
         name: "LR71",
         configProfile: "LR71",
-        capabilities: ["terminal", "firmwareUpdate", "configuration", "netview"],
+        capabilities: ["terminal", "firmwareUpdate", "configuration", "netview", "system-monitor"],
     },
     "WF88-M": {
         name: "WF88-M",
