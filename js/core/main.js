@@ -3,24 +3,13 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.createNetViewPage || !appModules.createNetViewWF88Page || !appModules.SerialTransport || !appModules.SerialPortStore || !appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createTerminalPage || !appModules.createFirmwareUpdateDialog || !appModules.createConfigPage || !appModules.createSystemMonitorPage || !appModules.createTerminalLogStore || !appModules.createDeviceDetector || !appModules.hexToBytes) {
-    debugLog("script globals missing", {
-        createNetViewPage: Boolean(appModules.createNetViewPage),
-        createNetViewWF88Page: Boolean(appModules.createNetViewWF88Page),
-        SerialTransport: Boolean(appModules.SerialTransport),
-        SerialPortStore: Boolean(appModules.SerialPortStore),
+if (!appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession) {
+    debugLog("core globals missing", {
         SerialPortManager: Boolean(appModules.SerialPortManager),
         createSerialEventBus: Boolean(appModules.createSerialEventBus),
         createSerialSession: Boolean(appModules.createSerialSession),
-        createTerminalPage: Boolean(appModules.createTerminalPage),
-        createFirmwareUpdateDialog: Boolean(appModules.createFirmwareUpdateDialog),
-        createConfigPage: Boolean(appModules.createConfigPage),
-        createSystemMonitorPage: Boolean(appModules.createSystemMonitorPage),
-        createTerminalLogStore: Boolean(appModules.createTerminalLogStore),
-        createDeviceDetector: Boolean(appModules.createDeviceDetector),
-        hexToBytes: Boolean(appModules.hexToBytes),
     });
-    throw new Error("Required page scripts failed to load.");
+    throw new Error("Required core scripts failed to load.");
 }
 debugLog("classic scripts loaded");
 debugLog("browser security context", {
@@ -55,18 +44,13 @@ debugLog("dom refs resolved", {
     autoDetectToggle: Boolean(autoDetectToggle),
 });
 
-let netViewPage = null;
-let netViewWF88Page = null;
-let terminalPage = null;
-let firmwareUpdateDialog = null;
-let configPage = null;
-let systemMonitorPage = null;
-let deviceDetector = null;
 let activeViewId = "view-welcome";
 let activeDeviceProfileName = "UNKNOWN";
 let welcomeStatusText = "Connect a device, then detect it.";
 let waitingServiceWorker = null;
 let serviceWorkerRefreshing = false;
+const pageRegistry = new Map();
+const serviceRegistry = new Map();
 
 if (appVersionInfo) {
     appVersionInfo.textContent = `Application Version: ${APP_CACHE_NAME}`;
@@ -154,9 +138,7 @@ function onDisconnect() {
         serialSession.reset();
     }
     setActiveDeviceProfile("UNKNOWN", "Serial disconnected.");
-    if (terminalPage) {
-        terminalPage.handleDisconnected();
-    }
+    dispatchPageLifecycle("onSerialDisconnect");
     updateUI(false);
     updatePortList().catch(error => console.error("Port list update failed:", error));
 }
@@ -171,52 +153,10 @@ const serialSession = appModules.createSerialSession({
     onStatusChange: updateSessionUI,
 });
 debugLog("serial session created");
-terminalPage = appModules.createTerminalPage({
-    rootSelector: "#view-terminal",
-    serialSession,
-    serialBus,
-    debugLog,
-});
-debugLog("terminal page created");
-netViewPage = appModules.createNetViewPage({
-    serialManager,
-    serialSession,
-    writeTerminal: (text) => terminalPage && terminalPage.writeTxEcho(text, { hex: false })
-});
-
-netViewWF88Page = appModules.createNetViewWF88Page();
-
-firmwareUpdateDialog = appModules.createFirmwareUpdateDialog({
-    serialManager,
-    serialSession,
-    writeTerminal: terminalPage.writeSystem,
-    debugLog,
-    showPage: () => switchView("view-firmware"),
-    isPageActive: () => activeViewId === "view-firmware",
-});
-debugLog("firmware update dialog created");
-configPage = appModules.createConfigPage({
-    serialManager,
-    serialSession,
-    writeTerminal: terminalPage.writeSystem,
-    debugLog,
-});
-debugLog("configuration page created");
-systemMonitorPage = appModules.createSystemMonitorPage({
-    rootSelector: "#view-system-monitor",
-    debugLog,
-});
-debugLog("system monitor page created");
-deviceDetector = appModules.createDeviceDetector({
-    serialSession,
-    serialBus,
-    debugLog,
-});
-debugLog("device detector created");
-
-serialBus.subscribeText("netview", text => netViewPage.handleSerialData(text));
-serialBus.subscribeText("firmware", text => firmwareUpdateDialog.handleSerialText(text));
-serialBus.subscribeText("config", text => configPage.handleSerialData(text));
+updateFeatureVisibility();
+initializePages();
+serviceRegistry.set("deviceDetector", createDeviceDetectorSafely());
+registerPageSubscriptions();
 updateFeatureVisibility();
 renderWelcomeDevice();
 
@@ -240,6 +180,256 @@ async function init() {
     }
 }
 
+function initializePages() {
+    buildPageDefinitions().forEach(definition => {
+        const page = createPageSafely(definition);
+        definition.page = page;
+        pageRegistry.set(definition.viewId, definition);
+    });
+}
+
+function buildPageDefinitions() {
+    return [
+        {
+            key: "terminal",
+            viewId: "view-terminal",
+            create: () => appModules.createTerminalPage({
+                rootSelector: "#view-terminal",
+                serialSession,
+                serialBus,
+                debugLog,
+            }),
+            fallback: () => createNoopPage([
+                "handleConnected",
+                "handleDisconnected",
+                "handleSessionChanged",
+                "handleShown",
+                "writeSystem",
+                "writeError",
+                "writeTxEcho",
+                "clear",
+                "stopIntervalSend",
+            ]),
+            onShow: page => page.handleShown(),
+            onConnected: page => page.handleConnected(),
+            onDisconnected: page => page.handleDisconnected(),
+            onSessionChanged: page => page.handleSessionChanged(),
+            onSerialDisconnect: page => page.handleDisconnected(),
+            beforePortSwitch: page => {
+                page.stopIntervalSend();
+                page.handleDisconnected();
+            },
+            beforeDisconnect: page => page.stopIntervalSend(),
+        },
+        {
+            key: "netview",
+            viewId: "view-netview",
+            create: () => appModules.createNetViewPage({
+                serialManager,
+                serialSession,
+                writeTerminal: text => {
+                    const page = getPage("view-terminal");
+                    if (page && typeof page.writeTxEcho === "function") {
+                        page.writeTxEcho(text, { hex: false });
+                    }
+                },
+            }),
+            fallback: () => createNoopPage([
+                "handleSerialData",
+                "handleConnected",
+                "handleDisconnected",
+                "handleUnavailable",
+                "handleSessionChanged",
+                "redraw",
+                "stop",
+                "clear",
+                "isCollecting",
+            ], {
+                isCollecting: () => false,
+            }),
+            onShow: page => page.redraw(),
+            onHide: (page, toViewId, options = {}) => {
+                const message = options.reason === "unavailable"
+                    ? "Status: stopped because NetView is unavailable for this device."
+                    : "Status: stopped because NetView page was left.";
+                page.stop(message);
+            },
+            onConnected: page => page.handleConnected(),
+            onDisconnected: (page, message) => page.handleDisconnected(message),
+            onUnavailable: (page, message) => page.handleUnavailable(message),
+            onSessionChanged: page => page.handleSessionChanged(),
+            subscriptions: [
+                { channel: "netview", handler: page => text => page.handleSerialData(text) },
+            ],
+        },
+        {
+            key: "netview-wf88",
+            viewId: "view-netview-wf88",
+            create: () => appModules.createNetViewWF88Page(),
+            fallback: () => createNoopPage(["redraw", "stop"]),
+            onShow: page => page.redraw(),
+            onHide: (page, toViewId, options = {}) => {
+                if (typeof page.stop !== "function") {
+                    return;
+                }
+                const message = options.reason === "unavailable"
+                    ? "Status: stopped because NetView is unavailable for this device."
+                    : "Status: stopped because NetView page was left.";
+                page.stop(message);
+            },
+        },
+        {
+            key: "firmware",
+            viewId: "view-firmware",
+            create: () => appModules.createFirmwareUpdateDialog({
+                serialManager,
+                serialSession,
+                writeTerminal: (...args) => {
+                    const page = getPage("view-terminal");
+                    if (page && typeof page.writeSystem === "function") {
+                        page.writeSystem(...args);
+                    }
+                },
+                debugLog,
+                showPage: () => switchView("view-firmware"),
+                isPageActive: () => activeViewId === "view-firmware",
+            }),
+            fallback: () => createNoopPage(["open", "handleShown", "handleSerialText"]),
+            onShow: page => page.handleShown(),
+            subscriptions: [
+                { channel: "firmware", handler: page => text => page.handleSerialText(text) },
+            ],
+        },
+        {
+            key: "config",
+            viewId: "view-config",
+            create: () => appModules.createConfigPage({
+                serialManager,
+                serialSession,
+                writeTerminal: (...args) => {
+                    const page = getPage("view-terminal");
+                    if (page && typeof page.writeSystem === "function") {
+                        page.writeSystem(...args);
+                    }
+                },
+                debugLog,
+            }),
+            fallback: () => createNoopPage([
+                "handleSerialData",
+                "handleConnected",
+                "handleDisconnected",
+                "handleUnavailable",
+                "handleShown",
+                "handleDeviceChanged",
+                "handleSessionChanged",
+            ]),
+            onShow: page => page.handleShown(),
+            onConnected: page => page.handleConnected(),
+            onDisconnected: page => page.handleDisconnected(),
+            onUnavailable: (page, message) => page.handleUnavailable(message),
+            onSessionChanged: page => page.handleSessionChanged(),
+            afterDeviceConnected: (page, context = {}) => {
+                if (context.activeViewId === "view-config") {
+                    page.handleDeviceChanged(true);
+                }
+            },
+            subscriptions: [
+                { channel: "config", handler: page => text => page.handleSerialData(text) },
+            ],
+        },
+        {
+            key: "system-monitor",
+            viewId: "view-system-monitor",
+            create: () => appModules.createSystemMonitorPage({
+                rootSelector: "#view-system-monitor",
+                debugLog,
+            }),
+            fallback: () => createNoopPage(["handleShown", "handleHidden", "start", "stop", "clear"]),
+            onShow: page => page.handleShown(),
+            onHide: page => page.handleHidden(),
+        },
+    ];
+}
+
+function createPageSafely(definition) {
+    try {
+        const page = definition.create();
+        debugLog(`${definition.key} page created`);
+        return page || definition.fallback();
+    } catch (error) {
+        debugLog(`${definition.key} page creation failed`, error);
+        console.error(`${definition.key} page creation failed:`, error);
+        return definition.fallback();
+    }
+}
+
+function registerPageSubscriptions() {
+    pageRegistry.forEach(definition => {
+        (definition.subscriptions || []).forEach(subscription => {
+            try {
+                serialBus.subscribeText(subscription.channel, subscription.handler(definition.page));
+            } catch (error) {
+                debugLog(`${definition.key} subscription failed`, error);
+                console.error(`${definition.key} subscription failed:`, error);
+            }
+        });
+    });
+}
+
+function createNoopPage(methodNames, methods = {}) {
+    const page = { ...methods };
+    methodNames.forEach(name => {
+        if (typeof page[name] !== "function") {
+            page[name] = () => {};
+        }
+    });
+    return page;
+}
+
+function getPageDefinition(viewId) {
+    return pageRegistry.get(viewId) || null;
+}
+
+function getPage(viewId) {
+    const definition = getPageDefinition(viewId);
+    return definition ? definition.page : null;
+}
+
+function getService(key) {
+    return serviceRegistry.get(key) || null;
+}
+
+function createDeviceDetectorSafely() {
+    try {
+        const detector = appModules.createDeviceDetector({
+            serialSession,
+            serialBus,
+            debugLog,
+        });
+        if (detector) {
+            debugLog("device detector created");
+            return detector;
+        }
+        throw new Error("createDeviceDetector returned falsy value");
+    } catch (error) {
+        debugLog("device detector creation failed", error);
+        console.error("device detector creation failed:", error);
+        return {
+            async detect() {
+                return { profileName: "UNKNOWN", mode: "unknown" };
+            },
+        };
+    }
+}
+
+function dispatchPageLifecycle(hookName, ...args) {
+    pageRegistry.forEach(definition => {
+        if (typeof definition[hookName] === "function") {
+            callPageHook(definition, hookName, ...args);
+        }
+    });
+}
+
 async function updatePortList() {
     debugLog("updatePortList start", { supported: serialManager.isSupported() });
     if (!serialManager.isSupported()) {
@@ -247,8 +437,7 @@ async function updatePortList() {
         portSelect.disabled = true;
         autoConnectToggle.disabled = true;
         statusMessage.innerText = "Status: Web Serial unavailable";
-        netViewPage.handleUnavailable("Status: Web Serial requires Chrome/Chromium over localhost or HTTPS.");
-        configPage.handleUnavailable("Web Serial requires Chrome/Chromium over localhost or HTTPS.");
+        dispatchPageLifecycle("onUnavailable", "Status: Web Serial requires Chrome/Chromium over localhost or HTTPS.");
         return [];
     }
 
@@ -334,9 +523,8 @@ async function switchConnectedPort(selectedValue) {
         }
 
         debugLog("switch serial port start", { selectedValue });
-        terminalPage.stopIntervalSend();
+        dispatchPageLifecycle("beforePortSwitch");
         serialSession.reset();
-        terminalPage.handleDisconnected();
         setActiveDeviceProfile("UNKNOWN", "Switching serial device...");
         
         const disconnectPromise = serialManager.disconnect({ notify: false });
@@ -409,10 +597,11 @@ async function performConnection(portObj) {
     } else {
         setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.");
     }
-    
-    if (activeViewId === "view-config") {
-        configPage.handleDeviceChanged(true);
-    }
+
+    dispatchPageLifecycle("afterDeviceConnected", {
+        activeViewId,
+        profileName: activeDeviceProfileName,
+    });
 }
 
 async function tryDisconnect() {
@@ -422,7 +611,7 @@ async function tryDisconnect() {
 
     debugLog("tryDisconnect start");
     try {
-        terminalPage.stopIntervalSend();
+        dispatchPageLifecycle("beforeDisconnect");
         setActiveDeviceProfile("UNKNOWN", "Disconnecting...");
         const disconnectPromise = serialManager.disconnect();
         updateUI();
@@ -450,9 +639,7 @@ function updateUI(connected = serialManager.isConnected()) {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connecting...";
         statusMessage.innerText = "Status: Connecting...";
-        terminalPage.handleDisconnected();
-        netViewPage.handleDisconnected("Status: serial connection is busy.");
-        configPage.handleDisconnected();
+        dispatchPageLifecycle("onDisconnected", "Status: serial connection is busy.");
         renderWelcomeDevice("Connecting...");
         return;
     }
@@ -461,9 +648,7 @@ function updateUI(connected = serialManager.isConnected()) {
         connectBtn.classList.add('connected');
         connectText.innerText = "Disconnecting...";
         statusMessage.innerText = "Status: Disconnecting...";
-        terminalPage.handleDisconnected();
-        netViewPage.handleDisconnected("Status: serial connection is busy.");
-        configPage.handleDisconnected();
+        dispatchPageLifecycle("onDisconnected", "Status: serial connection is busy.");
         renderWelcomeDevice("Disconnecting...");
         return;
     }
@@ -471,18 +656,14 @@ function updateUI(connected = serialManager.isConnected()) {
     if (connected) {
         connectBtn.classList.add('connected');
         connectText.innerText = "Disconnect";
-        netViewPage.handleConnected();
-        configPage.handleConnected();
-        terminalPage.handleConnected();
+        dispatchPageLifecycle("onConnected");
         updateSessionUI();
         renderWelcomeDevice();
     } else {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connect";
         statusMessage.innerText = "Status: Disconnected";
-        terminalPage.handleDisconnected();
-        netViewPage.handleDisconnected();
-        configPage.handleDisconnected();
+        dispatchPageLifecycle("onDisconnected");
         renderWelcomeDevice("Connect a device, then detect it.");
     }
 }
@@ -497,13 +678,7 @@ function updateSessionUI() {
     statusMessage.innerText = sessionText
         ? `Status: Connected to Serial Device (${sessionText})`
         : "Status: Connected to Serial Device";
-    terminalPage.handleSessionChanged();
-    if (netViewPage && netViewPage.handleSessionChanged) {
-        netViewPage.handleSessionChanged();
-    }
-    if (configPage && configPage.handleSessionChanged) {
-        configPage.handleSessionChanged();
-    }
+    dispatchPageLifecycle("onSessionChanged");
     renderWelcomeDevice();
 }
 
@@ -543,7 +718,8 @@ async function detectDevice() {
     }
 
     setWelcomeStatus("Checking bootloader...");
-    const result = await deviceDetector.detect();
+    const detector = getService("deviceDetector");
+    const result = await detector.detect();
     const profileName = result.profileName || "UNKNOWN";
     const message = result.mode === "bootloader"
         ? "Flashloader detected."
@@ -607,21 +783,22 @@ function updateFeatureVisibility() {
 
     const activeItem = document.querySelector(`.menu-item[data-target="${activeViewId}"]`);
     if (activeItem && activeItem.hidden) {
-        if (activeViewId === "view-netview") {
-            netViewPage.stop("Status: stopped because NetView is unavailable for this device.");
-        }
-        switchView("view-welcome");
+        switchView("view-welcome", { reason: "unavailable" });
     }
 }
 
-function switchView(targetId) {
+function switchView(targetId, options = {}) {
     const previousViewId = activeViewId;
 
     if (previousViewId === targetId) {
         return;
     }
 
-    handleBeforeViewLeave(previousViewId, targetId);
+    const previousDefinition = pageRegistry.get(previousViewId);
+    if (previousDefinition && typeof previousDefinition.onHide === "function") {
+        callPageHook(previousDefinition, "onHide", targetId, options);
+    }
+
     activeViewId = targetId;
 
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
@@ -636,40 +813,18 @@ function switchView(targetId) {
         targetView.classList.add('active');
     }
 
-    if (targetId === 'view-netview') {
-        netViewPage.redraw();
-    } else if (targetId === 'view-netview-wf88') {
-        if (netViewWF88Page && netViewWF88Page.redraw) {
-            netViewWF88Page.redraw();
-        }
-    } else if (targetId === 'view-config') {
-        configPage.handleShown();
-    } else if (targetId === 'view-terminal') {
-        terminalPage.handleShown();
-    } else if (targetId === 'view-firmware') {
-        firmwareUpdateDialog.handleShown();
-    } else if (targetId === 'view-system-monitor') {
-        systemMonitorPage.handleShown();
+    const nextDefinition = pageRegistry.get(targetId);
+    if (nextDefinition && typeof nextDefinition.onShow === "function") {
+        callPageHook(nextDefinition, "onShow");
     }
 }
 
-function handleBeforeViewLeave(fromViewId, toViewId) {
-    if (fromViewId === "view-netview" && toViewId !== "view-netview") {
-        netViewPage.stop("Status: stopped because NetView page was left.");
-    }
-
-    if (fromViewId === "view-netview-wf88" &&
-        toViewId !== "view-netview-wf88" &&
-        netViewWF88Page &&
-        typeof netViewWF88Page.stop === "function") {
-        netViewWF88Page.stop("Status: stopped because NetView page was left.");
-    }
-
-    if (fromViewId === "view-system-monitor" &&
-        toViewId !== "view-system-monitor" &&
-        systemMonitorPage &&
-        typeof systemMonitorPage.handleHidden === "function") {
-        systemMonitorPage.handleHidden();
+function callPageHook(definition, hookName, ...args) {
+    try {
+        definition[hookName](definition.page, ...args);
+    } catch (error) {
+        debugLog(`${definition.key} ${hookName} failed`, error);
+        console.error(`${definition.key} ${hookName} failed:`, error);
     }
 }
 
