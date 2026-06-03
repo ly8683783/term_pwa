@@ -494,8 +494,6 @@ function createConfigPage({
             values.set(item.varNo, normalized);
             deviceValues.set(item.varNo, normalized);
             dirty.delete(item.varNo);
-            updateControl(item);
-            updateRowState(item);
             count++;
         }
         readMode = null;
