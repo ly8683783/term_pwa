@@ -25,17 +25,15 @@ function createFirmwareUpdateDialog({
     let isLoading = false;
     let currentSender = null;
     let cancelRequested = false;
-
-    updateButton.addEventListener("click", open);
-
-    enterButton.addEventListener("click", () => {
+    let disposed = false;
+    const handleOpenClick = () => open();
+    const handleEnterClick = () => {
         enterFlashloader().catch(error => {
             setStatus(`Enter Flashloader failed: ${error.message}`);
             debugLog("firmware enter flashloader failed", error);
         });
-    });
-
-    selectButton.addEventListener("click", () => {
+    };
+    const handleSelectClick = () => {
         chooseFirmwareFile().catch(error => {
             selectedFile = null;
             selectedFileBytes = null;
@@ -43,9 +41,8 @@ function createFirmwareUpdateDialog({
             setStatus(`File read failed: ${error.message}`);
             debugLog("firmware file read failed", error);
         });
-    });
-
-    fileInput.addEventListener("change", () => {
+    };
+    const handleFileInputChange = () => {
         handleFileSelected().catch(error => {
             selectedFile = null;
             selectedFileBytes = null;
@@ -53,7 +50,50 @@ function createFirmwareUpdateDialog({
             setStatus(`File read failed: ${error.message}`);
             debugLog("firmware file read failed", error);
         });
-    });
+    };
+    const handleLoadClick = () => {
+        handleLoad().catch(error => {
+            showFirmwareError(error);
+            debugLog("firmware load failed", error);
+        });
+    };
+    const handleCancelClick = () => {
+        handleCancel().catch(error => {
+            setStatus(`Cancel failed: ${error.message}`, "error");
+            debugLog("firmware cancel failed", error);
+        });
+    };
+    const handleDocumentKeydown = event => {
+        if (disposed || !isPageActive()) {
+            return;
+        }
+        if (isLoading) {
+            event.preventDefault();
+            return;
+        }
+        if (event.ctrlKey || event.altKey || event.metaKey) {
+            return;
+        }
+        if (isEditableTarget(event.target)) {
+            return;
+        }
+
+        const text = keyToSerialText(event);
+        if (text === null) {
+            return;
+        }
+
+        event.preventDefault();
+        sendKeyText(text).catch(error => {
+            setStatus(`UART send failed: ${error.message}`);
+            debugLog("firmware uart send failed", error);
+        });
+    };
+
+    updateButton.addEventListener("click", handleOpenClick);
+    enterButton.addEventListener("click", handleEnterClick);
+    selectButton.addEventListener("click", handleSelectClick);
+    fileInput.addEventListener("change", handleFileInputChange);
 
     async function chooseFirmwareFile() {
         const picker = window.TermPWA.filePicker;
@@ -118,52 +158,21 @@ function createFirmwareUpdateDialog({
         setProgress(0);
     }
 
-    loadButton.addEventListener("click", () => {
-        handleLoad().catch(error => {
-            showFirmwareError(error);
-            debugLog("firmware load failed", error);
-        });
-    });
-
-    cancelButton.addEventListener("click", () => {
-        handleCancel().catch(error => {
-            setStatus(`Cancel failed: ${error.message}`, "error");
-            debugLog("firmware cancel failed", error);
-        });
-    });
-
-    document.addEventListener("keydown", event => {
-        if (!isPageActive()) {
-            return;
-        }
-        if (isLoading) {
-            event.preventDefault();
-            return;
-        }
-        if (event.ctrlKey || event.altKey || event.metaKey) {
-            return;
-        }
-        if (isEditableTarget(event.target)) {
-            return;
-        }
-
-        const text = keyToSerialText(event);
-        if (text === null) {
-            return;
-        }
-
-        event.preventDefault();
-        sendKeyText(text).catch(error => {
-            setStatus(`UART send failed: ${error.message}`);
-            debugLog("firmware uart send failed", error);
-        });
-    });
+    loadButton.addEventListener("click", handleLoadClick);
+    cancelButton.addEventListener("click", handleCancelClick);
+    document.addEventListener("keydown", handleDocumentKeydown);
 
     function open() {
+        if (disposed) {
+            return;
+        }
         showPage();
     }
 
     function handleShown() {
+        if (disposed) {
+            return;
+        }
         debugLog("firmware page shown");
         if (isLoading) {
             return;
@@ -174,6 +183,9 @@ function createFirmwareUpdateDialog({
     }
 
     async function enterFlashloader() {
+        if (disposed) {
+            return;
+        }
         ensureConnected();
         await serialSession.writeATCommand("firmware", "at+ab flashloaderstart");
         appendOutput("> at+ab flashloaderstart\r\n");
@@ -182,12 +194,18 @@ function createFirmwareUpdateDialog({
     }
 
     async function sendKeyText(text) {
+        if (disposed) {
+            return;
+        }
         ensureConnected();
         await serialSession.writeText("firmware", text);
         appendOutput(formatSentKey(text));
     }
 
     async function handleLoad() {
+        if (disposed) {
+            return;
+        }
         ensureConnected();
         if (!selectedFile || !selectedFileBytes) {
             setStatus("Select a firmware binary before Load.");
@@ -246,6 +264,9 @@ function createFirmwareUpdateDialog({
     }
 
     async function handleCancel() {
+        if (disposed) {
+            return;
+        }
         if (!isLoading || !currentSender) {
             return;
         }
@@ -257,6 +278,9 @@ function createFirmwareUpdateDialog({
     }
 
     function handleSerialText(text) {
+        if (disposed) {
+            return;
+        }
         if (!isPageActive() && !isLoading) {
             return;
         }
@@ -264,6 +288,9 @@ function createFirmwareUpdateDialog({
     }
 
     function appendOutput(text) {
+        if (disposed) {
+            return;
+        }
         terminalOutput.textContent += text;
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
     }
@@ -320,6 +347,9 @@ function createFirmwareUpdateDialog({
     }
 
     function setStatus(message, state = "") {
+        if (disposed) {
+            return;
+        }
         statusElement.textContent = message;
         statusElement.classList.remove("running", "success", "error");
         if (state) {
@@ -328,12 +358,18 @@ function createFirmwareUpdateDialog({
     }
 
     function setProgress(percent) {
+        if (disposed) {
+            return;
+        }
         const clamped = Math.max(0, Math.min(100, percent));
         progressBar.value = clamped;
         progressText.textContent = `${clamped}%`;
     }
 
     function handleYModemProgress(progress) {
+        if (disposed) {
+            return;
+        }
         setProgress(progress.percent);
         if (progress.phase === "waiting-c") {
             setStatus("Waiting for Flashloader 'C'. Select Application/Executable if needed.", "running");
@@ -349,6 +385,9 @@ function createFirmwareUpdateDialog({
     }
 
     function setBusy(busy) {
+        if (disposed) {
+            return;
+        }
         isLoading = busy;
         enterButton.disabled = busy;
         selectButton.disabled = busy;
@@ -432,10 +471,34 @@ function createFirmwareUpdateDialog({
         }
     }
 
+    function dispose() {
+        if (disposed) {
+            return;
+        }
+        updateButton.removeEventListener("click", handleOpenClick);
+        enterButton.removeEventListener("click", handleEnterClick);
+        selectButton.removeEventListener("click", handleSelectClick);
+        fileInput.removeEventListener("change", handleFileInputChange);
+        loadButton.removeEventListener("click", handleLoadClick);
+        cancelButton.removeEventListener("click", handleCancelClick);
+        document.removeEventListener("keydown", handleDocumentKeydown);
+        cancelRequested = true;
+        if (currentSender) {
+            Promise.resolve(currentSender.cancel()).catch(error => {
+                debugLog("firmware dispose cancel failed", error);
+            });
+        }
+        serialManager.resetByteState(new Error("Firmware page disposed"));
+        currentSender = null;
+        setBusy(false);
+        disposed = true;
+    }
+
     return {
         open,
         handleShown,
         handleSerialText,
+        dispose,
     };
 }
 

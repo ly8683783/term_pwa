@@ -33,6 +33,7 @@ function createQuickSendPanel({
     // 0 means "use the default golden-ratio width" for the current terminal container.
     let panelWidth = 0;
     let resizeState = null;
+    let disposed = false;
 
     if (!root) {
         return emptyQuickSendPanel();
@@ -95,6 +96,9 @@ function createQuickSendPanel({
     }
 
     function startResize(event) {
+        if (disposed) {
+            return;
+        }
         if (event.button !== 0 || !canResizePanel()) {
             return;
         }
@@ -111,7 +115,7 @@ function createQuickSendPanel({
     }
 
     function resizePanel(event) {
-        if (!resizeState) return;
+        if (disposed || !resizeState) return;
 
         const nextWidth = resizeState.startWidth + (resizeState.startX - event.clientX);
         setPanelWidth(nextWidth);
@@ -128,6 +132,9 @@ function createQuickSendPanel({
     }
 
     function handleWindowResize() {
+        if (disposed) {
+            return;
+        }
         applyPanelWidth();
     }
 
@@ -180,6 +187,9 @@ function createQuickSendPanel({
     }
 
     function renderGroups() {
+        if (disposed) {
+            return;
+        }
         const select = root.querySelector("#quickSendGroup");
         select.innerHTML = "";
         groups.forEach((group, index) => {
@@ -192,6 +202,9 @@ function createQuickSendPanel({
     }
 
     function renderItems() {
+        if (disposed) {
+            return;
+        }
         const list = root.querySelector("#quickSendList");
         const group = groups[currentIndex];
         list.innerHTML = "";
@@ -304,6 +317,9 @@ function createQuickSendPanel({
     }
 
     function selectGroup(index) {
+        if (disposed) {
+            return;
+        }
         currentIndex = Number.isInteger(index) && groups[index] ? index : 0;
         localStorage.setItem(INDEX_STORAGE_KEY, currentIndex);
         renderGroups();
@@ -311,6 +327,9 @@ function createQuickSendPanel({
     }
 
     function addGroup() {
+        if (disposed) {
+            return;
+        }
         const name = prompt("Enter group name", "New Group");
         if (!name) return;
 
@@ -322,6 +341,9 @@ function createQuickSendPanel({
     }
 
     function renameGroup() {
+        if (disposed) {
+            return;
+        }
         const group = groups[currentIndex];
         if (!group) return;
 
@@ -334,6 +356,9 @@ function createQuickSendPanel({
     }
 
     function removeGroup() {
+        if (disposed) {
+            return;
+        }
         if (groups.length <= 1) {
             setStatus("At least one group is required.");
             return;
@@ -348,6 +373,9 @@ function createQuickSendPanel({
     }
 
     function addItem() {
+        if (disposed) {
+            return;
+        }
         const group = groups[currentIndex];
         if (!group) return;
 
@@ -357,6 +385,9 @@ function createQuickSendPanel({
     }
 
     function removeItem(index) {
+        if (disposed) {
+            return;
+        }
         const group = groups[currentIndex];
         if (!group) return;
 
@@ -366,6 +397,9 @@ function createQuickSendPanel({
     }
 
     function reorderItem(fromIndex, toIndex) {
+        if (disposed) {
+            return;
+        }
         const group = groups[currentIndex];
         if (!group ||
             fromIndex === null ||
@@ -382,6 +416,9 @@ function createQuickSendPanel({
     }
 
     function restoreDefaults() {
+        if (disposed) {
+            return;
+        }
         if (!confirm("Restore default Quick Send commands? This will delete all commands and groups you added. This action cannot be undone.")) {
             return;
         }
@@ -395,6 +432,9 @@ function createQuickSendPanel({
     }
 
     function renameItem(index) {
+        if (disposed) {
+            return;
+        }
         const item = groups[currentIndex] && groups[currentIndex].list[index];
         if (!item) return;
 
@@ -407,6 +447,9 @@ function createQuickSendPanel({
     }
 
     async function sendItem(item) {
+        if (disposed) {
+            return;
+        }
         if (!serialSession || !serialSession.canWrite("quick-send")) {
             throw new Error(serialSession ? (serialSession.getStatusText() || "serial is not connected") : "serial is not connected");
         }
@@ -426,6 +469,9 @@ function createQuickSendPanel({
     }
 
     function exportGroup() {
+        if (disposed) {
+            return;
+        }
         const group = groups[currentIndex];
         if (!group) return;
 
@@ -438,6 +484,9 @@ function createQuickSendPanel({
     }
 
     async function importGroup(event) {
+        if (disposed) {
+            return;
+        }
         const file = event.target.files && event.target.files[0];
         event.target.value = "";
         if (!file) return;
@@ -459,12 +508,18 @@ function createQuickSendPanel({
     }
 
     function setConnected(value) {
+        if (disposed) {
+            return;
+        }
         connected = Boolean(value);
         updateSendButtons();
         setStatus(connected ? "Ready." : "Connect serial before quick send.");
     }
 
     function updateSendButtons() {
+        if (disposed) {
+            return;
+        }
         const canSend = connected && (!serialSession || serialSession.canWrite("quick-send"));
         root.querySelectorAll(".quick-send-button").forEach(button => {
             button.disabled = !canSend;
@@ -472,16 +527,25 @@ function createQuickSendPanel({
     }
 
     function setStatus(message) {
+        if (disposed) {
+            return;
+        }
         const el = root.querySelector("#quickSendStatus");
         if (el) el.textContent = message;
     }
 
     function toggleCollapsed() {
+        if (disposed) {
+            return;
+        }
         collapsed = !collapsed;
         applyCollapsed();
     }
 
     function applyCollapsed() {
+        if (disposed) {
+            return;
+        }
         root.classList.toggle("collapsed", collapsed);
         const toggle = root.querySelector("#quickSendToggle");
         if (toggle) {
@@ -498,12 +562,21 @@ function createQuickSendPanel({
 
     return {
         handleConnected() {
+            if (disposed) {
+                return;
+            }
             setConnected(true);
         },
         handleDisconnected() {
+            if (disposed) {
+                return;
+            }
             setConnected(false);
         },
         handleSessionChanged() {
+            if (disposed) {
+                return;
+            }
             updateSendButtons();
             if (connected && serialSession && serialSession.isBusy() && !serialSession.canWrite("quick-send")) {
                 setStatus(serialSession.getStatusText());
@@ -512,7 +585,19 @@ function createQuickSendPanel({
             }
         },
         handleShown() {
+            if (disposed) {
+                return;
+            }
             applyPanelWidth();
+        },
+        dispose() {
+            if (disposed) {
+                return;
+            }
+            disposed = true;
+            stopResize();
+            window.removeEventListener("resize", handleWindowResize);
+            root.replaceChildren();
         },
     };
 }
@@ -566,6 +651,7 @@ function emptyQuickSendPanel() {
         handleDisconnected() {},
         handleSessionChanged() {},
         handleShown() {},
+        dispose() {},
     };
 }
 

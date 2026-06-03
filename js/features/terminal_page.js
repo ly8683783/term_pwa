@@ -62,8 +62,99 @@ function createTerminalPage({
     let hexRxBuffer = [];
     let textRxBuffer = "";
     let rxFlushTimer = null;
+    let disposed = false;
+    let unsubscribeTerminalData = null;
 
     const terminalLogStore = appModules.createTerminalLogStore({ debugLog });
+    const handleShowLineTimeChange = () => {
+        if (disposed) {
+            return;
+        }
+        uartAtLineStart = true;
+    };
+    const handleTerminalThemeChange = () => {
+        if (disposed || !terminalThemeSelect) {
+            return;
+        }
+        applyTerminalTheme(terminalThemeSelect.value);
+        localStorage.setItem(TERMINAL_THEME_KEY, terminalThemeSelect.value);
+    };
+    const handleCopyClick = () => {
+        if (disposed) {
+            return;
+        }
+        copyTerminalOutput().catch(error => debugLog("UART output copy failed", error));
+    };
+    const handleExportClick = () => {
+        if (disposed) {
+            return;
+        }
+        exportTerminalLog().catch(error => debugLog("UART log export failed", error));
+    };
+    const handleClearClick = () => {
+        if (disposed) {
+            return;
+        }
+        clear().catch(error => debugLog("UART output clear failed", error));
+    };
+    const handleHexToggleChange = () => {
+        if (disposed) {
+            return;
+        }
+        handleTerminalHexToggle();
+    };
+    const handleRxIdleChange = () => {
+        if (disposed) {
+            return;
+        }
+        normalizeRxIdleInput();
+    };
+    const handleTerminalOutputClick = () => {
+        if (disposed || !terminalOutput) {
+            return;
+        }
+        terminalOutput.focus();
+    };
+    const handleTerminalOutputKeydown = event => {
+        if (disposed) {
+            return;
+        }
+        sendTerminalKey(event);
+    };
+    const handleSendClick = () => {
+        if (disposed) {
+            return;
+        }
+        sendCommand();
+    };
+    const handleIntervalSendClick = () => {
+        if (disposed) {
+            return;
+        }
+        startIntervalSend();
+    };
+    const handleAtCommandKeydown = event => {
+        if (disposed) {
+            return;
+        }
+        if (event.key === "Enter") {
+            event.preventDefault();
+            sendCommand();
+        } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            browseCommandHistory(-1);
+        } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            browseCommandHistory(1);
+        }
+    };
+    const handleAtCommandInput = () => {
+        if (disposed || !atCommandInput) {
+            return;
+        }
+        commandHistoryIndex = commandHistory.length;
+        commandHistoryDraft = atCommandInput.value;
+    };
 
     if (rxIdleInput) {
         rxIdleInput.value = String(RX_IDLE_DEFAULT_MS);
@@ -81,7 +172,7 @@ function createTerminalPage({
     });
 
     if (serialBus) {
-        serialBus.subscribeData("terminal", data => {
+        unsubscribeTerminalData = serialBus.subscribeData("terminal", data => {
             handleSerialData(data);
         });
     }
@@ -90,66 +181,39 @@ function createTerminalPage({
 
     function bindEvents() {
         if (showLineTimeToggle) {
-            showLineTimeToggle.addEventListener("change", () => {
-                uartAtLineStart = true;
-            });
+            showLineTimeToggle.addEventListener("change", handleShowLineTimeChange);
         }
         if (terminalThemeSelect) {
-            terminalThemeSelect.addEventListener("change", () => {
-                applyTerminalTheme(terminalThemeSelect.value);
-                localStorage.setItem(TERMINAL_THEME_KEY, terminalThemeSelect.value);
-            });
+            terminalThemeSelect.addEventListener("change", handleTerminalThemeChange);
         }
         if (copyTerminalOutputBtn) {
-            copyTerminalOutputBtn.addEventListener("click", () => {
-                copyTerminalOutput().catch(error => debugLog("UART output copy failed", error));
-            });
+            copyTerminalOutputBtn.addEventListener("click", handleCopyClick);
         }
         if (exportTerminalLogBtn) {
-            exportTerminalLogBtn.addEventListener("click", () => {
-                exportTerminalLog().catch(error => debugLog("UART log export failed", error));
-            });
+            exportTerminalLogBtn.addEventListener("click", handleExportClick);
         }
         if (clearTerminalOutputBtn) {
-            clearTerminalOutputBtn.addEventListener("click", () => {
-                clear().catch(error => debugLog("UART output clear failed", error));
-            });
+            clearTerminalOutputBtn.addEventListener("click", handleClearClick);
         }
         if (hexSendToggle) {
-            hexSendToggle.addEventListener("change", handleTerminalHexToggle);
+            hexSendToggle.addEventListener("change", handleHexToggleChange);
         }
         if (rxIdleInput) {
-            rxIdleInput.addEventListener("change", normalizeRxIdleInput);
+            rxIdleInput.addEventListener("change", handleRxIdleChange);
         }
         if (terminalOutput) {
-            terminalOutput.addEventListener("click", () => terminalOutput.focus());
-            terminalOutput.addEventListener("keydown", event => {
-                sendTerminalKey(event);
-            });
+            terminalOutput.addEventListener("click", handleTerminalOutputClick);
+            terminalOutput.addEventListener("keydown", handleTerminalOutputKeydown);
         }
         if (sendCmdBtn) {
-            sendCmdBtn.addEventListener("click", () => sendCommand());
+            sendCmdBtn.addEventListener("click", handleSendClick);
         }
         if (intervalSendBtn) {
-            intervalSendBtn.addEventListener("click", startIntervalSend);
+            intervalSendBtn.addEventListener("click", handleIntervalSendClick);
         }
         if (atCommandInput) {
-            atCommandInput.addEventListener("keydown", event => {
-                if (event.key === "Enter") {
-                    event.preventDefault();
-                    sendCommand();
-                } else if (event.key === "ArrowUp") {
-                    event.preventDefault();
-                    browseCommandHistory(-1);
-                } else if (event.key === "ArrowDown") {
-                    event.preventDefault();
-                    browseCommandHistory(1);
-                }
-            });
-            atCommandInput.addEventListener("input", () => {
-                commandHistoryIndex = commandHistory.length;
-                commandHistoryDraft = atCommandInput.value;
-            });
+            atCommandInput.addEventListener("keydown", handleAtCommandKeydown);
+            atCommandInput.addEventListener("input", handleAtCommandInput);
         }
     }
 
@@ -398,6 +462,9 @@ function createTerminalPage({
     }
 
     async function clear() {
+        if (disposed) {
+            return;
+        }
         clearUartRxBuffer();
         if (terminalOutput) {
             terminalOutput.replaceChildren();
@@ -527,6 +594,9 @@ function createTerminalPage({
     }
 
     function handleSerialData({ text = "", bytes = null } = {}) {
+        if (disposed) {
+            return;
+        }
         if (hexSendToggle.checked) {
             if (!bytes) {
                 return;
@@ -548,6 +618,9 @@ function createTerminalPage({
     }
 
     async function sendCommand({ clearInput = true } = {}) {
+        if (disposed) {
+            return;
+        }
         const cmd = atCommandInput ? atCommandInput.value : "";
         if (!cmd) return;
 
@@ -569,6 +642,9 @@ function createTerminalPage({
     }
 
     function handleTerminalHexToggle() {
+        if (disposed) {
+            return;
+        }
         const enabled = hexSendToggle.checked;
         const value = atCommandInput.value;
 
@@ -681,6 +757,9 @@ function createTerminalPage({
     }
 
     async function sendTerminalKey(event) {
+        if (disposed) {
+            return;
+        }
         const text = terminalKeyToSerialText(event);
         if (text === null) return;
 
@@ -698,6 +777,9 @@ function createTerminalPage({
     }
 
     function startIntervalSend() {
+        if (disposed) {
+            return;
+        }
         if (intervalSendTimer) {
             stopIntervalSend();
             return;
@@ -740,6 +822,9 @@ function createTerminalPage({
     }
 
     function handleConnected() {
+        if (disposed) {
+            return;
+        }
         handleSessionChanged();
         if (quickSendPanel) {
             quickSendPanel.handleConnected();
@@ -747,6 +832,9 @@ function createTerminalPage({
     }
 
     function handleDisconnected() {
+        if (disposed) {
+            return;
+        }
         stopIntervalSend();
         clearUartRxBuffer();
         setTerminalReady(false);
@@ -756,6 +844,9 @@ function createTerminalPage({
     }
 
     function handleSessionChanged() {
+        if (disposed) {
+            return;
+        }
         const terminalReady = serialSession ? serialSession.canWrite("terminal") : true;
 
         setTerminalReady(terminalReady);
@@ -768,8 +859,56 @@ function createTerminalPage({
     }
 
     function handleShown() {
+        if (disposed) {
+            return;
+        }
         if (quickSendPanel && quickSendPanel.handleShown) {
             quickSendPanel.handleShown();
+        }
+    }
+
+    function dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        if (typeof unsubscribeTerminalData === "function") {
+            unsubscribeTerminalData();
+            unsubscribeTerminalData = null;
+        }
+        stopIntervalSend();
+        clearUartRxBuffer();
+        if (terminalNoticeTimer) {
+            clearTimeout(terminalNoticeTimer);
+            terminalNoticeTimer = null;
+        }
+        if (copySuccessTimer) {
+            clearTimeout(copySuccessTimer);
+            copySuccessTimer = null;
+        }
+        if (exportSuccessTimer) {
+            clearTimeout(exportSuccessTimer);
+            exportSuccessTimer = null;
+        }
+        if (showLineTimeToggle) showLineTimeToggle.removeEventListener("change", handleShowLineTimeChange);
+        if (terminalThemeSelect) terminalThemeSelect.removeEventListener("change", handleTerminalThemeChange);
+        if (copyTerminalOutputBtn) copyTerminalOutputBtn.removeEventListener("click", handleCopyClick);
+        if (exportTerminalLogBtn) exportTerminalLogBtn.removeEventListener("click", handleExportClick);
+        if (clearTerminalOutputBtn) clearTerminalOutputBtn.removeEventListener("click", handleClearClick);
+        if (hexSendToggle) hexSendToggle.removeEventListener("change", handleHexToggleChange);
+        if (rxIdleInput) rxIdleInput.removeEventListener("change", handleRxIdleChange);
+        if (terminalOutput) {
+            terminalOutput.removeEventListener("click", handleTerminalOutputClick);
+            terminalOutput.removeEventListener("keydown", handleTerminalOutputKeydown);
+        }
+        if (sendCmdBtn) sendCmdBtn.removeEventListener("click", handleSendClick);
+        if (intervalSendBtn) intervalSendBtn.removeEventListener("click", handleIntervalSendClick);
+        if (atCommandInput) {
+            atCommandInput.removeEventListener("keydown", handleAtCommandKeydown);
+            atCommandInput.removeEventListener("input", handleAtCommandInput);
+        }
+        if (quickSendPanel && typeof quickSendPanel.dispose === "function") {
+            quickSendPanel.dispose();
         }
     }
 
@@ -802,6 +941,7 @@ function createTerminalPage({
         writeTxEcho,
         clear,
         stopIntervalSend,
+        dispose,
     });
 }
 
@@ -812,6 +952,7 @@ function createTerminalQuickSendPanel(options) {
             handleDisconnected() {},
             handleSessionChanged() {},
             handleShown() {},
+            dispose() {},
         };
     }
 

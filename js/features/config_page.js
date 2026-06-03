@@ -172,11 +172,14 @@ function createConfigPage({
     let pendingImport = null;
     let activeTooltipAnchor = null;
     let configUnavailableStatus = "";
+    let disposed = false;
 
     if (!root) {
         return emptyConfigPage();
     }
 
+    const handleTooltipWindowResize = () => hideFloatingTooltip();
+    const handleTooltipWindowScroll = () => hideFloatingTooltip();
     const floatingTooltip = createFloatingTooltip();
 
     render();
@@ -349,6 +352,9 @@ function createConfigPage({
     }
 
     async function probeHardwareThenRead() {
+        if (disposed) {
+            return;
+        }
         ensureConnected();
         beginSession();
         readMode = "hardware";
@@ -364,6 +370,9 @@ function createConfigPage({
     }
 
     async function readFromDevice() {
+        if (disposed) {
+            return;
+        }
         ensureConnected();
         if (!hasActiveProfile()) {
             throw new Error("hardware profile is not selected");
@@ -385,6 +394,9 @@ function createConfigPage({
     }
 
     async function applyChanged() {
+        if (disposed) {
+            return;
+        }
         ensureConnected();
         const pending = Array.from(dirty).sort((a, b) => a - b);
         if (pending.length === 0) return;
@@ -409,7 +421,7 @@ function createConfigPage({
     }
 
     function handleSerialData(text) {
-        if (!isReading()) return;
+        if (disposed || !isReading()) return;
         readBuffer += text;
         if (readMode === "hardware") {
             const hardware = parseHardwareName(readBuffer);
@@ -503,6 +515,9 @@ function createConfigPage({
     }
 
     async function exportJson() {
+        if (disposed) {
+            return;
+        }
         const data = {
             hardware: getActiveProfileName(),
             format: getActiveProfile().format,
@@ -545,6 +560,9 @@ function createConfigPage({
     }
 
     async function chooseImportJson() {
+        if (disposed) {
+            return;
+        }
         const picker = window.TermPWA.filePicker;
         if (picker && picker.supportsOpenPicker()) {
             const picked = await picker.openConfigJson();
@@ -561,6 +579,9 @@ function createConfigPage({
     }
 
     async function importJson(event) {
+        if (disposed) {
+            return;
+        }
         const file = event.target.files && event.target.files[0];
         event.target.value = "";
         if (!file) return;
@@ -569,6 +590,9 @@ function createConfigPage({
     }
 
     async function importJsonText(text, fileName) {
+        if (disposed) {
+            return;
+        }
         const data = JSON.parse(text);
         validateImportShape(data);
 
@@ -583,12 +607,18 @@ function createConfigPage({
     }
 
     function handleConnected() {
+        if (disposed) {
+            return;
+        }
         connected = true;
         setStatus("Connected. Open Configuration or click Read From Device.");
         updateButtons();
     }
 
     function handleDisconnected() {
+        if (disposed) {
+            return;
+        }
         connected = false;
         readMode = null;
         autoReadDone = false;
@@ -603,6 +633,9 @@ function createConfigPage({
     }
 
     function handleUnavailable(message) {
+        if (disposed) {
+            return;
+        }
         connected = false;
         readMode = null;
         autoReadDone = false;
@@ -617,6 +650,9 @@ function createConfigPage({
     }
 
     function handleShown() {
+        if (disposed) {
+            return;
+        }
         if (connected && !autoReadDone && !isReading()) {
             autoReadDone = true;
             probeHardwareThenRead().catch(handleError);
@@ -624,6 +660,9 @@ function createConfigPage({
     }
 
     function handleDeviceChanged(isConfigVisible = false) {
+        if (disposed) {
+            return;
+        }
         readMode = null;
         autoReadDone = false;
         configUnavailableStatus = "";
@@ -641,6 +680,9 @@ function createConfigPage({
     }
 
     function handleSessionChanged() {
+        if (disposed) {
+            return;
+        }
         updateButtons();
         if (connected && !isReading() && serialSession.isBusy() && !serialSession.canWrite("config")) {
             setStatus(serialSession.getStatusText());
@@ -652,11 +694,17 @@ function createConfigPage({
     }
 
     function setStatus(message) {
+        if (disposed) {
+            return;
+        }
         const el = root.querySelector("#configStatus");
         if (el) el.textContent = message;
     }
 
     function handleError(error) {
+        if (disposed) {
+            return;
+        }
         readMode = null;
         clearTimeout(readTimer);
         endSession();
@@ -722,8 +770,8 @@ function createConfigPage({
         tooltip.className = "config-floating-tooltip";
         document.body.appendChild(tooltip);
 
-        window.addEventListener("resize", hideFloatingTooltip);
-        window.addEventListener("scroll", hideFloatingTooltip, true);
+        window.addEventListener("resize", handleTooltipWindowResize);
+        window.addEventListener("scroll", handleTooltipWindowScroll, true);
         return tooltip;
     }
 
@@ -937,6 +985,26 @@ function createConfigPage({
         updateRowState(item);
     });
 
+    function dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        clearTimeout(readTimer);
+        readTimer = null;
+        readMode = null;
+        endSession();
+        clearPendingImport();
+        hideFloatingTooltip();
+        window.removeEventListener("resize", handleTooltipWindowResize);
+        window.removeEventListener("scroll", handleTooltipWindowScroll, true);
+        if (floatingTooltip.parentNode) {
+            floatingTooltip.parentNode.removeChild(floatingTooltip);
+        }
+        activeTooltipAnchor = null;
+        root.replaceChildren();
+    }
+
     return {
         handleSerialData,
         handleConnected,
@@ -945,6 +1013,7 @@ function createConfigPage({
         handleShown,
         handleDeviceChanged,
         handleSessionChanged,
+        dispose,
     };
 }
 
@@ -1020,6 +1089,7 @@ function emptyConfigPage() {
         handleShown() {},
         handleDeviceChanged() {},
         handleSessionChanged() {},
+        dispose() {},
     };
 }
 

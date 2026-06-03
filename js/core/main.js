@@ -49,6 +49,7 @@ let activeDeviceProfileName = "UNKNOWN";
 let welcomeStatusText = "Connect a device, then detect it.";
 let waitingServiceWorker = null;
 let serviceWorkerRefreshing = false;
+let appDisposed = false;
 const pageRegistry = new Map();
 const serviceRegistry = new Map();
 
@@ -159,6 +160,7 @@ serviceRegistry.set("deviceDetector", createDeviceDetectorSafely());
 registerPageSubscriptions();
 updateFeatureVisibility();
 renderWelcomeDevice();
+window.addEventListener("beforeunload", disposeApp);
 
 async function init() {
     debugLog("init start");
@@ -184,6 +186,7 @@ function initializePages() {
     buildPageDefinitions().forEach(definition => {
         const page = createPageSafely(definition);
         definition.page = page;
+        definition.unsubscribers = [];
         pageRegistry.set(definition.viewId, definition);
     });
 }
@@ -367,7 +370,13 @@ function registerPageSubscriptions() {
     pageRegistry.forEach(definition => {
         (definition.subscriptions || []).forEach(subscription => {
             try {
-                serialBus.subscribeText(subscription.channel, subscription.handler(definition.page));
+                const unsubscribe = serialBus.subscribeText(
+                    subscription.channel,
+                    subscription.handler(definition.page)
+                );
+                if (typeof unsubscribe === "function") {
+                    definition.unsubscribers.push(unsubscribe);
+                }
             } catch (error) {
                 debugLog(`${definition.key} subscription failed`, error);
                 console.error(`${definition.key} subscription failed:`, error);
@@ -383,6 +392,9 @@ function createNoopPage(methodNames, methods = {}) {
             page[name] = () => {};
         }
     });
+    if (typeof page.dispose !== "function") {
+        page.dispose = () => {};
+    }
     return page;
 }
 
@@ -397,6 +409,75 @@ function getPage(viewId) {
 
 function getService(key) {
     return serviceRegistry.get(key) || null;
+}
+
+function disposePage(viewId) {
+    const definition = getPageDefinition(viewId);
+    if (!definition) {
+        return;
+    }
+
+    const unsubscribers = Array.isArray(definition.unsubscribers) ? definition.unsubscribers : [];
+    while (unsubscribers.length) {
+        const unsubscribe = unsubscribers.pop();
+        try {
+            unsubscribe();
+        } catch (error) {
+            debugLog(`${definition.key} unsubscribe failed`, error);
+            console.error(`${definition.key} unsubscribe failed:`, error);
+        }
+    }
+
+    if (definition.page && typeof definition.page.dispose === "function") {
+        try {
+            definition.page.dispose();
+        } catch (error) {
+            debugLog(`${definition.key} dispose failed`, error);
+            console.error(`${definition.key} dispose failed:`, error);
+        }
+    }
+
+    definition.page = definition.fallback();
+    definition.unsubscribers = [];
+}
+
+function disposeAllPages() {
+    pageRegistry.forEach((definition, viewId) => {
+        disposePage(viewId);
+    });
+}
+
+function disposeService(key) {
+    const service = getService(key);
+    if (!service) {
+        return;
+    }
+
+    if (typeof service.dispose === "function") {
+        try {
+            service.dispose();
+        } catch (error) {
+            debugLog(`${key} service dispose failed`, error);
+            console.error(`${key} service dispose failed:`, error);
+        }
+    }
+
+    serviceRegistry.delete(key);
+}
+
+function disposeAllServices() {
+    Array.from(serviceRegistry.keys()).forEach(key => {
+        disposeService(key);
+    });
+}
+
+function disposeApp() {
+    if (appDisposed) {
+        return;
+    }
+    appDisposed = true;
+    disposeAllPages();
+    disposeAllServices();
 }
 
 function createDeviceDetectorSafely() {
@@ -418,6 +499,7 @@ function createDeviceDetectorSafely() {
             async detect() {
                 return { profileName: "UNKNOWN", mode: "unknown" };
             },
+            dispose() {},
         };
     }
 }

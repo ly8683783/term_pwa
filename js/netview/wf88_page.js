@@ -296,6 +296,16 @@
         clearError() {
             this.statusText.style.color = "";
         }
+
+        dispose() {
+            if (this.simulation) {
+                this.simulation.stop();
+                this.simulation = null;
+            }
+            if (!this.tooltip.empty()) {
+                this.tooltip.style("opacity", 0);
+            }
+        }
     }
 
     function createNetViewWF88Page({
@@ -310,6 +320,16 @@
 
         let renderer = null;
         let resizeTimer = null;
+        let initTimer = null;
+        let disposed = false;
+        const handleDrawClick = () => run();
+        const handleWindowResize = () => {
+            if (disposed) {
+                return;
+            }
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => run(), 150);
+        };
 
         function init() {
             if (!svgElement || !window.d3) {
@@ -318,20 +338,20 @@
             renderer = new MeshRenderer(svgElement, tooltipElement, statsElement, statusElement);
             
             if (drawButton) {
-                drawButton.addEventListener("click", () => run());
+                drawButton.addEventListener("click", handleDrawClick);
             }
 
-            window.addEventListener("resize", () => {
-                clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(() => run(), 150);
-            });
+            window.addEventListener("resize", handleWindowResize);
 
             // If there's default data, try drawing once initialized
-            setTimeout(() => run(), 100);
+            initTimer = setTimeout(() => {
+                initTimer = null;
+                run();
+            }, 100);
         }
 
         function run() {
-            if (!renderer || !inputArea) return;
+            if (disposed || !renderer || !inputArea) return;
             
             try {
                 renderer.clearError();
@@ -352,7 +372,25 @@
         init();
 
         return {
-            redraw: run
+            redraw: run,
+            dispose() {
+                if (disposed) {
+                    return;
+                }
+                disposed = true;
+                if (drawButton) {
+                    drawButton.removeEventListener("click", handleDrawClick);
+                }
+                window.removeEventListener("resize", handleWindowResize);
+                clearTimeout(resizeTimer);
+                clearTimeout(initTimer);
+                resizeTimer = null;
+                initTimer = null;
+                if (renderer) {
+                    renderer.dispose();
+                    renderer = null;
+                }
+            },
         };
     }
 

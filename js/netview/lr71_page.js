@@ -39,36 +39,41 @@ function createNetViewPage({
     let responseTimeoutTimer = null;
     let refreshTimer = null;
     let sessionToken = null;
-
-    startButton.addEventListener("click", () => {
+    let disposed = false;
+    const handleStartClick = () => {
         start().catch(error => {
             console.error("Failed to start NetView", error);
             stop();
             setStatus(`Status: failed to start NetView - ${error.message}`);
         });
-    });
-
-    stopButton.addEventListener("click", () => {
+    };
+    const handleStopClick = () => {
         stop();
         redraw();
         writeTerminal("> [NetView Stopped]\n");
-    });
-
-    clearButton.addEventListener("click", () => {
+    };
+    const handleClearClick = () => {
         clear();
         writeTerminal("> [NetView Cleared]\n");
-    });
-
-    window.addEventListener("resize", () => {
+    };
+    const handleWindowResize = () => {
         clearTimeout(drawTimer);
         drawTimer = setTimeout(redraw, NETVIEW_RESIZE_DEBOUNCE_MS);
-    });
+    };
+
+    startButton.addEventListener("click", handleStartClick);
+    stopButton.addEventListener("click", handleStopClick);
+    clearButton.addEventListener("click", handleClearClick);
+    window.addEventListener("resize", handleWindowResize);
 
     function isCollecting() {
         return state !== "idle";
     }
 
     function handleSerialData(data) {
+        if (disposed) {
+            return;
+        }
         if (!isCollecting()) {
             return;
         }
@@ -99,6 +104,9 @@ function createNetViewPage({
     }
 
     function handleConnected() {
+        if (disposed) {
+            return;
+        }
         if (!isCollecting()) {
             startButton.disabled = !canStart();
             stopButton.disabled = true;
@@ -107,6 +115,9 @@ function createNetViewPage({
     }
 
     function handleDisconnected(message = "Status: connect a serial device to start NetView.") {
+        if (disposed) {
+            return;
+        }
         state = "idle";
         clearAllTimers();
         releaseSession();
@@ -116,10 +127,16 @@ function createNetViewPage({
     }
 
     function handleUnavailable(message) {
+        if (disposed) {
+            return;
+        }
         handleDisconnected(message);
     }
 
     async function start() {
+        if (disposed) {
+            return;
+        }
         if (!serialManager.isConnected()) {
             setStatus("Status: connect a serial device before starting NetView.");
             return;
@@ -151,6 +168,9 @@ function createNetViewPage({
     }
 
     function stop(message = null) {
+        if (disposed) {
+            return;
+        }
         state = "idle";
         clearAllTimers();
         releaseSession();
@@ -164,6 +184,9 @@ function createNetViewPage({
     }
 
     function clear() {
+        if (disposed) {
+            return;
+        }
         state = "idle";
         infoBuffer = "";
         cycleBuffer = "";
@@ -183,6 +206,9 @@ function createNetViewPage({
     }
 
     async function startTopology(info) {
+        if (disposed) {
+            return;
+        }
         if (state !== "reading_info") {
             return;
         }
@@ -200,6 +226,9 @@ function createNetViewPage({
     }
 
     async function sendLoraNetCommand() {
+        if (disposed) {
+            return;
+        }
         if (!isCollecting() || !serialManager.isConnected() || !groupAddr) {
             return;
         }
@@ -220,6 +249,9 @@ function createNetViewPage({
     }
 
     function armResponseIdleTimer() {
+        if (disposed) {
+            return;
+        }
         clearTimeout(responseIdleTimer);
         responseIdleTimer = setTimeout(() => {
             finishResponseCycle();
@@ -227,6 +259,9 @@ function createNetViewPage({
     }
 
     function finishResponseCycle() {
+        if (disposed) {
+            return;
+        }
         if (state !== "collecting_topology") {
             return;
         }
@@ -249,6 +284,9 @@ function createNetViewPage({
     }
 
     function mergeAndRedraw() {
+        if (disposed) {
+            return;
+        }
         if (cycleBuffer.trim()) {
             topologyData = mergeLoraNetTopology(topologyState, parseLoraNet(cycleBuffer, localNode));
         }
@@ -256,6 +294,9 @@ function createNetViewPage({
     }
 
     function redraw() {
+        if (disposed) {
+            return { d3Ready: true, visible: false, empty: true, nodesCount: 0, linksCount: 0, localNode };
+        }
         const result = renderTopology({
             svgSelector,
             topology: topologyData,
@@ -304,10 +345,16 @@ function createNetViewPage({
     }
 
     function setStatus(message) {
+        if (disposed) {
+            return;
+        }
         statusElement.innerText = message;
     }
 
     function handleSessionChanged() {
+        if (disposed) {
+            return;
+        }
         if (isCollecting()) {
             return;
         }
@@ -331,6 +378,27 @@ function createNetViewPage({
         sessionToken = null;
     }
 
+    function dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        startButton.removeEventListener("click", handleStartClick);
+        stopButton.removeEventListener("click", handleStopClick);
+        clearButton.removeEventListener("click", handleClearClick);
+        window.removeEventListener("resize", handleWindowResize);
+        clearAllTimers();
+        releaseSession();
+        state = "idle";
+        infoBuffer = "";
+        cycleBuffer = "";
+        topologyState = createTopologyState();
+        topologyData = toTopologyData(topologyState);
+        localNode = null;
+        groupAddr = null;
+        clearTopology(svgSelector);
+    }
+
     return {
         handleSerialData,
         handleConnected,
@@ -341,6 +409,7 @@ function createNetViewPage({
         stop,
         clear,
         isCollecting,
+        dispose,
     };
 }
 

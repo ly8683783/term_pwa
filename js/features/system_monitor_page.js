@@ -63,6 +63,7 @@ function createSystemMonitorPage({
     const MAX_INTERVAL_MS = 60000;
 
     let timerId = null;
+    let disposed = false;
     let retrySeries = [];
     let rxerrSeries = [];
     let relaySeries = [];
@@ -79,25 +80,32 @@ function createSystemMonitorPage({
         debugLog,
     });
     const topologyData = createMockNeighborTopologyData();
+    const startClickHandler = () => start();
+    const stopClickHandler = () => stop();
+    const clearClickHandler = () => clear();
+    const intervalChangeHandler = () => {
+        if (disposed || !intervalInput) {
+            return;
+        }
+        intervalInput.value = String(normalizeInterval(intervalInput.value));
+        if (isRunning()) {
+            restartTimer();
+        }
+    };
 
     if (startButton) {
         startButton.disabled = false;
-        startButton.addEventListener("click", start);
+        startButton.addEventListener("click", startClickHandler);
     }
     if (stopButton) {
         stopButton.disabled = true;
-        stopButton.addEventListener("click", stop);
+        stopButton.addEventListener("click", stopClickHandler);
     }
     if (clearButton) {
-        clearButton.addEventListener("click", clear);
+        clearButton.addEventListener("click", clearClickHandler);
     }
     if (intervalInput) {
-        intervalInput.addEventListener("change", () => {
-            intervalInput.value = String(normalizeInterval(intervalInput.value));
-            if (isRunning()) {
-                restartTimer();
-            }
-        });
+        intervalInput.addEventListener("change", intervalChangeHandler);
     }
 
     clearSeries();
@@ -112,6 +120,7 @@ function createSystemMonitorPage({
             start() {},
             stop() {},
             clear() {},
+            dispose() {},
         };
     }
 
@@ -187,6 +196,9 @@ function createSystemMonitorPage({
     }
 
     function renderCharts() {
+        if (disposed) {
+            return;
+        }
         const intervalMs = currentIntervalMs();
         ewmaChart.setSeries([
             { values: retrySeries, className: "monitor-line-retry" },
@@ -199,7 +211,10 @@ function createSystemMonitorPage({
 
     function createTimeSeriesChart(svg, { maxValue }) {
         if (!svg) {
-            return { setSeries() {} };
+            return {
+                setSeries() {},
+                dispose() {},
+            };
         }
 
         const chartId = `system-monitor-chart-${nextTimeSeriesChartId++}`;
@@ -215,7 +230,9 @@ function createSystemMonitorPage({
         let currentIntervalMs = DEFAULT_INTERVAL_MS;
         let width = 1;
         let height = 1;
+        let chartDisposed = false;
         let resizeFramePending = false;
+        let resizeFrameId = null;
 
         svg.setAttribute("preserveAspectRatio", "none");
         svg.replaceChildren();
@@ -242,23 +259,30 @@ function createSystemMonitorPage({
         }
 
         function setSeries(series, intervalMs) {
+            if (chartDisposed) {
+                return;
+            }
             currentSeries = series;
             currentIntervalMs = intervalMs;
             render();
         }
 
         function scheduleRender() {
-            if (resizeFramePending) {
+            if (chartDisposed || resizeFramePending) {
                 return;
             }
             resizeFramePending = true;
-            window.requestAnimationFrame(() => {
+            resizeFrameId = window.requestAnimationFrame(() => {
                 resizeFramePending = false;
+                resizeFrameId = null;
                 render();
             });
         }
 
         function render() {
+            if (chartDisposed) {
+                return;
+            }
             const rect = svg.getBoundingClientRect();
             width = Math.max(120, Math.round(rect.width || svg.clientWidth || 1));
             height = Math.max(80, Math.round(rect.height || svg.clientHeight || 1));
@@ -433,8 +457,28 @@ function createSystemMonitorPage({
             return value.toFixed(1);
         }
 
+        function dispose() {
+            if (chartDisposed) {
+                return;
+            }
+            chartDisposed = true;
+            resizeFramePending = false;
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            } else {
+                window.removeEventListener("resize", scheduleRender);
+            }
+            if (resizeFrameId !== null) {
+                window.cancelAnimationFrame(resizeFrameId);
+                resizeFrameId = null;
+            }
+        }
+
         render();
-        return { setSeries };
+        return {
+            setSeries,
+            dispose,
+        };
     }
 
     function createSvgElement(tagName, attrs = {}) {
@@ -446,6 +490,9 @@ function createSystemMonitorPage({
     }
 
     function updateSummary(relayDelayMs) {
+        if (disposed) {
+            return;
+        }
         if (!summaryRelayDelay) {
             return;
         }
@@ -454,6 +501,9 @@ function createSystemMonitorPage({
     }
 
     function updateButtons() {
+        if (disposed) {
+            return;
+        }
         if (startButton) {
             startButton.disabled = isRunning();
         }
@@ -463,19 +513,25 @@ function createSystemMonitorPage({
     }
 
     function updateStatus(text) {
+        if (disposed) {
+            return;
+        }
         if (statusElement) {
             statusElement.textContent = text;
         }
     }
 
     function sampleOnce() {
+        if (disposed) {
+            return;
+        }
         appendSample(generateSample());
         renderCharts();
         updateStatus(`Status: mock sampling every ${currentIntervalMs()} ms (${retrySeries.length}/${MAX_POINTS} points).`);
     }
 
     function restartTimer() {
-        if (!isRunning()) {
+        if (disposed || !isRunning()) {
             return;
         }
         clearInterval(timerId);
@@ -484,7 +540,7 @@ function createSystemMonitorPage({
     }
 
     function start() {
-        if (isRunning()) {
+        if (disposed || isRunning()) {
             return;
         }
         sampleOnce();
@@ -495,6 +551,9 @@ function createSystemMonitorPage({
     }
 
     function stop() {
+        if (disposed && timerId === null) {
+            return;
+        }
         if (timerId !== null) {
             clearInterval(timerId);
             timerId = null;
@@ -507,6 +566,9 @@ function createSystemMonitorPage({
     }
 
     function clear() {
+        if (disposed) {
+            return;
+        }
         clearSeries();
         retryValue = 18;
         rxerrValue = 6;
@@ -522,14 +584,43 @@ function createSystemMonitorPage({
     }
 
     function handleShown() {
+        if (disposed) {
+            return;
+        }
         updateButtons();
         renderCharts();
         topologyRenderer.render();
     }
 
     function handleHidden() {
+        if (disposed) {
+            return;
+        }
         stop();
         topologyRenderer.pause();
+    }
+
+    function dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        stop();
+        if (startButton) {
+            startButton.removeEventListener("click", startClickHandler);
+        }
+        if (stopButton) {
+            stopButton.removeEventListener("click", stopClickHandler);
+        }
+        if (clearButton) {
+            clearButton.removeEventListener("click", clearClickHandler);
+        }
+        if (intervalInput) {
+            intervalInput.removeEventListener("change", intervalChangeHandler);
+        }
+        ewmaChart.dispose();
+        relayChart.dispose();
+        topologyRenderer.dispose();
     }
 
     return {
@@ -538,6 +629,7 @@ function createSystemMonitorPage({
         start,
         stop,
         clear,
+        dispose,
     };
 }
 
@@ -553,6 +645,7 @@ function createNeighborTopologyRenderer({
             render() {},
             reset() {},
             pause() {},
+            dispose() {},
         };
     }
 
@@ -562,21 +655,31 @@ function createNeighborTopologyRenderer({
     let simulation = null;
     let resizeTimer = null;
     let activeLocalDragId = null;
+    let disposed = false;
 
     window.addEventListener("resize", scheduleRender);
 
     function setData(data) {
+        if (disposed) {
+            return;
+        }
         topologyData = cloneTopologyData(data);
         render();
     }
 
     function reset() {
+        if (disposed) {
+            return;
+        }
         positionStore.clear();
         hideTooltip();
         render();
     }
 
     function pause() {
+        if (disposed) {
+            return;
+        }
         hideTooltip();
         activeLocalDragId = null;
 
@@ -586,12 +689,15 @@ function createNeighborTopologyRenderer({
     }
 
     function scheduleRender() {
+        if (disposed) {
+            return;
+        }
         clearTimeout(resizeTimer);
         resizeTimer = window.setTimeout(render, 120);
     }
 
     function render() {
-        if (!svg) {
+        if (disposed || !svg) {
             return;
         }
 
@@ -792,11 +898,28 @@ function createNeighborTopologyRenderer({
         }
     }
 
+    function dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        window.removeEventListener("resize", scheduleRender);
+        clearTimeout(resizeTimer);
+        resizeTimer = null;
+        hideTooltip();
+        activeLocalDragId = null;
+        if (simulation) {
+            simulation.stop();
+            simulation = null;
+        }
+    }
+
     return {
         setData,
         render,
         reset,
         pause,
+        dispose,
     };
 }
 
