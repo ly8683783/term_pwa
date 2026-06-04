@@ -240,7 +240,23 @@
                             <span id="firmwareFileInfo" class="firmware-file-info">No file selected</span>
                         </div>
                         <div id="firmwareUpdateStatus" class="firmware-status">Connect serial before using firmware update.</div>
-                        <pre id="firmwareUartOutput" class="firmware-uart" tabindex="0" title="Click here and type to control Flashloader."></pre>
+                        <div class="firmware-terminal-layout">
+                            <section class="firmware-terminal-pane" aria-label="Firmware update UART">
+                                <pre id="firmwareUartOutput" class="firmware-uart" tabindex="0" title="Click here and type to control Flashloader."></pre>
+                            </section>
+                            <aside class="firmware-risk-column" aria-label="Firmware update risk notes">
+                                <div class="firmware-risk-panel">
+                                    <div class="firmware-risk-badge">WARNING</div>
+                                    <ul>
+                                        <li><strong>Do not</strong> load unsupported firmware.</li>
+                                        <li>Confirm the firmware image matches the connected hardware.</li>
+                                        <li>Keep power and serial connection stable during transfer.</li>
+                                        <li><strong>Do not</strong> close this page or unplug the device while loading.</li>
+                                        <li>If transfer fails, cancel first, then re-enter Flashloader and retry.</li>
+                                    </ul>
+                                </div>
+                            </aside>
+                        </div>
                         <div class="firmware-progress-row">
                             <progress id="firmwareProgress" value="0" max="100"></progress>
                             <span id="firmwareProgressText">0%</span>

@@ -1087,6 +1087,81 @@ input:checked + .slider:before { transform: translateX(16px); }
     overflow: hidden;
 }
 
+.firmware-terminal-layout {
+    --firmware-risk-width: 38.2%;
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    min-height: 0;
+    overflow: visible;
+}
+
+.firmware-terminal-pane {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.firmware-risk-column {
+    flex: 0 0 var(--firmware-risk-width);
+    width: var(--firmware-risk-width);
+    min-width: 320px;
+    align-self: stretch;
+    min-height: 0;
+    overflow: visible;
+}
+
+.firmware-risk-panel {
+    position: relative;
+    box-sizing: border-box;
+    margin-top: 18px;
+    padding: 24px 14px 14px;
+    overflow: visible;
+    border: 1px solid #ff1744;
+    border-radius: 10px;
+    background: #fde8ee;
+    color: #111;
+}
+
+.firmware-risk-badge {
+    position: absolute;
+    top: -17px;
+    left: 20px;
+    min-width: 72px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: #ff1744;
+    color: #111;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.firmware-risk-panel ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.firmware-risk-panel li {
+    margin: 0 0 8px;
+    line-height: 1.45;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.firmware-risk-panel li:last-child {
+    margin-bottom: 0;
+}
+
+.firmware-risk-panel strong {
+    color: #ff1744;
+    font-weight: 800;
+}
+
 .firmware-actions {
     display: flex;
     flex-wrap: wrap;
@@ -1152,6 +1227,24 @@ input:checked + .slider:before { transform: translateX(16px); }
 .firmware-progress-row progress {
     flex: 1;
     height: 14px;
+}
+
+@media (max-width: 900px) {
+    .firmware-body {
+        overflow: auto;
+    }
+    .firmware-terminal-layout {
+        flex-direction: column;
+        overflow: visible;
+    }
+    .firmware-risk-column {
+        flex: none;
+        width: auto;
+        min-width: 0;
+    }
+    .firmware-uart {
+        min-height: 280px;
+    }
 }
 
 /* Welcome View */
