@@ -240,7 +240,7 @@
                             <span id="firmwareFileInfo" class="firmware-file-info">No file selected</span>
                         </div>
                         <div id="firmwareUpdateStatus" class="firmware-status">Connect serial before using firmware update.</div>
-                        <pre id="firmwareUartOutput" class="firmware-uart"></pre>
+                        <pre id="firmwareUartOutput" class="firmware-uart" tabindex="0" title="Click here and type to control Flashloader."></pre>
                         <div class="firmware-progress-row">
                             <progress id="firmwareProgress" value="0" max="100"></progress>
                             <span id="firmwareProgressText">0%</span>
@@ -462,6 +462,7 @@
 
     <script src="./js/core/app_version.js"></script>
     <script src="./js/utils/file_picker.js"></script>
+    <script src="./js/utils/terminal_theme.js"></script>
     <script src="./js/utils/terminal_log_store.js"></script>
     <script src="./js/core/device_profile.js"></script>
     <script src="./js/core/device_detector.js"></script>

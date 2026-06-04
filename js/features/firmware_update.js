@@ -1,4 +1,6 @@
 (function () {
+const appModules = window.TermPWA || {};
+
 function createFirmwareUpdateDialog({
     serialManager,
     serialSession,
@@ -89,6 +91,15 @@ function createFirmwareUpdateDialog({
             debugLog("firmware uart send failed", error);
         });
     };
+    const handleThemeStorageChange = event => {
+        const themeApi = getTerminalThemeApi();
+        if (themeApi && event.key === themeApi.key) {
+            applyFirmwareTerminalTheme();
+        }
+    };
+    const handleTerminalThemeChange = () => {
+        applyFirmwareTerminalTheme();
+    };
 
     updateButton.addEventListener("click", handleOpenClick);
     enterButton.addEventListener("click", handleEnterClick);
@@ -161,6 +172,13 @@ function createFirmwareUpdateDialog({
     loadButton.addEventListener("click", handleLoadClick);
     cancelButton.addEventListener("click", handleCancelClick);
     document.addEventListener("keydown", handleDocumentKeydown);
+    // storage only fires for other tabs/windows; same-window changes use terminal-theme-change.
+    window.addEventListener("storage", handleThemeStorageChange);
+    const themeChangeEvent = getTerminalThemeChangeEvent();
+    if (themeChangeEvent) {
+        window.addEventListener(themeChangeEvent, handleTerminalThemeChange);
+    }
+    applyFirmwareTerminalTheme();
 
     function open() {
         if (disposed) {
@@ -173,6 +191,7 @@ function createFirmwareUpdateDialog({
         if (disposed) {
             return;
         }
+        applyFirmwareTerminalTheme();
         debugLog("firmware page shown");
         if (isLoading) {
             return;
@@ -471,6 +490,24 @@ function createFirmwareUpdateDialog({
         }
     }
 
+    function applyFirmwareTerminalTheme() {
+        const themeApi = getTerminalThemeApi();
+        if (themeApi) {
+            themeApi.apply(terminalOutput);
+        } else if (terminalOutput) {
+            terminalOutput.dataset.theme = "bright-dark";
+        }
+    }
+
+    function getTerminalThemeApi() {
+        return appModules.terminalTheme || null;
+    }
+
+    function getTerminalThemeChangeEvent() {
+        const themeApi = getTerminalThemeApi();
+        return themeApi ? themeApi.changeEvent : null;
+    }
+
     function dispose() {
         if (disposed) {
             return;
@@ -482,6 +519,11 @@ function createFirmwareUpdateDialog({
         loadButton.removeEventListener("click", handleLoadClick);
         cancelButton.removeEventListener("click", handleCancelClick);
         document.removeEventListener("keydown", handleDocumentKeydown);
+        window.removeEventListener("storage", handleThemeStorageChange);
+        const themeChangeEvent = getTerminalThemeChangeEvent();
+        if (themeChangeEvent) {
+            window.removeEventListener(themeChangeEvent, handleTerminalThemeChange);
+        }
         cancelRequested = true;
         if (currentSender) {
             Promise.resolve(currentSender.cancel()).catch(error => {

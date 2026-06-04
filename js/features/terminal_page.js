@@ -3,8 +3,6 @@ const appModules = window.TermPWA || {};
 
 const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
 const COMMAND_HISTORY_MAX = 50;
-const TERMINAL_THEME_KEY = "lr71TerminalTheme";
-const TERMINAL_DEFAULT_THEME = "bright-dark";
 const TERMINAL_COPY_WARN_LENGTH = 2000000;
 const TERMINAL_MAX_NODES = 4000;
 const RX_IDLE_DEFAULT_MS = 10;
@@ -76,8 +74,11 @@ function createTerminalPage({
         if (disposed || !terminalThemeSelect) {
             return;
         }
-        applyTerminalTheme(terminalThemeSelect.value);
-        localStorage.setItem(TERMINAL_THEME_KEY, terminalThemeSelect.value);
+        const themeApi = getTerminalThemeApi();
+        const nextTheme = themeApi
+            ? themeApi.save(terminalThemeSelect.value)
+            : terminalThemeSelect.value;
+        applyTerminalTheme(nextTheme);
     };
     const handleCopyClick = () => {
         if (disposed) {
@@ -288,24 +289,26 @@ function createTerminalPage({
     }
 
     function loadTerminalTheme() {
-        const stored = localStorage.getItem(TERMINAL_THEME_KEY);
-        return isValidTerminalTheme(stored) ? stored : TERMINAL_DEFAULT_THEME;
-    }
-
-    function isValidTerminalTheme(theme) {
-        return Boolean(terminalThemeSelect &&
-                       theme &&
-                       Array.from(terminalThemeSelect.options).some(option => option.value === theme));
+        const themeApi = getTerminalThemeApi();
+        return themeApi ? themeApi.load() : "bright-dark";
     }
 
     function applyTerminalTheme(theme) {
         if (!terminalOutput) return;
 
-        const nextTheme = isValidTerminalTheme(theme) ? theme : TERMINAL_DEFAULT_THEME;
-        terminalOutput.dataset.theme = nextTheme;
-        if (terminalThemeSelect) {
+        const themeApi = getTerminalThemeApi();
+        const nextTheme = themeApi
+            ? themeApi.apply(terminalOutput, theme)
+            : theme || "bright-dark";
+        if (themeApi) {
+            themeApi.syncSelect(terminalThemeSelect, nextTheme);
+        } else if (terminalThemeSelect) {
             terminalThemeSelect.value = nextTheme;
         }
+    }
+
+    function getTerminalThemeApi() {
+        return appModules.terminalTheme || null;
     }
 
     function scrollTerminalIfNeeded() {
