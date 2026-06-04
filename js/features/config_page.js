@@ -186,20 +186,22 @@ function createConfigPage({
 
     function render() {
         root.innerHTML = `
-            <div class="config-toolbar">
-                <div>
-                    <h2>Configuration</h2>
-                    <div id="configStatus" class="config-status">Connect serial and click Read From Device.</div>
+            <div class="page-shell config-shell" aria-labelledby="configTitle">
+                <div class="config-toolbar page-shell-header">
+                    <div class="config-heading-group page-shell-heading-group">
+                        <h2 id="configTitle" class="config-heading page-shell-title">Configuration</h2>
+                        <div id="configStatus" class="config-status page-shell-status ui-status-line">Connect serial and click Read From Device.</div>
+                    </div>
+                    <div class="config-actions page-shell-actions ui-action-row">
+                        <button id="configReadBtn" type="button">Read From Device</button>
+                        <button id="configApplyBtn" type="button">Apply Changed</button>
+                        <button id="configExportBtn" type="button">Export JSON</button>
+                        <button id="configImportBtn" type="button">Import JSON</button>
+                        <input id="configImportInput" type="file" accept="application/json,.json" hidden>
+                    </div>
                 </div>
-                <div class="config-actions">
-                    <button id="configReadBtn" type="button">Read From Device</button>
-                    <button id="configApplyBtn" type="button">Apply Changed</button>
-                    <button id="configExportBtn" type="button">Export JSON</button>
-                    <button id="configImportBtn" type="button">Import JSON</button>
-                    <input id="configImportInput" type="file" accept="application/json,.json" hidden>
-                </div>
+                <div id="configGrid" class="config-grid page-shell-content"></div>
             </div>
-            <div id="configGrid" class="config-grid"></div>
         `;
 
         const grid = root.querySelector("#configGrid");

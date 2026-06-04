@@ -197,7 +197,7 @@ function createFirmwareUpdateDialog({
             return;
         }
         setStatus(serialManager.isConnected()
-            ? "Ready. Press number keys, Space, or Enter to control Flashloader."
+            ? ""
             : "Connect serial before using firmware update.");
     }
 
