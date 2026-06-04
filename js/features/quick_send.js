@@ -6,6 +6,7 @@ const QUICK_SEND_MIN_WIDTH = 340;
 const QUICK_SEND_MAX_WIDTH = 640;
 const QUICK_SEND_WIDTH_RATIO = 0.382;
 const QUICK_SEND_MOBILE_QUERY = "(max-width: 820px)";
+const QUICK_SEND_RENAME_HOLD_MS = 700;
 
 const DEFAULT_GROUPS = [
     {
@@ -34,6 +35,9 @@ function createQuickSendPanel({
     let panelWidth = 0;
     let resizeState = null;
     let disposed = false;
+    let renameHoldTimer = null;
+    let renameHoldButton = null;
+    let renameHoldTriggered = false;
 
     if (!root) {
         return emptyQuickSendPanel();
@@ -205,6 +209,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearRenameHoldState();
         const list = root.querySelector("#quickSendList");
         const group = groups[currentIndex];
         list.innerHTML = "";
@@ -272,23 +277,48 @@ function createQuickSendPanel({
             const send = document.createElement("button");
             send.className = "quick-send-button";
             send.type = "button";
-            send.title = "Double-click to rename";
+            send.title = "Click to send. Hold to rename.";
             send.textContent = item.name || "Send";
-            let clickTimer = null;
-            send.addEventListener("click", event => {
-                if (event.detail > 1) return;
-                clickTimer = setTimeout(() => {
-                    clickTimer = null;
-                    sendItem(item).catch(error => {
-                        setStatus(`Send failed: ${error.message}`);
-                        debugLog("quick send failed", error);
-                    });
-                }, 180);
+            send.addEventListener("contextmenu", event => {
+                event.preventDefault();
             });
-            send.addEventListener("dblclick", () => {
-                clearTimeout(clickTimer);
-                clickTimer = null;
-                renameItem(index);
+            send.addEventListener("pointerdown", event => {
+                if (disposed || event.button !== 0) {
+                    return;
+                }
+                clearRenameHoldState();
+                renameHoldButton = send;
+                renameHoldTriggered = false;
+                send.classList.add("quick-send-button-armed");
+                renameHoldTimer = setTimeout(() => {
+                    renameHoldTimer = null;
+                    renameHoldTriggered = true;
+                    if (renameHoldButton) {
+                        renameHoldButton.classList.remove("quick-send-button-armed");
+                        renameHoldButton = null;
+                    }
+                    renameItem(index);
+                }, QUICK_SEND_RENAME_HOLD_MS);
+            });
+            send.addEventListener("pointerup", () => {
+                clearRenameHoldState({ keepTriggered: true });
+            });
+            send.addEventListener("pointerleave", () => {
+                clearRenameHoldState({ keepTriggered: true });
+            });
+            send.addEventListener("pointercancel", () => {
+                clearRenameHoldState({ keepTriggered: true });
+            });
+            send.addEventListener("click", event => {
+                if (renameHoldTriggered) {
+                    renameHoldTriggered = false;
+                    event.preventDefault();
+                    return;
+                }
+                sendItem(item).catch(error => {
+                    setStatus(`Send failed: ${error.message}`);
+                    debugLog("quick send failed", error);
+                });
             });
 
             const hex = document.createElement("input");
@@ -314,6 +344,20 @@ function createQuickSendPanel({
             list.appendChild(row);
         });
         updateSendButtons();
+    }
+
+    function clearRenameHoldState({ keepTriggered = false } = {}) {
+        if (renameHoldTimer) {
+            clearTimeout(renameHoldTimer);
+            renameHoldTimer = null;
+        }
+        if (renameHoldButton) {
+            renameHoldButton.classList.remove("quick-send-button-armed");
+            renameHoldButton = null;
+        }
+        if (!keepTriggered) {
+            renameHoldTriggered = false;
+        }
     }
 
     function selectGroup(index) {
@@ -435,6 +479,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearRenameHoldState({ keepTriggered: true });
         const item = groups[currentIndex] && groups[currentIndex].list[index];
         if (!item) return;
 
@@ -595,6 +640,7 @@ function createQuickSendPanel({
                 return;
             }
             disposed = true;
+            clearRenameHoldState();
             stopResize();
             window.removeEventListener("resize", handleWindowResize);
             root.replaceChildren();
