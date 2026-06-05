@@ -61,6 +61,28 @@ if (welcomeVersionInfo) {
     welcomeVersionInfo.textContent = `Application Version: ${APP_CACHE_NAME}`;
 }
 
+function setStatusMessageText(text) {
+    if (!statusMessage) {
+        return;
+    }
+    statusMessage.textContent = text;
+}
+
+function setStatusMessageValue(value, tone = "") {
+    if (!statusMessage) {
+        return;
+    }
+    statusMessage.textContent = "";
+    statusMessage.append(document.createTextNode("Status: "));
+
+    const valueSpan = document.createElement("span");
+    valueSpan.className = tone
+        ? `terminal-status-value terminal-status-value-${tone}`
+        : "terminal-status-value";
+    valueSpan.textContent = value;
+    statusMessage.append(valueSpan);
+}
+
 function registerServiceWorker() {
     navigator.serviceWorker.register("./service_worker.js")
         .then(registration => {
@@ -518,7 +540,7 @@ async function updatePortList() {
         portSelect.innerHTML = '<option value="unsupported">Web Serial unavailable</option>';
         portSelect.disabled = true;
         autoConnectToggle.disabled = true;
-        statusMessage.innerText = "Status: Web Serial unavailable";
+        setStatusMessageText("Status: Web Serial unavailable");
         dispatchPageLifecycle("onUnavailable", "Status: Web Serial requires Chrome/Chromium over localhost or HTTPS.");
         return [];
     }
@@ -720,7 +742,7 @@ function updateUI(connected = serialManager.isConnected()) {
     if (state === "connecting") {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connecting...";
-        statusMessage.innerText = "Status: Connecting...";
+        setStatusMessageText("Status: Connecting...");
         dispatchPageLifecycle("onDisconnected", "Status: serial connection is busy.");
         renderWelcomeDevice("Connecting...");
         return;
@@ -729,7 +751,7 @@ function updateUI(connected = serialManager.isConnected()) {
     if (state === "disconnecting") {
         connectBtn.classList.add('connected');
         connectText.innerText = "Disconnecting...";
-        statusMessage.innerText = "Status: Disconnecting...";
+        setStatusMessageText("Status: Disconnecting...");
         dispatchPageLifecycle("onDisconnected", "Status: serial connection is busy.");
         renderWelcomeDevice("Disconnecting...");
         return;
@@ -744,7 +766,7 @@ function updateUI(connected = serialManager.isConnected()) {
     } else {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connect";
-        statusMessage.innerText = "Status: Disconnected";
+        setStatusMessageValue("Disconnected", "disconnected");
         dispatchPageLifecycle("onDisconnected");
         renderWelcomeDevice("Connect a device, then detect it.");
     }
@@ -755,11 +777,7 @@ function updateSessionUI() {
         return;
     }
 
-    const sessionText = serialSession ? serialSession.getStatusText() : "";
-
-    statusMessage.innerText = sessionText
-        ? `Status: Connected to Serial Device (${sessionText})`
-        : "Status: Connected to Serial Device";
+    setStatusMessageValue("Connected", "connected");
     dispatchPageLifecycle("onSessionChanged");
     renderWelcomeDevice();
 }
@@ -930,5 +948,5 @@ if (serialManager.isSupported()) {
 init().catch(error => {
     debugLog("init failed", error);
     console.error("Initialization failed:", error);
-    statusMessage.innerText = `Status: initialization failed - ${error.message}`;
+    setStatusMessageText(`Status: initialization failed - ${error.message}`);
 });

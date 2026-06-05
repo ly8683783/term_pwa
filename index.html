@@ -155,11 +155,11 @@
                         <div class="page-shell-heading-group">
                             <h2 id="terminalPageTitle" class="page-shell-title">Terminal (AT)</h2>
                         </div>
-                        <div id="statusMessage" class="page-shell-status ui-status-line">Status: Disconnected</div>
                     </div>
                     <div class="page-shell-content terminal-shell-content">
                         <div class="terminal-container">
-                            <div class="terminal-main">
+                            <div class="terminal-toolbar">
+                                <div id="statusMessage" class="page-shell-status ui-status-line">Status: Disconnected</div>
                                 <div class="terminal-status-row">
                                     <label class="toggle-container">
                                         <span class="switch">
@@ -202,6 +202,8 @@
                                         </svg>
                                     </button>
                                 </div>
+                            </div>
+                            <div class="terminal-main">
                                 <div class="terminal-output" id="terminalOutput" tabindex="0" title="Click here and type to send keys directly to UART."></div>
                                 <div class="terminal-input-group">
                                     <input type="text" id="atCommandInput" placeholder="Enter AT command (e.g. at+ab info)" disabled>
@@ -248,10 +250,10 @@
                     <div class="page-shell-header">
                         <div class="page-shell-heading-group">
                             <h2 id="firmwareUpdateTitle" class="page-shell-title">Firmware Update</h2>
-                            <div id="firmwareUpdateStatus" class="firmware-status page-shell-status ui-status-line">Connect serial before using firmware update.</div>
+                            <div id="firmwareUpdateStatus" class="firmware-status page-shell-status ui-status">Connect serial before using firmware update.</div>
                         </div>
                         <div class="firmware-actions page-shell-actions">
-                            <div class="firmware-action-group">
+                            <div class="firmware-action-group ui-action-bar">
                                 <span id="firmwareFileInfo" class="firmware-file-info">No file selected</span>
                                 <button id="firmwareEnterFlashloaderBtn" class="ui-btn ui-btn-warning" type="button">Enter Flashloader</button>
                                 <button id="firmwareSelectBtn" class="ui-btn ui-btn-secondary" type="button">Select</button>
@@ -298,12 +300,12 @@
                     <div class="page-shell-header">
                         <div class="page-shell-heading-group">
                             <h2 id="netViewTitle" class="page-shell-title">LoRaNet Topology</h2>
-                            <div id="netViewStatus" class="netview-status page-shell-status ui-status-line">Status: connect a serial device to start NetView.</div>
+                            <div id="netViewStatus" class="netview-status page-shell-status ui-status">Status: connect a serial device to start NetView.</div>
                         </div>
-                        <div class="netview-controls page-shell-actions">
-                            <button id="btnStartNetView" disabled>Start</button>
-                            <button id="btnStopNetView" disabled>Stop</button>
-                            <button id="btnClearNetView">Clear</button>
+                        <div class="netview-controls page-shell-actions ui-action-bar">
+                            <button id="btnStartNetView" class="ui-btn ui-btn-success" disabled>Start</button>
+                            <button id="btnStopNetView" class="ui-btn ui-btn-danger" disabled>Stop</button>
+                            <button id="btnClearNetView" class="ui-btn ui-btn-muted">Clear</button>
                         </div>
                     </div>
                     <div class="page-shell-content netview-content">
@@ -321,38 +323,38 @@
                     <div class="page-shell-header">
                         <div class="page-shell-heading-group">
                             <h2 id="systemMonitorTitle" class="page-shell-title monitor-title">System Monitor</h2>
-                            <div id="systemMonitorStatus" class="netview-status page-shell-status ui-status-line">Status: monitor is idle.</div>
+                            <div id="systemMonitorStatus" class="netview-status page-shell-status ui-status">Status: monitor is idle.</div>
                         </div>
-                        <div class="netview-controls monitor-controls page-shell-actions">
+                        <div class="netview-controls monitor-controls page-shell-actions ui-action-bar">
                             <label class="monitor-interval">
                                 Sampling interval
-                                <input id="systemMonitorInterval" type="number" min="500" max="60000" step="500" value="2000">
+                                <input id="systemMonitorInterval" class="ui-input" type="number" min="500" max="60000" step="500" value="2000">
                                 ms
                             </label>
-                            <button id="btnStartSystemMonitor" disabled>Start</button>
-                            <button id="btnStopSystemMonitor" disabled>Stop</button>
-                            <button id="btnClearSystemMonitor">Clear</button>
+                            <button id="btnStartSystemMonitor" class="ui-btn ui-btn-success" disabled>Start</button>
+                            <button id="btnStopSystemMonitor" class="ui-btn ui-btn-danger" disabled>Stop</button>
+                            <button id="btnClearSystemMonitor" class="ui-btn ui-btn-muted">Clear</button>
                         </div>
                     </div>
                     <div class="page-shell-content monitor-content">
                     <section class="monitor-summary" aria-label="LR71 summary">
-                        <div><span>Node</span><strong>0071</strong></div>
-                        <div><span>Air rate</span><strong>19200 bps</strong></div>
-                        <div><span>Relay</span><strong>0</strong></div>
-                        <div><span>CAD mode</span><strong>on-dynamic</strong></div>
-                        <div><span>Radio</span><strong>RX_WAIT_DONE</strong></div>
-                        <div><span>Uptime</span><strong>8600 s</strong></div>
-                        <div><span>TX / RX</span><strong>0 / 0</strong></div>
-                        <div><span>Recover</span><strong>0</strong></div>
-                        <div><span>Legacy</span><strong>0</strong></div>
-                        <div><span>Relay delay</span><strong id="systemMonitorSummaryRelayDelay">t1 40..95</strong></div>
+                        <div class="ui-section"><span>Node</span><strong>0071</strong></div>
+                        <div class="ui-section"><span>Air rate</span><strong>19200 bps</strong></div>
+                        <div class="ui-section"><span>Relay</span><strong>0</strong></div>
+                        <div class="ui-section"><span>CAD mode</span><strong>on-dynamic</strong></div>
+                        <div class="ui-section"><span>Radio</span><strong>RX_WAIT_DONE</strong></div>
+                        <div class="ui-section"><span>Uptime</span><strong>8600 s</strong></div>
+                        <div class="ui-section"><span>TX / RX</span><strong>0 / 0</strong></div>
+                        <div class="ui-section"><span>Recover</span><strong>0</strong></div>
+                        <div class="ui-section"><span>Legacy</span><strong>0</strong></div>
+                        <div class="ui-section"><span>Relay delay</span><strong id="systemMonitorSummaryRelayDelay">t1 40..95</strong></div>
                     </section>
 
                     <div class="monitor-grid">
                         <div class="monitor-main-column">
                             <div class="monitor-chart-layout">
                                 <div class="monitor-chart-stack">
-                                    <section class="monitor-chart-panel">
+                                    <section class="monitor-chart-panel ui-section">
                                         <div class="monitor-panel-header">
                                             <h3 class="monitor-panel-title">EWMA</h3>
                                             <div class="monitor-panel-legend">
@@ -365,7 +367,7 @@
                                         </div>
                                     </section>
 
-                                    <section class="monitor-chart-panel">
+                                    <section class="monitor-chart-panel ui-section">
                                         <div class="monitor-panel-header">
                                             <h3 class="monitor-panel-title">Relay Delay</h3>
                                             <div class="monitor-panel-legend">
@@ -377,7 +379,7 @@
                                         </div>
                                     </section>
 
-                                    <section class="monitor-topology-panel monitor-topology-inline-panel">
+                                    <section class="monitor-topology-panel monitor-topology-inline-panel ui-section">
                                         <h3>Neighbor Topology</h3>
                                         <div class="canvas-wrap monitor-topology-wrap monitor-topology-inline-wrap">
                                             <div id="systemMonitorTopologyTag" class="group-tag">Neighbors --</div>
@@ -387,7 +389,7 @@
                                     </section>
                                 </div>
 
-                                <section class="monitor-chart-panel monitor-bar-panel">
+                                <section class="monitor-chart-panel monitor-bar-panel ui-section">
                                     <div class="monitor-panel-header">
                                         <h3 class="monitor-panel-title">Delay Bucket</h3>
                                     </div>
@@ -405,7 +407,7 @@
                         </div>
 
                         <div class="monitor-side-column">
-                            <section class="monitor-side-panel monitor-queue-panel">
+                            <section class="monitor-side-panel monitor-queue-panel ui-section">
                                 <h3>Task Queue</h3>
                                 <table class="monitor-table monitor-queue-table">
                                     <thead><tr><th>Name</th><th>Used</th><th>Free</th><th>Depth</th><th>Load</th></tr></thead>
@@ -424,7 +426,7 @@
                                 </table>
                             </section>
 
-                            <section class="monitor-side-panel">
+                            <section class="monitor-side-panel ui-section">
                                 <h3>LoRa Detail</h3>
                                 <div class="monitor-detail-grid">
                                     <span>continue_read</span><strong>Open</strong>

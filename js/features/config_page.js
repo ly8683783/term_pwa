@@ -190,13 +190,13 @@ function createConfigPage({
                 <div class="config-toolbar page-shell-header">
                     <div class="config-heading-group page-shell-heading-group">
                         <h2 id="configTitle" class="config-heading page-shell-title">Configuration</h2>
-                        <div id="configStatus" class="config-status page-shell-status ui-status-line">Connect serial and click Read From Device.</div>
+                        <div id="configStatus" class="config-status page-shell-status ui-status">Connect serial and click Read From Device.</div>
                     </div>
-                    <div class="config-actions page-shell-actions ui-action-row">
-                        <button id="configReadBtn" type="button">Read From Device</button>
-                        <button id="configApplyBtn" type="button">Apply Changed</button>
-                        <button id="configExportBtn" type="button">Export JSON</button>
-                        <button id="configImportBtn" type="button">Import JSON</button>
+                    <div class="config-actions page-shell-actions ui-action-bar">
+                        <button id="configReadBtn" class="ui-btn ui-btn-success" type="button">Read From Device</button>
+                        <button id="configApplyBtn" class="ui-btn ui-btn-success" type="button">Apply Changed</button>
+                        <button id="configExportBtn" class="ui-btn ui-btn-muted" type="button">Export JSON</button>
+                        <button id="configImportBtn" class="ui-btn ui-btn-muted" type="button">Import JSON</button>
                         <input id="configImportInput" type="file" accept="application/json,.json" hidden>
                     </div>
                 </div>
@@ -216,8 +216,8 @@ function createConfigPage({
         getActiveGroups().forEach((group, index) => {
             const items = getActiveItems().filter(item => item.group === group);
             const card = document.createElement("section");
-            card.className = "config-card";
-            card.innerHTML = `<h3>${escapeHtml(group)}</h3>`;
+            card.className = "config-card ui-section";
+            card.innerHTML = `<h3 class="ui-section-label">${escapeHtml(group)}</h3>`;
             for (const item of items) {
                 card.appendChild(createRow(item));
             }
@@ -235,7 +235,7 @@ function createConfigPage({
 
     function createRow(item) {
         const row = document.createElement("div");
-        row.className = "config-row";
+        row.className = "config-row ui-form-row";
         row.dataset.varNo = String(item.varNo);
         row.innerHTML = `
             <label class="config-label" for="config-var-${item.varNo}">${escapeHtml(item.name)}</label>
@@ -271,7 +271,7 @@ function createConfigPage({
     function createControl(item) {
         if (item.control === "bool") {
             const label = document.createElement("label");
-            label.className = "switch config-switch";
+            label.className = "switch config-switch ui-toggle";
             label.innerHTML = `<input id="config-var-${item.varNo}" type="checkbox"><span class="slider"></span>`;
             const input = label.querySelector("input");
             input.addEventListener("change", () => setValue(item, input.checked ? "true" : "false", true));
@@ -280,6 +280,7 @@ function createConfigPage({
 
         if (item.control === "select") {
             const select = document.createElement("select");
+            select.className = "ui-select";
             select.id = `config-var-${item.varNo}`;
             for (const option of item.options || []) {
                 const value = Array.isArray(option) ? option[0] : option;
@@ -291,6 +292,7 @@ function createConfigPage({
         }
 
         const input = document.createElement("input");
+        input.className = "ui-input";
         input.id = `config-var-${item.varNo}`;
         input.type = item.control === "password" ? "password" : item.control === "number" ? "number" : "text";
         if (item.min !== undefined) input.min = item.min;
