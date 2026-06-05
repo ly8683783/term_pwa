@@ -30,6 +30,7 @@ const APP_ASSETS = [
     "./js/utils/ymodem_crc.js",
     "./js/features/firmware_update.js",
     "./js/config/config_schema.js",
+    "./js/config/config_parser.js",
     "./js/features/config_page.js",
     "./manifest.json",
     "./icons/icon.svg",

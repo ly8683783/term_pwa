@@ -156,7 +156,7 @@ function createConfigPage({
     }
 
     function setValue(item, value, userChanged) {
-        const normalized = normalizeValue(item, value);
+        const normalized = window.TermPWA.normalizeValue(item, value);
         values.set(item.varNo, normalized);
         if (userChanged && !isReadonlyItem(item) && loaded.has(item.varNo)) {
             if (normalized === (deviceValues.get(item.varNo) ?? "")) {
@@ -264,7 +264,7 @@ function createConfigPage({
         for (const varNo of pending) {
             const item = itemByVar.get(varNo);
             if (!item || isReadonlyItem(item) || !loaded.has(varNo)) continue;
-            const value = normalizeForCommand(item, values.get(varNo) ?? "");
+            const value = window.TermPWA.normalizeForCommand(item, values.get(varNo) ?? "");
             const cmd = `at+ab config var${varNo}=${value}`;
             await serialSession.writeATCommand("config", cmd);
             writeTerminal(`> [Configuration] ${cmd}\n`);
@@ -282,7 +282,7 @@ function createConfigPage({
         if (disposed || !isReading()) return;
         readBuffer += text;
         if (readMode === "hardware") {
-            const hardware = parseHardwareName(readBuffer);
+            const hardware = window.TermPWA.parseHardwareName(readBuffer);
             if (hardware) {
                 finishHardwareProbe(hardware);
             }
@@ -318,7 +318,7 @@ function createConfigPage({
             return;
         }
 
-        const profileName = findProfileName(hardware);
+        const profileName = window.TermPWA.findProfileName(hardware);
         if (!profileName || !window.TermPWA.CONFIG_PROFILES[profileName].items.length) {
             clearPendingImport();
             setActiveProfile(null);
@@ -338,22 +338,17 @@ function createConfigPage({
     function finishRead() {
         if (readMode !== "config") return;
 
-        let count = 0;
-        const re = /^var(\d+)\s+(.+?)\s*=\s*(.*)$/gm;
-        let match;
-        while ((match = re.exec(readBuffer)) !== null) {
-            const varNo = Number(match[1]);
-            const name = match[2].trim();
-            const value = match[3].trim();
-            const item = itemByVar.get(varNo) || itemByName.get(name.toLowerCase());
-            if (!item) continue;
-            const normalized = normalizeValue(item, value);
+        const result = window.TermPWA.parseConfigList(readBuffer, itemByVar, itemByName);
+        const count = result.count;
+        
+        for (const update of result.updates) {
+            const { item, value } = update;
             loaded.add(item.varNo);
-            values.set(item.varNo, normalized);
-            deviceValues.set(item.varNo, normalized);
+            values.set(item.varNo, value);
+            deviceValues.set(item.varNo, value);
             dirty.delete(item.varNo);
-            count++;
         }
+
         readMode = null;
         getActiveItems().forEach(item => {
             updateControl(item);
@@ -450,7 +445,7 @@ function createConfigPage({
             return;
         }
         const data = JSON.parse(text);
-        validateImportShape(data);
+        window.TermPWA.validateImportShape(data);
 
         ensureConnected();
         if (isReading()) {
@@ -707,20 +702,7 @@ function createConfigPage({
         values = new Map(getActiveItems().map(item => [item.varNo, item.defaultValue ?? ""]));
     }
 
-    function validateImportShape(data) {
-        if (!data || typeof data !== "object" || !data.format || !Array.isArray(data.items)) {
-            throw new Error("Invalid config JSON");
-        }
-    }
-
-    function createPendingImport(data, fileName) {
-        return {
-            data,
-            fileName: fileName || "config.json",
-        };
-    }
-
-    function clearPendingImport() {
+        function clearPendingImport() {
         pendingImport = null;
     }
 
@@ -739,59 +721,16 @@ function createConfigPage({
             throw new Error(`Invalid ${getActiveProfileName()} config JSON`);
         }
 
-        const summary = buildImportSummary(data);
+        const summary = window.TermPWA.buildImportSummary(data, {
+            values,
+            itemByVar,
+            loaded,
+            isReadonlyItem
+        });
         applyImportSummary(summary);
         setStatus(summary.changed
             ? `Imported ${summary.changed} changed writable item(s) from ${fileName}. Click Apply Changed to write them.`
             : `Imported ${fileName}; JSON matches current device configuration.`);
-    }
-
-    function buildImportSummary(data) {
-        const summary = {
-            changed: 0,
-            unchanged: 0,
-            skippedReadonly: 0,
-            skippedMissing: 0,
-            skippedUnsupported: 0,
-            skippedNameMismatch: 0,
-            changes: [],
-        };
-
-        for (const imported of data.items) {
-            const item = itemByVar.get(Number(imported.varNo));
-            if (!item) {
-                summary.skippedUnsupported++;
-                continue;
-            }
-            if (imported.name && imported.name !== item.name) {
-                summary.skippedNameMismatch++;
-                continue;
-            }
-            if (isReadonlyItem(item)) {
-                summary.skippedReadonly++;
-                continue;
-            }
-            if (!loaded.has(item.varNo)) {
-                summary.skippedMissing++;
-                continue;
-            }
-
-            const currentValue = values.get(item.varNo) ?? "";
-            const importedValue = normalizeValue(item, String(imported.value ?? ""));
-            if (String(importedValue ?? "") === String(currentValue ?? "")) {
-                summary.unchanged++;
-                continue;
-            }
-
-            summary.changed++;
-            summary.changes.push({
-                item,
-                value: importedValue,
-                previousValue: currentValue,
-            });
-        }
-
-        return summary;
     }
 
     function applyImportSummary(summary) {
@@ -875,43 +814,6 @@ function createConfigPage({
 
 function normalizeInput(item, value) {
     return item.control === "hex" ? value.toUpperCase() : value;
-}
-
-function parseHardwareName(text) {
-    const lines = String(text || "").split(/\r?\n/);
-    for (const line of lines) {
-        const match = line.match(/^var\d+\s+Hardware\s*=\s*(.+)$/i);
-        if (match) {
-            return match[1].trim();
-        }
-    }
-    return null;
-}
-
-function findProfileName(hardwareName) {
-    const profileName = window.TermPWA.normalizeDeviceProfileName
-        ? window.TermPWA.normalizeDeviceProfileName(hardwareName)
-        : null;
-    const deviceProfile = profileName ? window.TermPWA.getDeviceProfile(profileName) : null;
-    const configProfile = deviceProfile ? deviceProfile.configProfile : null;
-    return configProfile && window.TermPWA.CONFIG_PROFILES[configProfile] ? configProfile : null;
-}
-
-function normalizeValue(item, value) {
-    if (item.control === "bool") {
-        return value === true || value === "1" || value === "true" ? "true" : "false";
-    }
-    if (item.control === "hex") {
-        return value.toUpperCase();
-    }
-    return value;
-}
-
-function normalizeForCommand(item, value) {
-    if (item.control === "bool") {
-        return value === true || value === "true" || value === "1" ? "true" : "false";
-    }
-    return value;
 }
 
 function ensureSelectOption(select, value) {
