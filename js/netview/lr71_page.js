@@ -1,4 +1,5 @@
 (function () {
+const NETVIEW_INFO_IDLE_MS = 300;
 const NETVIEW_RESPONSE_IDLE_MS = 1500;
 const NETVIEW_REFRESH_DELAY_MS = 10000;
 const NETVIEW_INFO_TIMEOUT_MS = 5000;
@@ -36,6 +37,7 @@ function createNetViewPage({
     let groupAddr = null;
     let drawTimer = null;
     let infoTimer = null;
+    let infoIdleTimer = null;
     let responseIdleTimer = null;
     let responseTimeoutTimer = null;
     let refreshTimer = null;
@@ -81,13 +83,7 @@ function createNetViewPage({
 
         if (state === "reading_info") {
             infoBuffer += data;
-            const info = parseATInfo(infoBuffer);
-            if (info) {
-                startTopology(info).catch(error => {
-                    console.error("Failed to start topology collection", error);
-                    stop(`Status: failed to start loranet - ${error.message}`);
-                });
-            }
+            armInfoIdleTimer();
             return;
         }
 
@@ -219,6 +215,8 @@ function createNetViewPage({
         state = "collecting_topology";
         clearTimeout(infoTimer);
         infoTimer = null;
+        clearTimeout(infoIdleTimer);
+        infoIdleTimer = null;
         groupTag.innerText = `Group ${groupAddr}`;
         setStatus(`Status: Local ${localNode}, starting group ${groupAddr} refresh...`);
 
@@ -260,6 +258,39 @@ function createNetViewPage({
         responseIdleTimer = setTimeout(() => {
             finishResponseCycle();
         }, NETVIEW_RESPONSE_IDLE_MS);
+    }
+
+    function armInfoIdleTimer() {
+        if (disposed) {
+            return;
+        }
+        clearTimeout(infoIdleTimer);
+        infoIdleTimer = setTimeout(() => {
+            finishInfoResponse();
+        }, NETVIEW_INFO_IDLE_MS);
+    }
+
+    function finishInfoResponse() {
+        if (disposed) {
+            return;
+        }
+        if (state !== "reading_info") {
+            return;
+        }
+
+        clearTimeout(infoIdleTimer);
+        infoIdleTimer = null;
+
+        const info = parseATInfo(infoBuffer);
+        if (!info) {
+            stop("Status: failed to parse at+ab info; missing Node Addr or Publish Addr.");
+            return;
+        }
+
+        startTopology(info).catch(error => {
+            console.error("Failed to start topology collection", error);
+            stop(`Status: failed to start loranet - ${error.message}`);
+        });
     }
 
     function finishResponseCycle() {
@@ -343,9 +374,11 @@ function createNetViewPage({
     function clearAllTimers() {
         clearTimeout(drawTimer);
         clearTimeout(infoTimer);
+        clearTimeout(infoIdleTimer);
         clearCycleTimers();
         drawTimer = null;
         infoTimer = null;
+        infoIdleTimer = null;
     }
 
     function setStatus(message) {
