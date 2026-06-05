@@ -788,6 +788,9 @@ textarea:focus {
     min-height: 0;
 }
 .config-shell { overflow: hidden; }
+.config-shell .ui-section-label {
+    background: var(--primary-yellow);
+}
 .config-heading-group { min-width: 0; }
 .config-grid {
     flex: 1;
@@ -821,7 +824,7 @@ textarea:focus {
 .config-row.missing { color: #8a8a8a; background: var(--ui-row-muted-bg); }
 .config-row:hover,
 .config-row:focus-within { z-index: 20; }
-.config-row.changed { background: var(--primary-yellow); }
+.config-row.changed { background: var(--yellow-soft-bg); }
 .config-label { min-width: 0; color: #5a5f66; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .config-row.readonly .config-label,
 .config-row.missing .config-label { color: #777; }
