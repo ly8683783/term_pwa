@@ -38,6 +38,7 @@ function createQuickSendPanel({
     let renameHoldTimer = null;
     let renameHoldButton = null;
     let renameHoldTriggered = false;
+    let pendingNewItem = null;
 
     if (!root) {
         return emptyQuickSendPanel();
@@ -223,6 +224,14 @@ function createQuickSendPanel({
             const row = document.createElement("div");
             row.className = "quick-send-row";
             row.dataset.index = String(index);
+            const isPendingNewItem = Boolean(
+                pendingNewItem &&
+                pendingNewItem.groupIndex === currentIndex &&
+                pendingNewItem.itemIndex === index
+            );
+            if (isPendingNewItem) {
+                row.classList.add("quick-send-row-new");
+            }
 
             const drag = document.createElement("button");
             drag.className = "quick-send-drag";
@@ -271,6 +280,13 @@ function createQuickSendPanel({
             content.placeholder = "Send content";
             content.addEventListener("input", () => {
                 item.content = content.value;
+                if (isPendingNewItem &&
+                    pendingNewItem &&
+                    pendingNewItem.groupIndex === currentIndex &&
+                    pendingNewItem.itemIndex === index) {
+                    row.classList.remove("quick-send-row-new");
+                    clearPendingNewItem();
+                }
                 saveGroups();
             });
 
@@ -344,6 +360,41 @@ function createQuickSendPanel({
             list.appendChild(row);
         });
         updateSendButtons();
+        focusPendingNewItem(list);
+    }
+
+    function focusPendingNewItem(list) {
+        if (!pendingNewItem || pendingNewItem.groupIndex !== currentIndex) {
+            return;
+        }
+
+        const target = pendingNewItem;
+        requestAnimationFrame(() => {
+            if (disposed || pendingNewItem !== target) {
+                return;
+            }
+
+            const row = list.querySelector(`.quick-send-row[data-index="${target.itemIndex}"]`);
+            if (!row) {
+                clearPendingNewItem();
+                return;
+            }
+
+            const input = row.querySelector('input[type="text"]');
+            if (!input) {
+                clearPendingNewItem();
+                return;
+            }
+
+            row.scrollIntoView({ block: "nearest" });
+            input.focus();
+            const end = input.value.length;
+            input.setSelectionRange(end, end);
+        });
+    }
+
+    function clearPendingNewItem() {
+        pendingNewItem = null;
     }
 
     function clearRenameHoldState({ keepTriggered = false } = {}) {
@@ -364,6 +415,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearPendingNewItem();
         currentIndex = Number.isInteger(index) && groups[index] ? index : 0;
         localStorage.setItem(INDEX_STORAGE_KEY, currentIndex);
         renderGroups();
@@ -374,6 +426,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearPendingNewItem();
         const name = prompt("Enter group name", "New Group");
         if (!name) return;
 
@@ -403,6 +456,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearPendingNewItem();
         if (groups.length <= 1) {
             setStatus("At least one group is required.");
             return;
@@ -424,6 +478,10 @@ function createQuickSendPanel({
         if (!group) return;
 
         group.list.push({ name: "Send", content: "", hex: false });
+        pendingNewItem = {
+            groupIndex: currentIndex,
+            itemIndex: group.list.length - 1,
+        };
         saveGroups();
         renderItems();
     }
@@ -432,6 +490,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearPendingNewItem();
         const group = groups[currentIndex];
         if (!group) return;
 
@@ -444,6 +503,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearPendingNewItem();
         const group = groups[currentIndex];
         if (!group ||
             fromIndex === null ||
@@ -463,6 +523,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearPendingNewItem();
         if (!confirm("Restore default Quick Send commands? This will delete all commands and groups you added. This action cannot be undone.")) {
             return;
         }
@@ -532,6 +593,7 @@ function createQuickSendPanel({
         if (disposed) {
             return;
         }
+        clearPendingNewItem();
         const file = event.target.files && event.target.files[0];
         event.target.value = "";
         if (!file) return;
@@ -640,6 +702,7 @@ function createQuickSendPanel({
                 return;
             }
             disposed = true;
+            clearPendingNewItem();
             clearRenameHoldState();
             stopResize();
             window.removeEventListener("resize", handleWindowResize);
