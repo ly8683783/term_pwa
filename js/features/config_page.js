@@ -440,6 +440,13 @@ function createConfigPage({
         await importJsonText(await file.text(), file.name);
     }
 
+    function createPendingImport(data, fileName) {
+        return {
+            data,
+            fileName: fileName || "config.json",
+        };
+    }
+
     async function importJsonText(text, fileName) {
         if (disposed) {
             return;
