@@ -1,4 +1,8 @@
 (function () {
+const LORANET_EMPTY_RE = /info:\s*No nodes found in LoraNet topology/i;
+const LORANET_PENDING_RE = /err1:\s*previous action is still pending/i;
+const LORANET_SYNTAX_RE = /^\s*Syntax:\s*at\+ab\s+loranet\b/im;
+
 function parseATInfo(text) {
     const nodeMatch = text.match(/^\s*Node\s+Addr\s+([0-9A-Fa-f]{4})\s*$/m);
     const groupMatch = text.match(/^\s*Publish\s+Addr\s+([0-9A-Fa-f]{4})\s*$/m);
@@ -13,16 +17,42 @@ function parseATInfo(text) {
     };
 }
 
+function createLoraNetResult(status, {
+    localNode = "----",
+    nodes = [],
+    links = [],
+    message = "",
+    matchedRows = 0,
+    rawText = "",
+} = {}) {
+    return {
+        status,
+        localNode: (localNode || "----").toUpperCase(),
+        nodes,
+        links,
+        message,
+        matchedRows,
+        rawText,
+    };
+}
+
 function parseLoraNet(text, localNode) {
+    const rawText = String(text || "");
+    const normalizedText = rawText.replace(/\r/g, "");
+    const normalizedLocalNode = (localNode || "----").toUpperCase();
+
     if (!localNode) {
-        return { nodes: [], links: [], localNode: "----" };
+        return createLoraNetResult("invalid", {
+            localNode: "----",
+            message: "Missing local node context.",
+            rawText,
+        });
     }
-    localNode = localNode.toUpperCase();
 
     const rows = [];
     const lineRe = /^(\d+):([0-9A-Fa-f]{4})\s+(-?\d+)\s+([0-9A-Fa-f]{4})$/;
 
-    for (const line of text.split("\n")) {
+    for (const line of normalizedText.split("\n")) {
         const match = line.trim().match(lineRe);
         if (!match) continue;
         rows.push({
@@ -34,7 +64,32 @@ function parseLoraNet(text, localNode) {
     }
 
     if (rows.length === 0) {
-        return { nodes: [], links: [], localNode };
+        if (LORANET_EMPTY_RE.test(normalizedText)) {
+            return createLoraNetResult("empty", {
+                localNode: normalizedLocalNode,
+                message: "No nodes found in LoraNet topology.",
+                rawText,
+            });
+        }
+        if (LORANET_PENDING_RE.test(normalizedText)) {
+            return createLoraNetResult("pending", {
+                localNode: normalizedLocalNode,
+                message: "Previous action is still pending.",
+                rawText,
+            });
+        }
+        if (LORANET_SYNTAX_RE.test(normalizedText)) {
+            return createLoraNetResult("syntax_error", {
+                localNode: normalizedLocalNode,
+                message: "Device rejected at+ab loranet syntax.",
+                rawText,
+            });
+        }
+        return createLoraNetResult("invalid", {
+            localNode: normalizedLocalNode,
+            message: firstMeaningfulLine(normalizedText) || "Unrecognized loranet response.",
+            rawText,
+        });
     }
 
     const bestByNode = new Map();
@@ -46,7 +101,7 @@ function parseLoraNet(text, localNode) {
         if (!old || row.hop < old.hop || (row.hop === old.hop && isBetterRssi(row.rssi, old.rssi))) {
             bestByNode.set(row.node, row);
         }
-        if (row.relay !== localNode) {
+        if (row.relay !== normalizedLocalNode) {
             inferredRelays.add(row.relay);
         }
         const edgeKey = `${row.node}->${row.relay}`;
@@ -70,11 +125,11 @@ function parseLoraNet(text, localNode) {
         if (depth < old.depth) old.depth = depth;
     }
 
-    addNode(localNode, "Local", 0);
+    addNode(normalizedLocalNode, "Local", 0);
 
     for (const row of bestByNode.values()) {
-        if (row.node === localNode) continue;
-        addNode(row.relay, row.relay === localNode ? "Local" : "Relay", row.hop);
+        if (row.node === normalizedLocalNode) continue;
+        addNode(row.relay, row.relay === normalizedLocalNode ? "Local" : "Relay", row.hop);
         addNode(row.node, inferredRelays.has(row.node) ? "Relay" : "Node", row.hop + 1);
 
         linkKeys.add(`${row.relay}->${row.node}`);
@@ -90,11 +145,11 @@ function parseLoraNet(text, localNode) {
     }
 
     for (const row of rows) {
-        if (row.node === localNode) continue;
+        if (row.node === normalizedLocalNode) continue;
         const linkKey = `${row.relay}->${row.node}`;
         if (linkKeys.has(linkKey)) continue;
 
-        addNode(row.relay, row.relay === localNode ? "Local" : "Relay", row.hop);
+        addNode(row.relay, row.relay === normalizedLocalNode ? "Local" : "Relay", row.hop);
         addNode(row.node, inferredRelays.has(row.node) ? "Relay" : "Node", row.hop + 1);
         linkKeys.add(linkKey);
 
@@ -109,7 +164,13 @@ function parseLoraNet(text, localNode) {
         });
     }
 
-    return { nodes: Array.from(nodes.values()), links, localNode };
+    return createLoraNetResult("data", {
+        localNode: normalizedLocalNode,
+        nodes: Array.from(nodes.values()),
+        links,
+        matchedRows: rows.length,
+        rawText,
+    });
 }
 
 function createTopologyState() {
@@ -201,8 +262,20 @@ function isBetterRssi(candidate, current) {
     return candidate > current;
 }
 
+function firstMeaningfulLine(text) {
+    for (const line of String(text || "").split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            continue;
+        }
+        return trimmed;
+    }
+    return "";
+}
+
 window.TermPWA = window.TermPWA || {};
 window.TermPWA.parseATInfo = parseATInfo;
+window.TermPWA.createLoraNetResult = createLoraNetResult;
 window.TermPWA.parseLoraNet = parseLoraNet;
 window.TermPWA.createTopologyState = createTopologyState;
 window.TermPWA.mergeLoraNetTopology = mergeLoraNetTopology;

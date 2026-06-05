@@ -6,6 +6,7 @@ const NETVIEW_RESPONSE_TIMEOUT_MS = 20000;
 const NETVIEW_DRAW_DEBOUNCE_MS = 500;
 const NETVIEW_RESIZE_DEBOUNCE_MS = 120;
 const parseATInfo = window.TermPWA.parseATInfo;
+const createLoraNetResult = window.TermPWA.createLoraNetResult;
 const parseLoraNet = window.TermPWA.parseLoraNet;
 const createTopologyState = window.TermPWA.createTopologyState;
 const mergeLoraNetTopology = window.TermPWA.mergeLoraNetTopology;
@@ -242,7 +243,10 @@ function createNetViewPage({
         await serialSession.writeATCommand("netview", cmd);
         responseTimeoutTimer = setTimeout(() => {
             if (isCollecting() && state === "collecting_topology") {
-                stop("Status: no response from at+ab loranet. Please check whether the device is normal.");
+                stop(formatLoraNetResultStatus(createLoraNetResult("no_response", {
+                    localNode: localNode || "----",
+                    message: "No response from at+ab loranet.",
+                })));
             }
         }, NETVIEW_RESPONSE_TIMEOUT_MS);
         writeTerminal(`> [NetView Refresh] ${cmd}\n`);
@@ -271,8 +275,7 @@ function createNetViewPage({
         clearTimeout(responseTimeoutTimer);
         responseTimeoutTimer = null;
         state = "waiting_refresh";
-        mergeAndRedraw();
-        setStatus(`Status: refresh complete. Next refresh in ${NETVIEW_REFRESH_DELAY_MS / 1000}s.`);
+        applyLoraNetResult(parseCurrentCycleResult(), { nextRefreshDelayMs: NETVIEW_REFRESH_DELAY_MS });
 
         clearTimeout(refreshTimer);
         refreshTimer = setTimeout(() => {
@@ -287,8 +290,9 @@ function createNetViewPage({
         if (disposed) {
             return;
         }
-        if (cycleBuffer.trim()) {
-            topologyData = mergeLoraNetTopology(topologyState, parseLoraNet(cycleBuffer, localNode));
+        const result = parseCurrentCycleResult();
+        if (result.status === "data") {
+            topologyData = mergeLoraNetTopology(topologyState, result);
         }
         return redraw();
     }
@@ -349,6 +353,73 @@ function createNetViewPage({
             return;
         }
         statusElement.innerText = message;
+    }
+
+    function parseCurrentCycleResult() {
+        if (!cycleBuffer.trim()) {
+            return createLoraNetResult("invalid", {
+                localNode: localNode || "----",
+                message: "Empty loranet response.",
+                rawText: cycleBuffer,
+            });
+        }
+        return parseLoraNet(cycleBuffer, localNode);
+    }
+
+    function applyLoraNetResult(result, { nextRefreshDelayMs = null } = {}) {
+        if (disposed) {
+            return null;
+        }
+
+        let redrawResult = null;
+        if (result.status === "data") {
+            topologyData = mergeLoraNetTopology(topologyState, result);
+            redrawResult = redraw();
+        } else if (!hasTopologyData()) {
+            redrawResult = redraw();
+        }
+
+        setStatus(formatLoraNetResultStatus(result, {
+            nextRefreshDelayMs,
+            redrawResult,
+        }));
+        return redrawResult;
+    }
+
+    function formatLoraNetResultStatus(result, {
+        nextRefreshDelayMs = null,
+        redrawResult = null,
+    } = {}) {
+        const refreshText = nextRefreshDelayMs ? ` Next refresh in ${nextRefreshDelayMs / 1000}s.` : "";
+        const effectiveLocalNode = result.localNode || localNode || "--";
+        const effectiveGroupAddr = groupAddr || "--";
+        const showingLatestText = hasTopologyData()
+            ? " Showing latest topology data."
+            : "";
+
+        switch (result.status) {
+        case "data": {
+            const nodeCount = redrawResult ? redrawResult.nodesCount : topologyData.nodes.length;
+            const linkCount = redrawResult ? redrawResult.linksCount : topologyData.links.length;
+            return `Status: refresh complete. Group ${effectiveGroupAddr} from Local ${effectiveLocalNode}. Parsed ${nodeCount} nodes and ${linkCount} links.${refreshText}`;
+        }
+        case "empty":
+            return `Status: group ${effectiveGroupAddr} from Local ${effectiveLocalNode} returned no nodes.${showingLatestText}${refreshText}`;
+        case "pending":
+            return `Status: device reported previous loranet action is still pending.${showingLatestText}${refreshText}`;
+        case "syntax_error":
+            return `Status: device rejected at+ab loranet syntax.${showingLatestText}${refreshText}`;
+        case "invalid":
+            return `Status: received unrecognized loranet response.${showingLatestText}${refreshText}`;
+        case "no_response":
+            return "Status: no response from at+ab loranet. Please check whether the device is normal.";
+        default:
+            return `Status: received unsupported loranet result.${showingLatestText}${refreshText}`;
+        }
+    }
+
+    function hasTopologyData() {
+        return topologyData.nodes.length > 0;
     }
 
     function handleSessionChanged() {
