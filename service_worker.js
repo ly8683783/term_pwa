@@ -29,6 +29,7 @@ const APP_ASSETS = [
     "./js/netview/wf88_page.js",
     "./js/utils/ymodem_crc.js",
     "./js/features/firmware_update.js",
+    "./js/config/config_schema.js",
     "./js/features/config_page.js",
     "./manifest.json",
     "./icons/icon.svg",

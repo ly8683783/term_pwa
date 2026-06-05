@@ -1,152 +1,6 @@
 (function () {
 const CONFIG_HARDWARE_TIMEOUT_MS = 3000;
 const CONFIG_READ_IDLE_MS = 900;
-const CONFIG_PROFILES = {
-LR71: {
-    format: "lr71-config-v1",
-    groups: ["System", "UART", "Mesh", "LoRa Radio", "Timing", "Bypass / Sleep", "Advanced"],
-    items: [
-    { varNo: 1, name: "BuildVersion", group: "System", control: "readonly", ro: true, defaultValue: "", range: "Read only", description: "Firmware build version." },
-    { varNo: 2, name: "DeviceName", group: "System", control: "text", defaultValue: "ART 0001", range: "Text", description: "Device display name. Firmware may render it from NodeAddr." },
-    { varNo: 3, name: "MACADDR", group: "System", control: "readonly", ro: true, defaultValue: "00043e2600a2", range: "Read only", description: "Production MAC address." },
-    { varNo: 4, name: "MeshName", group: "Mesh", control: "text", defaultValue: "Amp'ed LoRa!", range: "Text", description: "Mesh network name." },
-    { varNo: 5, name: "MeshKey", group: "Mesh", control: "text", defaultValue: "12345678", range: "Text", description: "Mesh network key." },
-    { varNo: 6, name: "AuthType", group: "Mesh", control: "select", defaultValue: "0", options: [["0", "NONE"], ["1", "AES-128"]], range: "0=NONE, 1=AES-128", description: "Authentication mode." },
-    { varNo: 7, name: "UartBaudrate", group: "UART", control: "select", defaultValue: "115200", options: ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600"], range: "300 - 921600", description: "Main UART baud rate." },
-    { varNo: 8, name: "UartParity", group: "UART", control: "select", defaultValue: "none", options: ["none", "even", "odd"], range: "none, even, odd", description: "Main UART parity." },
-    { varNo: 9, name: "UartDataBits", group: "UART", control: "select", defaultValue: "8", options: ["5", "6", "7", "8"], range: "5, 6, 7, 8", description: "Main UART data bits." },
-    { varNo: 10, name: "UartStopBits", group: "UART", control: "select", defaultValue: "1", options: ["1", "2"], range: "1, 2", description: "Main UART stop bits." },
-    { varNo: 11, name: "UartFlowControl", group: "UART", control: "bool", defaultValue: "false", range: "true, false, 1, 0", description: "Enable UART hardware flow control." },
-    { varNo: 12, name: "UartTimeout", group: "UART", control: "number", defaultValue: "16", min: 0, max: 65535, range: "0 - 65535", description: "UART character timeout." },
-    { varNo: 13, name: "CpuMHz", group: "System", control: "select", defaultValue: "50", options: ["16", "32", "48", "50", "64", "80", "96", "100", "112", "128", "144", "150", "160", "176", "192", "200"], range: "Supported CPU clocks", description: "CPU clock in MHz." },
-    { varNo: 15, name: "MeshRelay", group: "Mesh", control: "bool", defaultValue: "false", range: "bool", description: "Enable this device as a Mesh relay node." },
-    { varNo: 16, name: "MeshProxy", group: "Mesh", control: "bool", defaultValue: "true", range: "bool", description: "Enable Mesh proxy feature." },
-    { varNo: 17, name: "MeshFriend", group: "Mesh", control: "bool", defaultValue: "false", range: "bool", description: "Enable Mesh friend feature." },
-    { varNo: 18, name: "MeshLPN", group: "Mesh", control: "bool", defaultValue: "false", range: "bool", description: "Enable low power node mode." },
-    { varNo: 19, name: "ProvisionStatus", group: "Mesh", control: "bool", defaultValue: "false", range: "bool", description: "Provisioning status." },
-    { varNo: 20, name: "LoraTxPower", group: "LoRa Radio", control: "number", defaultValue: "6", min: 0, max: 15, range: "0 - 15", description: "LoRa transmit power setting." },
-    { varNo: 21, name: "LoraChannel", group: "LoRa Radio", control: "number", defaultValue: "29", min: 0, max: 60, range: "0 - 60", description: "LoRa RF channel index." },
-    { varNo: 22, name: "LoraCADInterval", group: "LoRa Radio", control: "number", defaultValue: "500", min: 0, max: 65535, range: "0 - 65535 ms", description: "Legacy CAD interval in milliseconds." },
-    { varNo: 23, name: "LoraLoraBand", group: "LoRa Radio", control: "readonly", ro: true, defaultValue: "EU915", range: "Read only", description: "LoRa band/frequency display." },
-    { varNo: 24, name: "LoraRfOffset", group: "LoRa Radio", control: "number", defaultValue: "0", range: "-2147483648 - 2147483647", description: "RF frequency offset." },
-    { varNo: 26, name: "LoraAirDataRate", group: "LoRa Radio", control: "select", defaultValue: "4800", options: ["4800", "9600", "19200", "38400"], range: "300 - 62500", description: "LoRa air data rate. Common LR71 values are listed." },
-    { varNo: 27, name: "LoraSF", group: "LoRa Radio", control: "select", defaultValue: "9", options: [["6", "6:64"], ["7", "7:128"], ["8", "8:256"], ["9", "9:512"], ["10", "10:1024"], ["11", "11:2048"], ["12", "12:4096"]], range: "6 - 12", description: "LoRa spreading factor." },
-    { varNo: 30, name: "LoraPANID", group: "LoRa Radio", control: "number", defaultValue: "255", min: 255, max: 65280, range: "255 - 65280", description: "LoRa PAN ID." },
-    { varNo: 31, name: "LoraPayloadLen", group: "LoRa Radio", control: "number", defaultValue: "128", min: 0, max: 255, range: "0 - 255", description: "LoRa payload length." },
-    { varNo: 32, name: "HostEvents", group: "Bypass / Sleep", control: "bool", defaultValue: "true", range: "bool", description: "Enable host event output strings." },
-    { varNo: 35, name: "Hardware", group: "System", control: "readonly", ro: true, defaultValue: "LR71", range: "Read only", description: "Hardware model." },
-    { varNo: 36, name: "OutMtuSize", group: "System", control: "number", defaultValue: "400", range: "UDP:1-1472, TCP:1-1460", description: "Output MTU size." },
-    { varNo: 37, name: "MaxTTL", group: "Mesh", control: "number", defaultValue: "2", min: 0, max: 255, range: "0 - 255", description: "Maximum Mesh TTL." },
-    { varNo: 38, name: "HostShallowSleepEn", group: "Bypass / Sleep", control: "bool", defaultValue: "false", range: "bool", description: "Enable host shallow sleep." },
-    { varNo: 39, name: "HostDeepSleepEn", group: "Bypass / Sleep", control: "bool", defaultValue: "false", range: "bool", description: "Enable host deep sleep." },
-    { varNo: 40, name: "NodeAddr", group: "Mesh", control: "hex", defaultValue: "0000", range: "0000 - FFFF", description: "Local node address." },
-    { varNo: 41, name: "PublishAddr", group: "Mesh", control: "hex", defaultValue: "C001", range: "0000 - FFFF", description: "Publish address." },
-    { varNo: 42, name: "SubscribeAddr", group: "Mesh", control: "text", defaultValue: "C001", range: "0000 - FFFF, space separated", description: "Subscribe address list." },
-    { varNo: 43, name: "DefaultDstAddr", group: "Mesh", control: "hex", defaultValue: "0000", range: "0000 - FFFF", description: "Default destination address." },
-    { varNo: 45, name: "AckTimeout", group: "Timing", control: "text", defaultValue: "auto", range: "auto, 1 - 254, disabled", description: "ACK timeout. Use auto for computed timeout or disabled to disable." },
-    { varNo: 46, name: "LoraTxRpt", group: "Timing", control: "number", defaultValue: "1", min: 1, max: 5, range: "1 - 5", description: "LoRa transmit repeat count." },
-    { varNo: 48, name: "LoraScanRpt", group: "Timing", control: "number", defaultValue: "4", min: 0, max: 255, range: "0 - 255", description: "LoraDiscovery/LoraNet scan repeat count." },
-    { varNo: 49, name: "LoraScanInterval", group: "Timing", control: "number", defaultValue: "7", min: 0, max: 255, range: "0 - 255", description: "Scan interval multiplier. Runtime interval is this value times mesh_LoraTxInterval()." },
-    { varNo: 50, name: "LoRaRmtPin", group: "System", control: "text", defaultValue: "123456", range: "000000 - ffffff", description: "Remote command PIN, six hex characters." },
-    { varNo: 51, name: "LoRaRxPeriod", group: "Bypass / Sleep", control: "number", defaultValue: "100", min: 0, range: "0 - 4294967295", description: "Sniff RX period." },
-    { varNo: 52, name: "LoRaSleepPeriod", group: "Bypass / Sleep", control: "number", defaultValue: "900", min: 0, range: "0 - 4294967295", description: "Sniff sleep period." },
-    { varNo: 53, name: "GPIO_Wakeup", group: "Bypass / Sleep", control: "select", defaultValue: "none", options: ["none", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"], range: "none, 0 - 15", description: "GPIO wakeup pin." },
-    { varNo: 54, name: "GrpAckWindow", group: "Timing", control: "number", defaultValue: "4", min: 1, max: 8, range: "1 - 8", description: "Group ACK random window." },
-    { varNo: 55, name: "AckEn", group: "Mesh", control: "bool", defaultValue: "true", range: "bool", description: "Enable ACK handling." },
-    { varNo: 56, name: "MeshEn", group: "Mesh", control: "bool", defaultValue: "false", range: "bool", description: "Enable Mesh behavior." },
-    { varNo: 57, name: "CpaXta", group: "Advanced", control: "number", defaultValue: "12", min: 0, max: 255, range: "0 - 255", description: "LR71 crystal capacitor XTA trim." },
-    { varNo: 58, name: "CpaXtb", group: "Advanced", control: "number", defaultValue: "12", min: 0, max: 255, range: "0 - 255", description: "LR71 crystal capacitor XTB trim." },
-    { varNo: 59, name: "EnableEncryption", group: "Mesh", control: "bool", defaultValue: "true", range: "bool", description: "Enable encryption." },
-    { varNo: 60, name: "WTDEnable", group: "System", control: "bool", defaultValue: "true", range: "bool", description: "Enable watchdog." },
-    { varNo: 61, name: "LoraMsgMax", group: "LoRa Radio", control: "number", defaultValue: "200", min: 0, max: 255, range: "0 - 255", description: "Maximum LoRa message length when no ACK is required." },
-    { varNo: 62, name: "TermChar", group: "Bypass / Sleep", control: "number", defaultValue: "126", min: 0, max: 255, range: "0 - 255", description: "Bypass terminal character. 126 is '~'." },
-    { varNo: 63, name: "EscSeq", group: "Bypass / Sleep", control: "text", defaultValue: "^#^$^%", range: "Text, max 6 recommended", description: "Escape sequence for bypass/hex mode." },
-    { varNo: 64, name: "BypassMode", group: "Bypass / Sleep", control: "bool", defaultValue: "false", range: "bool", description: "Enable bypass mode." },
-    { varNo: 65, name: "BypassTimeout", group: "Bypass / Sleep", control: "number", defaultValue: "5", min: 0, max: 255, range: "0 - 255", description: "Bypass send timeout." },
-    { varNo: 66, name: "MeshRelayDelay", group: "Timing", control: "number", defaultValue: "2", min: 2, max: 5, range: "2 - 5", description: "Legacy Mesh relay delay parameter." },
-    { varNo: 67, name: "RelayAckEn", group: "Timing", control: "bool", defaultValue: "false", range: "bool", description: "Enable relay ACK mechanism." },
-    { varNo: 68, name: "RelayRptMax", group: "Timing", control: "number", defaultValue: "3", min: 0, max: 255, range: "0 - 255", description: "Maximum relay repeat count." },
-    { varNo: 69, name: "CadMode", group: "LoRa Radio", control: "select", defaultValue: "1", options: [["0", "Disabled"], ["1", "Dynamic Delay"]], range: "0 - 1", description: "CAD mode. 0 disables CAD-assisted timing; 1 enables dynamic CAD delay." },
-    ],
-},
-WF88_M: {
-    format: "wf88m-config-v1",
-    groups: ["System", "UART", "WiFi Network", "TCP / UDP Legacy", "IPv6 & DNS", "MQTT Client", "Mesh", "Sleep / GPIO"],
-    items: [
-    { varNo: 1, name: "BuildVersion", group: "System", control: "readonly", ro: true, defaultValue: "260227A", range: "Read only", description: "Firmware build version string (Format: YYMMDD + Revision)." },
-    { varNo: 2, name: "DeviceName", group: "System", control: "text", defaultValue: "Amped WiFi", range: "Text", description: "The friendly name of the device used for identification." },
-    { varNo: 3, name: "STA_MAC_ADDR", group: "System", control: "readonly", ro: true, defaultValue: "", range: "Read only", description: "Permanent Station MAC address assigned during production." },
-    { varNo: 25, name: "Hardware", group: "System", control: "readonly", ro: true, defaultValue: "WF88-M", range: "Read only", description: "Hardware model identifier." },
-    { varNo: 26, name: "CpuMHz", group: "System", control: "number", defaultValue: "200", min: 26, max: 230, range: "26 - 230", description: "System clock frequency. Firmware accepts any value from 26 to 230 MHz." },
-    { varNo: 70, name: "LogOutput", group: "System", control: "select", defaultValue: "0", options: [["0", "None"], ["1", "Bypass Only"], ["2", "Full Debug"]], range: "0, 1, 2", description: "Debug log level. 0=Silent (Production), 1=Filtered logs, 2=All debug messages forced." },
-
-    { varNo: 15, name: "UartBaudrate", group: "UART", control: "select", defaultValue: "115200", options: ["300", "1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600", "1000000", "2000000", "2250000"], range: "300 - 2250000", description: "Baud rate for the main AT command/data interface." },
-    { varNo: 16, name: "UartParity", group: "UART", control: "select", defaultValue: "none", options: ["none", "even", "odd"], range: "none, even, odd", description: "UART parity bit configuration." },
-    { varNo: 17, name: "UartDataBits", group: "UART", control: "select", defaultValue: "8", options: ["8", "9"], range: "8, 9", description: "Number of data bits per UART frame." },
-    { varNo: 18, name: "UartStopBits", group: "UART", control: "select", defaultValue: "1", options: ["1", ".5", "2", "1.5"], range: "1, .5, 2, 1.5", description: "Number of stop bits per UART frame." },
-    { varNo: 19, name: "UartFlowControl", group: "UART", control: "bool", defaultValue: "false", range: "bool", description: "Enable Hardware (RTS/CTS) flow control to prevent buffer overflows." },
-    { varNo: 20, name: "UartTimeout", group: "UART", control: "number", defaultValue: "16", min: 0, max: 65535, range: "0 - 65535", description: "UART character timeout in milliseconds used to trigger packet end in Bypass mode." },
-
-    { varNo: 4, name: "DHCPMode", group: "WiFi Network", control: "bool", defaultValue: "true", range: "bool", description: "Enable DHCP to automatically obtain IP address. If false, static IP is required." },
-    { varNo: 5, name: "IPAddress", group: "WiFi Network", control: "text", defaultValue: "192.168.1.2", range: "IP", description: "Static IP address used when DHCP is disabled." },
-    { varNo: 6, name: "NetMask", group: "WiFi Network", control: "text", defaultValue: "255.255.255.0", range: "IP", description: "Subnet mask for static IP configuration." },
-    { varNo: 7, name: "GateWay", group: "WiFi Network", control: "text", defaultValue: "192.168.1.1", range: "IP", description: "Default gateway for static IP configuration." },
-    { varNo: 8, name: "SSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "Target WiFi Access Point name." },
-    { varNo: 9, name: "PassPhrase", group: "WiFi Network", control: "text", defaultValue: "12345678", range: "Text", description: "WiFi security password (WPA/WPA2 Key)." },
-    { varNo: 10, name: "AuthType", group: "WiFi Network", control: "select", defaultValue: "1", options: [["0", "NONE"], ["1", "WPA2-PSK"], ["2", "WPA3-SAE"]], range: "0-2", description: "Security authentication mode of the WiFi network." },
-    { varNo: 27, name: "Channel", group: "WiFi Network", control: "number", defaultValue: "6", min: 1, max: 14, range: "1 - 14", description: "WiFi RF channel index (relevant for AP mode or specific scan)." },
-    { varNo: 28, name: "DeviceMode", group: "WiFi Network", control: "select", defaultValue: "0", options: [["0", "STA"], ["1", "AP"], ["2", "AP-STA"], ["3", "MP"], ["4", "AP-MP"]], range: "0, 1, 2, 3, 4", description: "Operation mode: Station (Client), Access Point, or mixed modes." },
-    { varNo: 30, name: "MaxSTACount", group: "WiFi Network", control: "number", defaultValue: "14", min: 1, max: 32, range: "1 - 32", description: "Maximum number of clients allowed to connect in AP mode." },
-    { varNo: 35, name: "WiFiSleepTime", group: "WiFi Network", control: "number", defaultValue: "1000", range: "ms", description: "DTIM interval or sleep duration between beacon checks in power-save mode." },
-    { varNo: 39, name: "WsmFirmware", group: "WiFi Network", control: "text", defaultValue: "wsm_V3.2.3.bin", range: "Filename", description: "Filename of the WiFi Subsystem (WSM) firmware image." },
-    { varNo: 40, name: "WsmBootloader", group: "WiFi Network", control: "text", defaultValue: "bootloader.bin", range: "Filename", description: "Filename of the WSM bootloader." },
-    { varNo: 41, name: "WsmSdd", group: "WiFi Network", control: "text", defaultValue: "sdd_6010.bin", range: "Filename", description: "System Definition Data file for WiFi hardware calibration." },
-    { varNo: 64, name: "APP_AutoStart", group: "WiFi Network", control: "bool", defaultValue: "false", range: "bool", description: "Automatically connect to WiFi and start the network task on power-up." },
-    { varNo: 65, name: "AutoSSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "Default SSID used for AutoStart mode." },
-
-    { varNo: 11, name: "HostIPAddr", group: "TCP / UDP Legacy", control: "text", defaultValue: "192.168.1.3", range: "IP", description: "Remote server IP address for legacy single-connection Bypass mode." },
-    { varNo: 12, name: "IPProtocol", group: "TCP / UDP Legacy", control: "select", defaultValue: "1", options: [["0", "TCP"], ["1", "UDP"], ["2", "TCP Client"]], range: "0, 1, 2", description: "Protocol type used for legacy network task." },
-    { varNo: 13, name: "HostPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Destination port on the remote server." },
-    { varNo: 14, name: "LocalPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Local listening or source port." },
-    { varNo: 29, name: "OutMtuSize", group: "TCP / UDP Legacy", control: "number", defaultValue: "1024", min: 1, max: 1472, range: "UDP: 1 - 1472, TCP: 1 - 1460", description: "Maximum Transmission Unit for outgoing network packets. Firmware enforces a protocol-dependent upper bound." },
-    { varNo: 31, name: "MPMode", group: "TCP / UDP Legacy", control: "bool", defaultValue: "false", range: "bool", description: "Multi-Packet mode: enables addressed packet headers for multiple clients in Bypass mode." },
-    { varNo: 36, name: "KeepAlive", group: "TCP / UDP Legacy", control: "number", defaultValue: "60", range: "sec", description: "TCP keep-alive interval to maintain connection through firewalls." },
-    { varNo: 38, name: "StationInactive", group: "TCP / UDP Legacy", control: "number", defaultValue: "120", range: "sec", description: "Timeout for disconnecting inactive clients in AP mode." },
-    { varNo: 53, name: "LINKTYPE", group: "TCP / UDP Legacy", control: "select", defaultValue: "0", options: [["0", "TCP/UDP"], ["1", "MQTT"]], range: "0, 1", description: "Switch startup network task between standard socket bridge or MQTT client." },
-
-    { varNo: 50, name: "localIPv6addrs", group: "IPv6 & DNS", control: "readonly", ro: true, defaultValue: "", range: "IPv6", description: "The link-local IPv6 address assigned to the WiFi interface." },
-    { varNo: 51, name: "remoteIPv6addrs", group: "IPv6 & DNS", control: "text", defaultValue: "", range: "IPv6", description: "Static remote IPv6 peer address." },
-    { varNo: 52, name: "AddrType", group: "IPv6 & DNS", control: "select", defaultValue: "0", options: [["0", "IPv4"], ["1", "IPv6"]], range: "0, 1", description: "Preferred IP version for network operations." },
-    { varNo: 57, name: "DNS1V4", group: "IPv6 & DNS", control: "text", defaultValue: "8.8.8.8", range: "IP", description: "Primary IPv4 DNS server." },
-    { varNo: 58, name: "DNS1V6", group: "IPv6 & DNS", control: "text", defaultValue: "2001:4860:4860::8888", range: "IPv6", description: "Primary IPv6 DNS server." },
-    { varNo: 59, name: "DNS2V4", group: "IPv6 & DNS", control: "text", defaultValue: "1.1.1.1", range: "IP", description: "Secondary IPv4 DNS server." },
-    { varNo: 60, name: "DNS2V6", group: "IPv6 & DNS", control: "text", defaultValue: "2606:4700:4700::1111", range: "IPv6", description: "Secondary IPv6 DNS server." },
-
-    { varNo: 42, name: "MQTTServerIP", group: "MQTT Client", control: "text", defaultValue: "91.121.93.94", range: "IP / Host", description: "MQTT Broker address." },
-    { varNo: 43, name: "MQTTServerPort", group: "MQTT Client", control: "number", defaultValue: "1883", range: "1-65535", description: "MQTT Broker port (1883 for non-TLS, 8883 for TLS)." },
-    { varNo: 44, name: "MQTTServerUsrName", group: "MQTT Client", control: "text", defaultValue: "admin", range: "Text", description: "MQTT authentication username." },
-    { varNo: 45, name: "MQTTServerPasswd", group: "MQTT Client", control: "text", defaultValue: "password", range: "Text", description: "MQTT authentication password." },
-    { varNo: 46, name: "MQTTSubscribeTopic", group: "MQTT Client", control: "text", defaultValue: "SToC", range: "Topic", description: "Topic that the device subscribes to for commands (Server-to-Client)." },
-    { varNo: 47, name: "MQTTPubishTopic", group: "MQTT Client", control: "text", defaultValue: "CToS", range: "Topic", description: "Topic where the device publishes its data (Client-to-Server)." },
-    { varNo: 48, name: "MQTTQoS", group: "MQTT Client", control: "select", defaultValue: "0", options: ["0", "1", "2"], range: "0-2", description: "MQTT Quality of Service level for publishing." },
-    { varNo: 49, name: "MQTTAuthType", group: "MQTT Client", control: "select", defaultValue: "1", options: [["0", "Username/Password"], ["1", "Single"], ["2", "2-HandShake"], ["4", "None"]], range: "0, 1, 2, 4", description: "Security mode for MQTT connection." },
-    { varNo: 54, name: "MQTTCaCrt", group: "MQTT Client", control: "text", defaultValue: "ca.crt", range: "Filename", description: "Root CA certificate for TLS verification." },
-    { varNo: 55, name: "MQTTClinetCrt", group: "MQTT Client", control: "text", defaultValue: "client.crt", range: "Filename", description: "Client certificate for mutual TLS authentication." },
-    { varNo: 56, name: "MQTTClinetKey", group: "MQTT Client", control: "text", defaultValue: "client.key", range: "Filename", description: "Client private key for mutual TLS authentication." },
-    { varNo: 69, name: "MQTTClientID", group: "MQTT Client", control: "text", defaultValue: "amped_mqtt_client", range: "Text", description: "Unique identifier for the MQTT connection." },
-
-    { varNo: 33, name: "HostShallowSleepEn", group: "Sleep / GPIO", control: "bool", defaultValue: "false", range: "bool", description: "Enable CPU shallow sleep during IDLE to save power." },
-    { varNo: 34, name: "HostDeepSleepEn", group: "Sleep / GPIO", control: "bool", defaultValue: "false", range: "bool", description: "Enable CPU deep sleep (power down peripherals) during IDLE." },
-    { varNo: 67, name: "MQTTGpioEn", group: "Sleep / GPIO", control: "bool", defaultValue: "false", range: "bool", description: "Allow control of hardware GPIO pins via MQTT messages." },
-    { varNo: 68, name: "GPIOModeSet", group: "Sleep / GPIO", control: "text", defaultValue: "IN,IN...", range: "CSV", description: "Initial mode configuration (IN/OUT) for all available GPIO pins." },
-
-    { varNo: 61, name: "MESH_ID", group: "Mesh", control: "text", defaultValue: "mymesh12345", range: "Text", description: "Identifier for the MESH network." },
-    { varNo: 62, name: "MESH_PassPhrase", group: "Mesh", control: "text", defaultValue: "12345678", range: "Text", description: "Security key for the MESH network." },
-    { varNo: 63, name: "MESH_AuthType", group: "Mesh", control: "select", defaultValue: "2", options: [["0", "NONE"], ["1", "WPA2-PSK"], ["2", "WPA3-SAE"]], range: "0-2", description: "Authentication algorithm used in MESH mode." },
-    { varNo: 22, name: "HostEvents", group: "System", control: "bool", defaultValue: "true", range: "bool", description: "Enable or disable unsolicited +EVENT: messages on UART." },
-    ],
-},
-};
 
 function createConfigPage({
     serialManager,
@@ -465,7 +319,7 @@ function createConfigPage({
         }
 
         const profileName = findProfileName(hardware);
-        if (!profileName || !CONFIG_PROFILES[profileName].items.length) {
+        if (!profileName || !window.TermPWA.CONFIG_PROFILES[profileName].items.length) {
             clearPendingImport();
             setActiveProfile(null);
             configUnavailableStatus = `Unsupported hardware: ${hardware}. Configuration is disabled.`;
@@ -947,7 +801,7 @@ function createConfigPage({
     }
 
     function setActiveProfile(profileName) {
-        const profile = profileName ? CONFIG_PROFILES[profileName] : null;
+        const profile = profileName ? window.TermPWA.CONFIG_PROFILES[profileName] : null;
         activeProfileContext = profile ? { name: profileName, profile } : null;
         const items = getActiveItems();
         itemByVar = new Map(items.map(item => [item.varNo, item]));
@@ -1040,7 +894,7 @@ function findProfileName(hardwareName) {
         : null;
     const deviceProfile = profileName ? window.TermPWA.getDeviceProfile(profileName) : null;
     const configProfile = deviceProfile ? deviceProfile.configProfile : null;
-    return configProfile && CONFIG_PROFILES[configProfile] ? configProfile : null;
+    return configProfile && window.TermPWA.CONFIG_PROFILES[configProfile] ? configProfile : null;
 }
 
 function normalizeValue(item, value) {
@@ -1097,5 +951,4 @@ function emptyConfigPage() {
 
 window.TermPWA = window.TermPWA || {};
 window.TermPWA.createConfigPage = createConfigPage;
-window.TermPWA.CONFIG_PROFILES = CONFIG_PROFILES;
 })();
