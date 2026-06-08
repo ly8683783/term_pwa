@@ -505,88 +505,81 @@
                         </div>
                     </div>
                     <div class="page-shell-content docs-content">
-                        
                         <div class="docs-section">
-                            <h3>1. 快速连接 (Getting Started)</h3>
+                            <h3>1. Getting Started</h3>
                             <div class="docs-callout docs-info">
-                                <strong>环境要求：</strong> 请使用 Chrome 或 Edge 浏览器打开本网页。如果是局域网部署，请确保使用 HTTPS 或 localhost 访问，否则浏览器将禁用串口功能。
+                                <strong>Prerequisites:</strong> Please use Google Chrome or Microsoft Edge. If deploying on a local network, ensure you access the site via HTTPS or localhost, otherwise the browser will disable the Web Serial API.
                             </div>
-                            <img src="./docs-img/guide_connect.png" alt="连接指南" class="docs-img">
+                            <img src="./docs-img/guide_welcome.png" alt="Getting Started Guide" class="docs-img">
                             <ol class="docs-steps">
-                                <li>使用 USB 数据线将设备连接至电脑。</li>
-                                <li>点击右上角的 <strong>Connect</strong> 按钮。</li>
-                                <li>在浏览器弹出的授权窗口中，选择对应的 COM 端口并点击“连接”。</li>
+                                <li>Connect your device to the computer using a USB cable.</li>
+                                <li>Click the <strong>Connect</strong> button in the top right corner.</li>
+                                <li>In the browser's authorization popup, select the corresponding COM port and click "Connect".</li>
                             </ol>
-                            <p class="docs-note"><strong>💡 提示：</strong>开启 <code>Auto-connect</code> 可在下次刷新页面时免去手动授权；<code>Auto-detect</code> 可在连接后自动识别设备型号。</p>
+                            <p class="docs-note"><strong>💡 Tip:</strong> Enabling <code>Auto-connect</code> skips manual authorization on subsequent visits; <code>Auto-detect</code> automatically identifies the device model after connection.</p>
                         </div>
 
                         <div class="docs-section">
-                            <h3>2. 终端调试 (Terminal AT)</h3>
-                            <p>此页面允许你向设备发送原始的 AT 指令。</p>
-                            <img src="./docs-img/guide_terminal.png" alt="终端调试指南" class="docs-img">
+                            <h3>2. Terminal (AT)</h3>
+                            <p>This page allows you to send raw AT commands directly to the device.</p>
+                            <img src="./docs-img/guide_terminal.png" alt="Terminal Guide" class="docs-img">
                             <ul class="docs-list">
-                                <li><strong>手动发送：</strong>在左下角输入框键入指令，回车即可发送。勾选 <code>HEX</code> 可发送十六进制字节；勾选 <code>Add CR/LF</code> 会在指令末尾自动添加回车换行。</li>
+                                <li><strong>Manual Send:</strong> Type your command in the bottom-left input box and press Enter to send. Check <code>HEX</code> to send hexadecimal bytes; check <code>Add CR/LF</code> to automatically append carriage return and line feed characters.</li>
                             </ul>
-                            <h4>快捷发送面板 (Quick Send)</h4>
+                            <h4>Quick Send Panel</h4>
                             <table class="docs-table">
-                                <thead><tr><th>操作</th><th>说明</th></tr></thead>
+                                <thead><tr><th>Action</th><th>Description</th></tr></thead>
                                 <tbody>
-                                    <tr><td><strong>发送</strong></td><td>单击面板中的按钮快速发出对应命令。</td></tr>
-                                    <tr><td><strong>重命名</strong></td><td><strong>长按</strong>（或按住鼠标）某个快捷按钮 1 秒钟，可修改按钮显示的名称。</td></tr>
-                                    <tr><td><strong>排序</strong></td><td>拖拽按钮左侧的图标可以改变命令顺序。</td></tr>
+                                    <tr><td><strong>Send</strong></td><td>Click a button in the panel to quickly send the corresponding command.</td></tr>
+                                    <tr><td><strong>Rename</strong></td><td><strong>Long-press</strong> (click and hold) a quick send button for 1 second to rename it.</td></tr>
+                                    <tr><td><strong>Reorder</strong></td><td>Drag the icon on the left of the button to change the command order.</td></tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <div class="docs-section">
-                            <h3>3. 设备配置 (Configuration)</h3>
-                            <p>此页面用于修改设备的内部寄存器与运行参数。</p>
-                            <img src="./docs-img/guide_config.png" alt="设备配置指南" class="docs-img">
+                            <h3>3. Configuration</h3>
+                            <p>This page is used to modify the device's internal registers and runtime parameters.</p>
+                            <img src="./docs-img/guide_config.png" alt="Configuration Guide" class="docs-img">
                             <ol class="docs-steps">
-                                <li>连接设备后，必须首先点击 <strong>Read From Device</strong>，从硬件拉取最新参数。</li>
-                                <li>修改你需要的参数项，此时被修改的行会变成<span style="background:#fff8df; padding:2px 4px; border:1px solid #f2c766; border-radius:3px;">黄色高亮</span>。</li>
-                                <li>点击绿色的 <strong>Apply Changed</strong> 按钮，将所有修改项写入硬件设备。</li>
+                                <li>After connecting the device, you must first click <strong>Read From Device</strong> to fetch the latest parameters from the hardware.</li>
+                                <li>Modify the parameters you need. Modified rows will be highlighted in <span style="background:#fff8df; padding:2px 4px; border:1px solid #f2c766; border-radius:3px;">yellow</span>.</li>
+                                <li>Click the green <strong>Apply Changed</strong> button to write all modifications to the hardware device.</li>
                             </ol>
-                            <p class="docs-note">你可以使用 <strong>Export JSON</strong> 将当前参数备份到电脑，或使用 <strong>Import JSON</strong> 批量导入参数。</p>
+                            <p class="docs-note">You can use <strong>Export JSON</strong> to backup current parameters to your computer, or use <strong>Import JSON</strong> to batch import parameters.</p>
                         </div>
 
                         <div class="docs-section">
-                            <h3>4. 固件升级 (Firmware Update)</h3>
+                            <h3>4. Firmware Update</h3>
                             <div class="docs-callout docs-danger">
-                                <strong>⚠ 危险警告：</strong> 在升级进度条走完之前，绝对不可断开 USB 连接或关闭网页，否则设备将损坏变砖！
+                                <strong>⚠ CRITICAL WARNING:</strong> Never disconnect the USB cable or close the browser tab before the progress bar completes, otherwise the device will be bricked!
                             </div>
-                            <img src="./docs-img/guide_firmware.png" alt="固件升级指南" class="docs-img">
+                            <img src="./docs-img/guide_firmware.png" alt="Firmware Update Guide" class="docs-img">
                             <ol class="docs-steps">
-                                <li>点击 <strong>Enter Flashloader</strong> 强制设备重启进入 Bootloader 模式（观察下方串口窗口是否有相应的引导信息输出）。</li>
-                                <li>点击 <strong>Select</strong> 按钮，在电脑中选择正确的 <code>.bin</code> 固件文件。</li>
-                                <li>点击 <strong>Load</strong> 开始传输。</li>
+                                <li>Click <strong>Enter Flashloader</strong> to force the device to reboot into Bootloader mode (observe if the corresponding boot info appears in the serial window below).</li>
+                                <li>Click the <strong>Select</strong> button to choose the correct <code>.bin</code> firmware file from your computer.</li>
+                                <li>Click <strong>Load</strong> to start the transfer.</li>
                             </ol>
-                            <p class="docs-note"><strong>异常处理：</strong>如果进度条长时间卡死，请点击 <strong>Cancel</strong> 取消当前传输，随后重新点击 <strong>Enter Flashloader</strong> 复位设备状态，再尝试重新 Load。</p>
+                            <p class="docs-note"><strong>Troubleshooting:</strong> If the progress bar stalls for a long time, click <strong>Cancel</strong> to abort the current transfer, then click <strong>Enter Flashloader</strong> again to reset the device state before retrying.</p>
                         </div>
 
                         <div class="docs-section">
-                            <h3>5. 组网拓扑 (NetView)</h3>
-                            <p>用于实时可视化 LoRa/WiFi Mesh 的网络物理连接拓扑。</p>
-                            <img src="./docs-img/guide_netview.png" alt="拓扑视图指南" class="docs-img">
-                            <p><strong>如何使用：</strong>连接设备后，点击 <strong>Start</strong>，系统将在后台自动发送请求并解析组网结构。</p>
+                            <h3>5. NetView Topology</h3>
+                            <p>Used to visualize the physical network connection topology of LoRa/WiFi Mesh in real-time.</p>
+                            <img src="./docs-img/guide_netview.png" alt="NetView Guide" class="docs-img">
+                            <p><strong>How to use:</strong> After connecting the device, click <strong>Start</strong>. The system will automatically send requests in the background and parse the network structure.</p>
                             <table class="docs-table">
-                                <thead><tr><th>节点颜色</th><th>角色说明</th></tr></thead>
+                                <thead><tr><th>Node Color</th><th>Role Description</th></tr></thead>
                                 <tbody>
-                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#f7b2aa; margin-right:6px;"></span><strong>粉色 (Pink)</strong></td><td><strong>Local Gateway</strong>: 当前直接与电脑通信的网关设备。</td></tr>
-                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#c8c5ff; margin-right:6px;"></span><strong>紫色 (Purple)</strong></td><td><strong>Relay Node</strong>: 充当中继路由的节点。</td></tr>
-                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#bfeec6; margin-right:6px;"></span><strong>绿色 (Green)</strong></td><td><strong>End Node</strong>: 网络末端的叶子节点。</td></tr>
+                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#f7b2aa; margin-right:6px;"></span><strong>Pink</strong></td><td><strong>Local Gateway</strong>: The gateway device currently directly communicating with the computer.</td></tr>
+                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#c8c5ff; margin-right:6px;"></span><strong>Purple</strong></td><td><strong>Relay Node</strong>: A node acting as a routing relay.</td></tr>
+                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#bfeec6; margin-right:6px;"></span><strong>Green</strong></td><td><strong>End Node</strong>: A leaf node at the edge of the network.</td></tr>
                                 </tbody>
                             </table>
-                            <p class="docs-note">节点间的连线表示网络路径，将鼠标悬停在节点或连线上，可查看具体的 RSSI (信号强度) 等详细数值。</p>
+                            <p class="docs-note">The connecting lines between nodes represent network paths. Hover over a node or a line to view detailed values such as RSSI (signal strength).</p>
                         </div>
 
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <button id="debugLogToggle" class="debug-log-toggle" type="button">日志</button>
+                    </div> class="debug-log-toggle" type="button">日志</button>
     <div id="debugLogPanel" class="debug-log-panel" aria-live="polite">
         <div class="debug-log-header">
             <span>Runtime Log</span>
