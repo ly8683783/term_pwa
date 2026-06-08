@@ -292,6 +292,7 @@ input:checked + .slider:before { transform: translateX(16px); }
     border-radius: 8px;
     overflow-y: auto;
     white-space: pre-wrap;
+    word-break: break-all;
     outline: none;
 }
 .terminal-output[data-theme="classic-dark"],
@@ -1435,6 +1436,7 @@ textarea:focus {
     background: var(--terminal-bg);
     color: var(--terminal-rx);
     white-space: pre-wrap;
+    word-break: break-all;
     font-family: monospace;
     font-size: 12px;
     line-height: 1.45;
