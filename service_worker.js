@@ -15,6 +15,7 @@ const APP_ASSETS = [
     "./js/core/device_detector.js",
     "./js/core/debug_logger.js",
     "./js/utils/hex_utils.js",
+    "./js/core/page_runtime.js",
     "./js/core/main.js",
     "./js/serial/serial_transport.js",
     "./js/serial/serial_port_store.js",

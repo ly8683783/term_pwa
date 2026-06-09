@@ -3,11 +3,12 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession) {
+if (!appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createPageRuntime) {
     debugLog("core globals missing", {
         SerialPortManager: Boolean(appModules.SerialPortManager),
         createSerialEventBus: Boolean(appModules.createSerialEventBus),
         createSerialSession: Boolean(appModules.createSerialSession),
+        createPageRuntime: Boolean(appModules.createPageRuntime),
     });
     throw new Error("Required core scripts failed to load.");
 }
@@ -44,7 +45,6 @@ debugLog("dom refs resolved", {
     autoDetectToggle: Boolean(autoDetectToggle),
 });
 
-let activeViewId = "view-welcome";
 let activeDeviceProfileName = "UNKNOWN";
 let welcomeStatusText = "Connect a device, then detect it.";
 let waitingServiceWorker = null;
@@ -52,6 +52,14 @@ let serviceWorkerRefreshing = false;
 let appDisposed = false;
 const pageRegistry = new Map();
 const serviceRegistry = new Map();
+const pageRuntime = appModules.createPageRuntime({
+    pageRegistry,
+    hasCapability: hasActiveCapability,
+    debugLog,
+});
+const switchView = pageRuntime.switchView;
+const dispatchPageLifecycle = pageRuntime.dispatchPageLifecycle;
+const updateFeatureVisibility = pageRuntime.updateFeatureVisibility;
 
 if (appVersionInfo) {
     appVersionInfo.textContent = `Application Version: ${APP_CACHE_NAME}`;
@@ -137,17 +145,7 @@ if (pwaUpdateBtn) {
     });
 }
 
-document.querySelectorAll('.menu-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-        e.preventDefault();
-        const targetId = item.getAttribute('data-target');
-        const feature = item.getAttribute('data-feature');
-        if (feature && !hasActiveCapability(feature)) {
-            return;
-        }
-        switchView(targetId);
-    });
-});
+pageRuntime.bindMenuNavigation();
 
 function onDataReceived(data, bytes) {
     const byteLength = bytes ? bytes.length : data.length;
@@ -317,7 +315,7 @@ function buildPageDefinitions() {
                 },
                 debugLog,
                 showPage: () => switchView("view-firmware"),
-                isPageActive: () => activeViewId === "view-firmware",
+                isPageActive: () => pageRuntime.getActiveViewId() === "view-firmware",
             }),
             fallback: () => createNoopPage(["open", "handleShown", "handleSerialText"]),
             onShow: page => page.handleShown(),
@@ -526,14 +524,6 @@ function createDeviceDetectorSafely() {
     }
 }
 
-function dispatchPageLifecycle(hookName, ...args) {
-    pageRegistry.forEach(definition => {
-        if (typeof definition[hookName] === "function") {
-            callPageHook(definition, hookName, ...args);
-        }
-    });
-}
-
 async function updatePortList() {
     debugLog("updatePortList start", { supported: serialManager.isSupported() });
     if (!serialManager.isSupported()) {
@@ -703,7 +693,7 @@ async function performConnection(portObj) {
     }
 
     dispatchPageLifecycle("afterDeviceConnected", {
-        activeViewId,
+        activeViewId: pageRuntime.getActiveViewId(),
         profileName: activeDeviceProfileName,
     });
 }
@@ -871,61 +861,6 @@ function hasActiveCapability(capability) {
     return appModules.hasDeviceCapability
         ? appModules.hasDeviceCapability(activeDeviceProfileName, capability)
         : false;
-}
-
-function updateFeatureVisibility() {
-    document.querySelectorAll(".menu-item[data-feature]").forEach(item => {
-        const feature = item.getAttribute("data-feature");
-        const visible = hasActiveCapability(feature);
-        item.hidden = !visible;
-        item.setAttribute("aria-hidden", visible ? "false" : "true");
-    });
-
-    const activeItem = document.querySelector(`.menu-item[data-target="${activeViewId}"]`);
-    if (activeItem && activeItem.hidden) {
-        switchView("view-welcome", { reason: "unavailable" });
-    }
-}
-
-function switchView(targetId, options = {}) {
-    const previousViewId = activeViewId;
-
-    if (previousViewId === targetId) {
-        return;
-    }
-
-    const previousDefinition = pageRegistry.get(previousViewId);
-    if (previousDefinition && typeof previousDefinition.onHide === "function") {
-        callPageHook(previousDefinition, "onHide", targetId, options);
-    }
-
-    activeViewId = targetId;
-
-    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-    const activeItem = document.querySelector(`.menu-item[data-target="${targetId}"]`);
-    if (activeItem && !activeItem.hidden) {
-        activeItem.classList.add('active');
-    }
-
-    document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
-    const targetView = document.getElementById(targetId);
-    if (targetView) {
-        targetView.classList.add('active');
-    }
-
-    const nextDefinition = pageRegistry.get(targetId);
-    if (nextDefinition && typeof nextDefinition.onShow === "function") {
-        callPageHook(nextDefinition, "onShow");
-    }
-}
-
-function callPageHook(definition, hookName, ...args) {
-    try {
-        definition[hookName](definition.page, ...args);
-    } catch (error) {
-        debugLog(`${definition.key} ${hookName} failed`, error);
-        console.error(`${definition.key} ${hookName} failed:`, error);
-    }
 }
 
 if (serialManager.isSupported()) {
