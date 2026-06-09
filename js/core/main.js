@@ -3,13 +3,14 @@ debugLog("main script start");
 const appModules = window.TermPWA || {};
 const APP_CACHE_NAME = appModules.APP_VERSION || "unknown";
 
-if (!appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createPageRuntime || !appModules.buildPageDefinitions) {
+if (!appModules.SerialPortManager || !appModules.createSerialEventBus || !appModules.createSerialSession || !appModules.createPageRuntime || !appModules.buildPageDefinitions || !appModules.createUiState) {
     debugLog("core globals missing", {
         SerialPortManager: Boolean(appModules.SerialPortManager),
         createSerialEventBus: Boolean(appModules.createSerialEventBus),
         createSerialSession: Boolean(appModules.createSerialSession),
         createPageRuntime: Boolean(appModules.createPageRuntime),
         buildPageDefinitions: Boolean(appModules.buildPageDefinitions),
+        createUiState: Boolean(appModules.createUiState),
     });
     throw new Error("Required core scripts failed to load.");
 }
@@ -46,8 +47,7 @@ debugLog("dom refs resolved", {
     autoDetectToggle: Boolean(autoDetectToggle),
 });
 
-let activeDeviceProfileName = "UNKNOWN";
-let welcomeStatusText = "Connect a device, then detect it.";
+let uiState = null;
 let waitingServiceWorker = null;
 let serviceWorkerRefreshing = false;
 let appDisposed = false;
@@ -68,28 +68,6 @@ if (appVersionInfo) {
 const welcomeVersionInfo = document.getElementById('welcomeVersionInfo');
 if (welcomeVersionInfo) {
     welcomeVersionInfo.textContent = `Application Version: ${APP_CACHE_NAME}`;
-}
-
-function setStatusMessageText(text) {
-    if (!statusMessage) {
-        return;
-    }
-    statusMessage.textContent = text;
-}
-
-function setStatusMessageValue(value, tone = "") {
-    if (!statusMessage) {
-        return;
-    }
-    statusMessage.textContent = "";
-    statusMessage.append(document.createTextNode("Status: "));
-
-    const valueSpan = document.createElement("span");
-    valueSpan.className = tone
-        ? `terminal-status-value terminal-status-value-${tone}`
-        : "terminal-status-value";
-    valueSpan.textContent = value;
-    statusMessage.append(valueSpan);
 }
 
 function registerServiceWorker() {
@@ -159,7 +137,7 @@ function onDisconnect() {
     if (serialSession) {
         serialSession.reset();
     }
-    setActiveDeviceProfile("UNKNOWN", "Serial disconnected.");
+    uiState.setActiveDeviceProfile("UNKNOWN", "Serial disconnected.");
     dispatchPageLifecycle("onSerialDisconnect");
     updateUI(false);
     updatePortList().catch(error => console.error("Port list update failed:", error));
@@ -175,12 +153,23 @@ const serialSession = appModules.createSerialSession({
     onStatusChange: updateSessionUI,
 });
 debugLog("serial session created");
+uiState = appModules.createUiState({
+    appModules,
+    serialManager,
+    serialSession,
+    statusMessage,
+    welcomeDeviceName,
+    welcomeDeviceStatus,
+    welcomeDetectDeviceBtn,
+    onDeviceProfileChanged: updateFeatureVisibility,
+});
+debugLog("ui state created");
 updateFeatureVisibility();
 initializePages();
 serviceRegistry.set("deviceDetector", createDeviceDetectorSafely());
 registerPageSubscriptions();
 updateFeatureVisibility();
-renderWelcomeDevice();
+uiState.renderWelcomeDevice();
 window.addEventListener("beforeunload", disposeApp);
 
 async function init() {
@@ -364,7 +353,7 @@ async function updatePortList() {
         portSelect.innerHTML = '<option value="unsupported">Web Serial unavailable</option>';
         portSelect.disabled = true;
         autoConnectToggle.disabled = true;
-        setStatusMessageText("Status: Web Serial unavailable");
+        uiState.setStatusMessageText("Status: Web Serial unavailable");
         dispatchPageLifecycle("onUnavailable", "Status: Web Serial requires Chrome/Chromium over localhost or HTTPS.");
         return [];
     }
@@ -453,7 +442,7 @@ async function switchConnectedPort(selectedValue) {
         debugLog("switch serial port start", { selectedValue });
         dispatchPageLifecycle("beforePortSwitch");
         serialSession.reset();
-        setActiveDeviceProfile("UNKNOWN", "Switching serial device...");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Switching serial device...");
         
         const disconnectPromise = serialManager.disconnect({ notify: false });
         updateUI();
@@ -520,15 +509,15 @@ async function performConnection(portObj) {
     updateUI();
     
     if (autoDetectToggle.checked) {
-        setActiveDeviceProfile("UNKNOWN", "Detecting device...");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Detecting device...");
         await detectDevice();
     } else {
-        setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.");
     }
 
     dispatchPageLifecycle("afterDeviceConnected", {
         activeViewId: pageRuntime.getActiveViewId(),
-        profileName: activeDeviceProfileName,
+        profileName: uiState.getActiveDeviceProfileName(),
     });
 }
 
@@ -540,7 +529,7 @@ async function tryDisconnect() {
     debugLog("tryDisconnect start");
     try {
         dispatchPageLifecycle("beforeDisconnect");
-        setActiveDeviceProfile("UNKNOWN", "Disconnecting...");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Disconnecting...");
         const disconnectPromise = serialManager.disconnect();
         updateUI();
         await disconnectPromise;
@@ -566,18 +555,18 @@ function updateUI(connected = serialManager.isConnected()) {
     if (state === "connecting") {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connecting...";
-        setStatusMessageText("Status: Connecting...");
+        uiState.setStatusMessageText("Status: Connecting...");
         dispatchPageLifecycle("onDisconnected", "Status: serial connection is busy.");
-        renderWelcomeDevice("Connecting...");
+        uiState.renderWelcomeDevice("Connecting...");
         return;
     }
 
     if (state === "disconnecting") {
         connectBtn.classList.add('connected');
         connectText.innerText = "Disconnecting...";
-        setStatusMessageText("Status: Disconnecting...");
+        uiState.setStatusMessageText("Status: Disconnecting...");
         dispatchPageLifecycle("onDisconnected", "Status: serial connection is busy.");
-        renderWelcomeDevice("Disconnecting...");
+        uiState.renderWelcomeDevice("Disconnecting...");
         return;
     }
 
@@ -586,13 +575,13 @@ function updateUI(connected = serialManager.isConnected()) {
         connectText.innerText = "Disconnect";
         dispatchPageLifecycle("onConnected");
         updateSessionUI();
-        renderWelcomeDevice();
+        uiState.renderWelcomeDevice();
     } else {
         connectBtn.classList.remove('connected');
         connectText.innerText = "Connect";
-        setStatusMessageValue("Disconnected", "disconnected");
+        uiState.setStatusMessageValue("Disconnected", "disconnected");
         dispatchPageLifecycle("onDisconnected");
-        renderWelcomeDevice("Connect a device, then detect it.");
+        uiState.renderWelcomeDevice("Connect a device, then detect it.");
     }
 }
 
@@ -601,9 +590,9 @@ function updateSessionUI() {
         return;
     }
 
-    setStatusMessageValue("Connected", "connected");
+    uiState.setStatusMessageValue("Connected", "connected");
     dispatchPageLifecycle("onSessionChanged");
-    renderWelcomeDevice();
+    uiState.renderWelcomeDevice();
 }
 
 connectBtn.addEventListener('click', () => {
@@ -626,22 +615,22 @@ if (welcomeDetectDeviceBtn) {
     welcomeDetectDeviceBtn.addEventListener("click", () => {
         detectDevice().catch(error => {
             debugLog("device detect failed", error);
-            setWelcomeStatus(`Detect failed: ${error.message}`);
+            uiState.setWelcomeStatus(`Detect failed: ${error.message}`);
         });
     });
 }
 
 async function detectDevice() {
     if (!serialManager.isConnected()) {
-        setWelcomeStatus("Connect a device first.");
+        uiState.setWelcomeStatus("Connect a device first.");
         return;
     }
     if (serialManager.isBusy()) {
-        setWelcomeStatus("Serial is busy. Try again later.");
+        uiState.setWelcomeStatus("Serial is busy. Try again later.");
         return;
     }
 
-    setWelcomeStatus("Checking bootloader...");
+    uiState.setWelcomeStatus("Checking bootloader...");
     const detector = getService("deviceDetector");
     const result = await detector.detect();
     const profileName = result.profileName || "UNKNOWN";
@@ -651,50 +640,12 @@ async function detectDevice() {
             ? `${profileName} application detected.`
             : "Device type is unknown.";
 
-    setActiveDeviceProfile(profileName, message);
+    uiState.setActiveDeviceProfile(profileName, message);
     debugLog("device detect result", { profileName, mode: result.mode });
 }
 
-function setActiveDeviceProfile(profileName, statusText = "") {
-    activeDeviceProfileName = appModules.normalizeDeviceProfileName(profileName) || "UNKNOWN";
-    if (statusText) {
-        welcomeStatusText = statusText;
-    }
-    updateFeatureVisibility();
-    renderWelcomeDevice();
-}
-
-function setWelcomeStatus(statusText) {
-    welcomeStatusText = statusText;
-    renderWelcomeDevice();
-}
-
-function renderWelcomeDevice(statusOverride = "") {
-    const profile = appModules.getDeviceProfile
-        ? appModules.getDeviceProfile(activeDeviceProfileName)
-        : { name: "Unknown", capabilities: ["terminal", "firmwareUpdate"] };
-    const connected = serialManager && serialManager.isConnected();
-    const busy = serialManager && serialManager.isBusy();
-
-    if (welcomeDeviceName) {
-        welcomeDeviceName.textContent = profile.name || "Unknown";
-    }
-    if (welcomeDeviceStatus) {
-        welcomeDeviceStatus.textContent = statusOverride || welcomeStatusText ||
-            (connected ? "Device connected. Click Detect Device." : "Connect a device, then detect it.");
-    }
-    if (welcomeDetectDeviceBtn) {
-        welcomeDetectDeviceBtn.disabled = !connected || busy;
-        welcomeDetectDeviceBtn.textContent = busy && serialSession.getActiveOwner() === "device-detect"
-            ? "Detecting..."
-            : "Detect Device";
-    }
-}
-
 function hasActiveCapability(capability) {
-    return appModules.hasDeviceCapability
-        ? appModules.hasDeviceCapability(activeDeviceProfileName, capability)
-        : false;
+    return uiState ? uiState.hasActiveCapability(capability) : false;
 }
 
 if (serialManager.isSupported()) {
@@ -717,5 +668,5 @@ if (serialManager.isSupported()) {
 init().catch(error => {
     debugLog("init failed", error);
     console.error("Initialization failed:", error);
-    setStatusMessageText(`Status: initialization failed - ${error.message}`);
+    uiState.setStatusMessageText(`Status: initialization failed - ${error.message}`);
 });

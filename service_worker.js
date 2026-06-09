@@ -17,6 +17,7 @@ const APP_ASSETS = [
     "./js/utils/hex_utils.js",
     "./js/core/page_runtime.js",
     "./js/core/page_definitions.js",
+    "./js/core/ui_state.js",
     "./js/core/main.js",
     "./js/serial/serial_transport.js",
     "./js/serial/serial_port_store.js",
