@@ -28,6 +28,31 @@ function createFirmwareUpdateDialog({
     let currentSender = null;
     let cancelRequested = false;
     let disposed = false;
+    let isWelcomeShown = false;
+
+    const WELCOME_BANNER = 
+        "----------------------------------------------------------\n" +
+        "             Amp'ed RF Flashloader Console\n" +
+        "----------------------------------------------------------\n" +
+        "1. Click [Enter Flashloader] to put the device into bootloader mode.\n" +
+        "2. Click [Select] to choose a firmware binary (.bin).\n" +
+        "3. Click [Load] to start YMODEM firmware transfer.\n" +
+        "----------------------------------------------------------\n" +
+        "Tips: You can also click in this console and type directly\n" +
+        "      to interact with the device's bootloader menu.\n" +
+        "----------------------------------------------------------\n\n";
+
+    function showWelcomeIfEmpty() {
+        if (!terminalOutput) {
+            return;
+        }
+        const text = terminalOutput.textContent || "";
+        if (text === "" || text === WELCOME_BANNER) {
+            terminalOutput.textContent = WELCOME_BANNER;
+            isWelcomeShown = true;
+        }
+    }
+
     const handleOpenClick = () => open();
     const handleEnterClick = () => {
         enterFlashloader().catch(error => {
@@ -179,6 +204,7 @@ function createFirmwareUpdateDialog({
         window.addEventListener(themeChangeEvent, handleTerminalThemeChange);
     }
     applyFirmwareTerminalTheme();
+    showWelcomeIfEmpty();
 
     function open() {
         if (disposed) {
@@ -193,6 +219,7 @@ function createFirmwareUpdateDialog({
         }
         applyFirmwareTerminalTheme();
         debugLog("firmware page shown");
+        showWelcomeIfEmpty();
         if (isLoading) {
             return;
         }
@@ -309,6 +336,10 @@ function createFirmwareUpdateDialog({
     function appendOutput(text) {
         if (disposed) {
             return;
+        }
+        if (isWelcomeShown && terminalOutput) {
+            terminalOutput.textContent = "";
+            isWelcomeShown = false;
         }
         terminalOutput.textContent += text;
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
