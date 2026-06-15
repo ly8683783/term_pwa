@@ -338,7 +338,7 @@ function createConfigPage({
     function finishRead() {
         if (readMode !== "config") return;
 
-        const result = window.TermPWA.parseConfigList(readBuffer, itemByVar, itemByName);
+        const result = window.TermPWA.parseConfigList(readBuffer, itemByVar);
         const count = result.count;
         
         for (const update of result.updates) {

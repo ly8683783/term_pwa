@@ -90,7 +90,7 @@ function buildImportSummary(data, { values, itemByVar, loaded, isReadonlyItem })
     return summary;
 }
 
-function parseConfigList(readBuffer, itemByVar, itemByName) {
+function parseConfigList(readBuffer, itemByVar) {
     let count = 0;
     const re = /^var(\d+)\s+(.+?)\s*=\s*(.*)$/gm;
     let match;
@@ -98,9 +98,10 @@ function parseConfigList(readBuffer, itemByVar, itemByName) {
     
     while ((match = re.exec(readBuffer)) !== null) {
         const varNo = Number(match[1]);
-        const name = match[2].trim();
         const value = match[3].trim();
-        const item = itemByVar.get(varNo) || itemByName.get(name.toLowerCase());
+        // at+ab config already carries varNo; matching by name is unsafe because
+        // some firmwares reuse the same display name for different variables.
+        const item = itemByVar.get(varNo);
         if (!item) continue;
         const normalized = normalizeValue(item, value);
         

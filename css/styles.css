@@ -1643,7 +1643,7 @@ textarea:focus {
     transform: translateY(-44px);
 }
 .welcome-logo-text .amp-rf {
-    color: var(--primary-green);
+    color: var(--primary-yellow);
 }
 .welcome-subtitle {
     font-size: 24px;
@@ -1730,7 +1730,7 @@ textarea:focus {
     transform: translateY(-18px);
 }
 .header-logo-text .amp-rf {
-    color: var(--primary-green);
+    color: var(--primary-yellow);
 }
 
 .docs-image-wrapper {
