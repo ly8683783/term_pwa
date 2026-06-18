@@ -536,33 +536,48 @@
                         </div>
 
                         <div class="docs-section">
-                            <h3>2. Terminal (AT)</h3>
-                            <p>This page allows you to send raw AT commands directly to the device.</p>
-                            <img src="./docs-img/guide_terminal.png" alt="Terminal Guide" class="docs-img">
-                            <ul class="docs-list">
-                                <li><strong>Manual Send:</strong> Type your command in the bottom-left input box and press Enter to send. Check <code>HEX</code> to send hexadecimal bytes; check <code>Add CR/LF</code> to automatically append carriage return and line feed characters.</li>
-                            </ul>
-                            <h4>Quick Send Panel</h4>
-                            <table class="docs-table">
-                                <thead><tr><th>Action</th><th>Description</th></tr></thead>
-                                <tbody>
-                                    <tr><td><strong>Send</strong></td><td>Click a button in the panel to quickly send the corresponding command.</td></tr>
-                                    <tr><td><strong>Rename</strong></td><td><strong>Long-press</strong> (click and hold) a quick send button for 1 second to rename it.</td></tr>
-                                    <tr><td><strong>Reorder</strong></td><td>Drag the icon on the left of the button to change the command order.</td></tr>
-                                </tbody>
-                            </table>
+                            <h3>2. Terminal (AT Commands)</h3>
+                            <div class="docs-layout-split">
+                                <div class="docs-layout-media">
+                                    <img src="./docs-img/guide_terminal.png" alt="Terminal Guide" class="docs-img">
+                                </div>
+                                <div class="docs-layout-text">
+                                    <p>The Terminal allows you to communicate with the hardware interactively by sending raw AT commands and observing the response.</p>
+                                    <ul class="docs-list">
+                                        <li><strong>Manual Send:</strong> Type your command in the bottom-left input box and press Enter. </li>
+                                        <li><strong>Formatting:</strong> Check <code>HEX</code> to interpret input as hexadecimal bytes. Check <code>Add CR/LF</code> to automatically append carriage return and line feed characters.</li>
+                                    </ul>
+                                    <h4>Quick Send Panel</h4>
+                                    <table class="docs-table">
+                                        <thead><tr><th>Action</th><th>Description</th></tr></thead>
+                                        <tbody>
+                                            <tr><td><strong>Send</strong></td><td>Click a button to instantly send the mapped command.</td></tr>
+                                            <tr><td><strong>Rename</strong></td><td><strong>Long-press</strong> (click and hold) any button for 1 second to edit its name and command payload.</td></tr>
+                                            <tr><td><strong>Reorder</strong></td><td>Drag the grip icon on the left of the button to rearrange your command list.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="docs-section">
-                            <h3>3. Configuration</h3>
-                            <p>This page is used to modify the device's internal registers and runtime parameters.</p>
-                            <img src="./docs-img/guide_config.png" alt="Configuration Guide" class="docs-img">
-                            <ol class="docs-steps">
-                                <li>After connecting the device, you must first click <strong>Read From Device</strong> to fetch the latest parameters from the hardware.</li>
-                                <li>Modify the parameters you need. Modified rows will be highlighted in <span style="background:#fff8df; padding:2px 4px; border:1px solid #f2c766; border-radius:3px;">yellow</span>.</li>
-                                <li>Click the green <strong>Apply Changed</strong> button to write all modifications to the hardware device.</li>
-                            </ol>
-                            <p class="docs-note">You can use <strong>Export JSON</strong> to backup current parameters to your computer, or use <strong>Import JSON</strong> to batch import parameters.</p>
+                            <h3>3. Configuration Interface</h3>
+                            <div class="docs-layout-split">
+                                <div class="docs-layout-media">
+                                    <img src="./docs-img/guide_config.png" alt="Configuration Guide" class="docs-img">
+                                </div>
+                                <div class="docs-layout-text">
+                                    <p>This panel provides a structured UI to safely view and modify the device's internal parameters without memorizing AT command syntaxes.</p>
+                                    <ol class="docs-steps">
+                                        <li>Always click <strong>Read From Device</strong> first to fetch the current live parameters. The system will parse them into the table.</li>
+                                        <li>Edit the values directly in the table. Unsaved modifications will be prominently highlighted with a <span style="background:#fff8df; padding:2px 4px; border:1px solid #f2c766; border-radius:3px;">yellow</span> background.</li>
+                                        <li>Review your changes, then click the green <strong>Apply Changed</strong> button to systematically write them back to the device.</li>
+                                    </ol>
+                                    <div class="docs-callout docs-info">
+                                        <strong>Bulk Operations:</strong> Use <strong>Export JSON</strong> to save a snapshot of the current parameters to your local disk. You can later use <strong>Import JSON</strong> to rapidly clone configurations across multiple devices.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="docs-section">
@@ -587,19 +602,25 @@
                         </div>
 
                         <div class="docs-section">
-                            <h3>5. NetView Topology</h3>
-                            <p>Used to visualize the physical network connection topology of LoRa/WiFi Mesh in real-time.</p>
-                            <img src="./docs-img/guide_netview.png" alt="NetView Guide" class="docs-img">
-                            <p><strong>How to use:</strong> After connecting the device, click <strong>Start</strong>. The system will automatically send requests in the background and parse the network structure.</p>
-                            <table class="docs-table">
-                                <thead><tr><th>Node Color</th><th>Role Description</th></tr></thead>
-                                <tbody>
-                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#f7b2aa; margin-right:6px;"></span><strong>Pink</strong></td><td><strong>Local Gateway</strong>: The gateway device currently directly communicating with the computer.</td></tr>
-                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#c8c5ff; margin-right:6px;"></span><strong>Purple</strong></td><td><strong>Relay Node</strong>: A node acting as a routing relay.</td></tr>
-                                    <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#bfeec6; margin-right:6px;"></span><strong>Green</strong></td><td><strong>End Node</strong>: A leaf node at the edge of the network.</td></tr>
-                                </tbody>
-                            </table>
-                            <p class="docs-note">The connecting lines between nodes represent network paths. Hover over a node or a line to view detailed values such as RSSI (signal strength).</p>
+                            <h3>5. NetView Topology & System Monitor</h3>
+                            <div class="docs-layout-split">
+                                <div class="docs-layout-media">
+                                    <img src="./docs-img/guide_netview.png" alt="NetView Guide" class="docs-img">
+                                </div>
+                                <div class="docs-layout-text">
+                                    <p>The NetView page generates a live, interactive visualization of your physical LoRa or WiFi Mesh network topology.</p>
+                                    <p><strong>Operation:</strong> Click <strong>Start</strong> when connected. The system will continuously query the device and render the hierarchical network map using force-directed graphing.</p>
+                                    <table class="docs-table">
+                                        <thead><tr><th>Node Type</th><th>Role & Function</th></tr></thead>
+                                        <tbody>
+                                            <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#f7b2aa; margin-right:6px;"></span><strong>Local Gateway (Pink)</strong></td><td>The central gateway device directly tethered to this computer.</td></tr>
+                                            <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#c8c5ff; margin-right:6px;"></span><strong>Relay Node (Purple)</strong></td><td>Intermediate nodes that actively route network traffic.</td></tr>
+                                            <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#bfeec6; margin-right:6px;"></span><strong>End Node (Green)</strong></td><td>Leaf nodes at the edge of the mesh network.</td></tr>
+                                        </tbody>
+                                    </table>
+                                    <p class="docs-note"><strong>Interaction:</strong> Edges between nodes represent active communication paths. You can hover over any node or edge to inspect live telemetry metrics such as RSSI (Received Signal Strength Indicator).</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
