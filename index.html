@@ -511,9 +511,9 @@
                     </div>
                     <div class="page-shell-content docs-content">
                         <div class="docs-section">
-                            <h3>1. Getting Started</h3>
+                            <h3>1. Getting Started & Connection</h3>
                             <div class="docs-callout docs-info">
-                                <strong>Prerequisites:</strong> Please use Google Chrome or Microsoft Edge. If deploying on a local network, ensure you access the site via HTTPS or localhost, otherwise the browser will disable the Web Serial API.
+                                <strong>Prerequisites:</strong> Please use a Chromium-based browser (Google Chrome or Microsoft Edge). If deploying on a local network, ensure you access the site via HTTPS or localhost, otherwise the browser will silently disable the Web Serial API for security reasons.
                             </div>
                             <div class="docs-layout-split">
                                 <div class="docs-layout-media">
@@ -521,11 +521,16 @@
                                 </div>
                                 <div class="docs-layout-text">
                                     <ol class="docs-steps">
-                                        <li>Connect your device to the computer using a USB cable.</li>
-                                        <li>Click the <strong>Connect</strong> button in the top right corner.</li>
-                                        <li>In the browser's authorization popup, select the corresponding COM port and click "Connect".</li>
+                                        <li>Connect your hardware device to the computer using a reliable data USB cable.</li>
+                                        <li>Click the <strong>Connect</strong> button in the top right corner of the application.</li>
+                                        <li>In the browser's authorization popup, select the corresponding COM port (e.g., CP210x USB to UART Bridge) and click "Connect".</li>
                                     </ol>
-                                    <p class="docs-note"><strong>💡 Tip:</strong> Enabling <code>Auto-connect</code> skips manual authorization on subsequent visits; <code>Auto-detect</code> automatically identifies the device model after connection.</p>
+                                    <p class="docs-note"><strong>💡 Auto-Connect Tip:</strong> Enabling the <code>Auto-connect</code> toggle skips manual authorization on subsequent visits; <code>Auto-detect</code> will attempt to automatically identify the device model (LR71 or WF88) immediately after connection.</p>
+                                    <h4>Troubleshooting Connection</h4>
+                                    <ul class="docs-list">
+                                        <li><strong>No port found?</strong> Ensure the USB cable supports data transfer (some are charge-only). Check if you need to install CP210x or CH340 drivers.</li>
+                                        <li><strong>Port in use?</strong> Make sure no other terminal programs (like PuTTY or another browser tab) are currently connected to the same COM port.</li>
+                                    </ul>
                                 </div>
                             </div>
                         </div>
@@ -561,17 +566,24 @@
                         </div>
 
                         <div class="docs-section">
-                            <h3>4. Firmware Update</h3>
+                            <h3>4. Firmware Update (YMODEM-CRC)</h3>
                             <div class="docs-callout docs-danger">
-                                <strong>⚠ CRITICAL WARNING:</strong> Never disconnect the USB cable or close the browser tab before the progress bar completes, otherwise the device will be bricked!
+                                <strong>⚠ CRITICAL WARNING:</strong> Never disconnect the USB cable or close the browser tab before the progress bar completes! Interrupting a bootloader flash may brick the device.
                             </div>
-                            <img src="./docs-img/guide_firmware.png" alt="Firmware Update Guide" class="docs-img">
-                            <ol class="docs-steps">
-                                <li>Click <strong>Enter Flashloader</strong> to force the device to reboot into Bootloader mode (observe if the corresponding boot info appears in the serial window below).</li>
-                                <li>Click the <strong>Select</strong> button to choose the correct <code>.bin</code> firmware file from your computer.</li>
-                                <li>Click <strong>Load</strong> to start the transfer.</li>
-                            </ol>
-                            <p class="docs-note"><strong>Troubleshooting:</strong> If the progress bar stalls for a long time, click <strong>Cancel</strong> to abort the current transfer, then click <strong>Enter Flashloader</strong> again to reset the device state before retrying.</p>
+                            <div class="docs-layout-split">
+                                <div class="docs-layout-media">
+                                    <img src="./docs-img/guide_firmware.png" alt="Firmware Update Guide" class="docs-img">
+                                </div>
+                                <div class="docs-layout-text">
+                                    <p>The firmware update mechanism uses the robust YMODEM-CRC protocol over serial.</p>
+                                    <ol class="docs-steps">
+                                        <li>Click <strong>Enter Flashloader</strong> to force the device to reboot into Bootloader mode. Verify that the bootloader banner appears in the serial log window below.</li>
+                                        <li>Click the <strong>Select</strong> button to browse your computer and choose the correct <code>.bin</code> firmware file.</li>
+                                        <li>Click <strong>Load</strong> to initiate the YMODEM handshake and start the file transfer.</li>
+                                    </ol>
+                                    <p class="docs-note"><strong>Troubleshooting Transfers:</strong> If the progress bar stalls for a long time without moving, the YMODEM handshake may have failed. Click <strong>Cancel</strong> to safely abort the current browser transfer, then click <strong>Enter Flashloader</strong> again to completely reset the hardware's state before retrying.</p>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="docs-section">
