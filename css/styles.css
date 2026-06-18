@@ -1639,6 +1639,39 @@ textarea:focus {
     border-radius: 6px;
 }
 
+@media (prefers-color-scheme: dark) {
+    .docs-content {
+        color: #d1d5db;
+    }
+    .docs-section h3 {
+        color: #f3f4f6;
+    }
+    .docs-section h4 {
+        color: #e5e7eb;
+    }
+    .docs-info {
+        background: #1e3a8a;
+        border-left-color: #60a5fa;
+        color: #bfdbfe;
+    }
+    .docs-danger {
+        background: #7f1d1d;
+        border-left-color: #f87171;
+        color: #fecaca;
+    }
+    .docs-table th {
+        background: #374151;
+        color: #f3f4f6;
+    }
+    .docs-table th, .docs-table td {
+        border-color: #4b5563;
+    }
+    .docs-note {
+        background: #1f2937;
+        color: #9ca3af;
+    }
+}
+
 .welcome-logo-container {
     text-align: center;
     margin-bottom: 40px;
