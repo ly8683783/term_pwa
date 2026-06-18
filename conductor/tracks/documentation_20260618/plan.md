@@ -6,11 +6,11 @@
 - [x] Task: Conductor - User Manual Verification 'Structure and Scaffolding' (Protocol in workflow.md)
 
 ## Phase 2: Content Generation - Connection & Updates
-- [ ] Task: Write structured HTML content for "Web Serial connection & troubleshooting".
-- [ ] Task: Integrate existing screenshots for the connection guide into the new HTML structure.
-- [ ] Task: Write structured HTML content for "Firmware update process (YMODEM-CRC)".
-- [ ] Task: Integrate firmware update screenshots.
-- [ ] Task: Conductor - User Manual Verification 'Content Generation - Connection & Updates' (Protocol in workflow.md)
+- [x] Task: Write structured HTML content for "Web Serial connection & troubleshooting". 344fd37
+- [x] Task: Integrate existing screenshots for the connection guide into the new HTML structure. 344fd37
+- [x] Task: Write structured HTML content for "Firmware update process (YMODEM-CRC)". 344fd37
+- [x] Task: Integrate firmware update screenshots. 344fd37
+- [~] Task: Conductor - User Manual Verification 'Content Generation - Connection & Updates' (Protocol in workflow.md)
 
 ## Phase 3: Content Generation - Configuration & Topology
 - [ ] Task: Write structured HTML content for "Configuration import/export and AT commands".
