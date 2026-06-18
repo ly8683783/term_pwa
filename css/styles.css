@@ -1559,6 +1559,23 @@ textarea:focus {
 .docs-section p {
     margin: 0 0 12px;
 }
+.docs-layout-split {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+.docs-layout-text {
+    flex: 1 1 300px;
+}
+.docs-layout-media {
+    flex: 1 1 400px;
+    max-width: 100%;
+}
+.docs-layout-media .docs-img {
+    margin: 0;
+}
 .docs-callout {
     padding: 14px 18px;
     margin-bottom: 20px;
