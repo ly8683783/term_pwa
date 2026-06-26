@@ -319,6 +319,22 @@ function createTerminalPage({
         }
     }
 
+    function scrollTerminalOnShow() {
+        if (!terminalOutput) {
+            return;
+        }
+        if (autoScrollToggle && !autoScrollToggle.checked) {
+            return;
+        }
+
+        requestAnimationFrame(() => {
+            if (disposed || !terminalOutput) {
+                return;
+            }
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        });
+    }
+
     function trimTerminalNodes() {
         if (!terminalOutput) return;
 
@@ -868,6 +884,7 @@ function createTerminalPage({
         if (quickSendPanel && quickSendPanel.handleShown) {
             quickSendPanel.handleShown();
         }
+        scrollTerminalOnShow();
     }
 
     function dispose() {
