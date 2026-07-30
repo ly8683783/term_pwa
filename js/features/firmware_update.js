@@ -17,6 +17,9 @@ function createFirmwareUpdateDialog({
     const cancelButton = document.querySelector(selectors.cancelButton || "#firmwareCancelBtn");
     const fileInput = document.querySelector(selectors.fileInput || "#firmwareFileInput");
     const terminalOutput = document.querySelector(selectors.terminalOutput || "#firmwareUartOutput");
+    const copyOutputButton = document.querySelector(selectors.copyOutputButton || "#copyFirmwareOutputBtn");
+    const exportOutputButton = document.querySelector(selectors.exportOutputButton || "#exportFirmwareOutputBtn");
+    const clearOutputButton = document.querySelector(selectors.clearOutputButton || "#clearFirmwareOutputBtn");
     const statusElement = document.querySelector(selectors.status || "#firmwareUpdateStatus");
     const fileInfo = document.querySelector(selectors.fileInfo || "#firmwareFileInfo");
     const progressBar = document.querySelector(selectors.progress || "#firmwareProgress");
@@ -29,6 +32,17 @@ function createFirmwareUpdateDialog({
     let cancelRequested = false;
     let disposed = false;
     let isWelcomeShown = false;
+    const consoleView = appModules.createUartConsole({
+        outputElement: terminalOutput,
+        copyButton: copyOutputButton,
+        exportButton: exportOutputButton,
+        clearButton: clearOutputButton,
+        themeApi: getTerminalThemeApi(),
+        maxNodes: 4000,
+        exportFileName: `firmware-uart-log-${formatLogFilenameDate(new Date())}.txt`,
+        onClear: () => { isWelcomeShown = false; },
+        debugLog,
+    });
 
     const WELCOME_BANNER = 
         "----------------------------------------------------------\n" +
@@ -338,14 +352,22 @@ function createFirmwareUpdateDialog({
             return;
         }
         if (isWelcomeShown && terminalOutput) {
-            terminalOutput.textContent = "";
+            consoleView.clear();
             isWelcomeShown = false;
         }
-        terminalOutput.textContent += text;
-        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        consoleView.appendRawText(text);
     }
 
     function keyToSerialText(event) {
+        const arrowKeySequences = {
+            ArrowUp: "\u001b[A",
+            ArrowDown: "\u001b[B",
+            ArrowRight: "\u001b[C",
+            ArrowLeft: "\u001b[D",
+        };
+        if (arrowKeySequences[event.key]) {
+            return arrowKeySequences[event.key];
+        }
         if (event.key === "Enter") {
             return "\r";
         }
@@ -522,12 +544,7 @@ function createFirmwareUpdateDialog({
     }
 
     function applyFirmwareTerminalTheme() {
-        const themeApi = getTerminalThemeApi();
-        if (themeApi) {
-            themeApi.apply(terminalOutput);
-        } else if (terminalOutput) {
-            terminalOutput.dataset.theme = "bright-dark";
-        }
+        consoleView.setTheme();
     }
 
     function getTerminalThemeApi() {
@@ -537,6 +554,11 @@ function createFirmwareUpdateDialog({
     function getTerminalThemeChangeEvent() {
         const themeApi = getTerminalThemeApi();
         return themeApi ? themeApi.changeEvent : null;
+    }
+
+    function formatLogFilenameDate(date) {
+        const pad2 = value => String(value).padStart(2, "0");
+        return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}-${pad2(date.getHours())}${pad2(date.getMinutes())}${pad2(date.getSeconds())}`;
     }
 
     function dispose() {
@@ -555,6 +577,7 @@ function createFirmwareUpdateDialog({
         if (themeChangeEvent) {
             window.removeEventListener(themeChangeEvent, handleTerminalThemeChange);
         }
+        consoleView.dispose();
         cancelRequested = true;
         if (currentSender) {
             Promise.resolve(currentSender.cancel()).catch(error => {

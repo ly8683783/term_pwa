@@ -3,25 +3,10 @@ const appModules = window.TermPWA || {};
 
 const COMMAND_HISTORY_KEY = "lr71TerminalCommandHistory";
 const COMMAND_HISTORY_MAX = 50;
-const TERMINAL_COPY_WARN_LENGTH = 2000000;
 const TERMINAL_MAX_NODES = 4000;
 const RX_IDLE_DEFAULT_MS = 10;
 const TEXT_COMMAND_PLACEHOLDER = "Enter AT command (e.g. at+ab info)";
 const HEX_COMMAND_PLACEHOLDER = "Enter HEX bytes (e.g. 61 74 2B 61 62 20 69 6E 66 6F)";
-const COPY_BUTTON_LABEL = "Copy UART output";
-const COPY_BUTTON_ICONS = {
-    idle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7A2 2 0 0 1 10 5H19A2 2 0 0 1 21 7V16A2 2 0 0 1 19 18H17V20A2 2 0 0 1 15 22H6A2 2 0 0 1 4 20V11A2 2 0 0 1 6 9H8V7ZM10 7V16H19V7H10ZM6 11V20H15V18H10A2 2 0 0 1 8 16V11H6Z"></path></svg>',
-    success: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 8.75 6.5 11.5 12.25 4.5"></path></svg>',
-    empty: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" d="M8 4.4v4.1"></path><circle cx="8" cy="11.4" r="0.8" fill="currentColor"></circle></svg>',
-    failed: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"></path></svg>',
-};
-const EXPORT_BUTTON_LABEL = "Export UART log";
-const EXPORT_BUTTON_ICONS = {
-    idle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3L17 8H14V14H10V8H7L12 3ZM5 16H7V19H17V16H19V19A2 2 0 0 1 17 21H7A2 2 0 0 1 5 19V16Z"></path></svg>',
-    success: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 8.75 6.5 11.5 12.25 4.5"></path></svg>',
-    empty: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8" d="M8 4.4v4.1"></path><circle cx="8" cy="11.4" r="0.8" fill="currentColor"></circle></svg>',
-    failed: '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"></path></svg>',
-};
 
 function createTerminalPage({
     rootSelector = "#view-terminal",
@@ -54,9 +39,6 @@ function createTerminalPage({
     let commandHistoryIndex = commandHistory.length;
     let commandHistoryDraft = "";
     let uartAtLineStart = true;
-    let terminalNoticeTimer = null;
-    let copySuccessTimer = null;
-    let exportSuccessTimer = null;
     let hexRxBuffer = [];
     let textRxBuffer = "";
     let rxFlushTimer = null;
@@ -64,6 +46,25 @@ function createTerminalPage({
     let unsubscribeTerminalData = null;
 
     const terminalLogStore = appModules.createTerminalLogStore({ debugLog });
+    const consoleView = appModules.createUartConsole({
+        outputElement: terminalOutput,
+        copyButton: copyTerminalOutputBtn,
+        exportButton: exportTerminalLogBtn,
+        clearButton: clearTerminalOutputBtn,
+        noticeElement: terminalNotice,
+        themeApi: getTerminalThemeApi(),
+        autoScrollToggle,
+        maxNodes: TERMINAL_MAX_NODES,
+        exportFileName: `uart-log-${formatLogFilenameDate(new Date())}.txt`,
+        getExportText: () => terminalLogStore ? terminalLogStore.exportText() : "",
+        onClear: async () => {
+            clearUartRxBuffer();
+            uartAtLineStart = true;
+            if (terminalLogStore) await terminalLogStore.clear();
+        },
+        clearNotice: "Cleared terminal and log",
+        debugLog,
+    });
     const handleShowLineTimeChange = () => {
         if (disposed) {
             return;
@@ -79,24 +80,6 @@ function createTerminalPage({
             ? themeApi.save(terminalThemeSelect.value)
             : terminalThemeSelect.value;
         applyTerminalTheme(nextTheme);
-    };
-    const handleCopyClick = () => {
-        if (disposed) {
-            return;
-        }
-        copyTerminalOutput().catch(error => debugLog("UART output copy failed", error));
-    };
-    const handleExportClick = () => {
-        if (disposed) {
-            return;
-        }
-        exportTerminalLog().catch(error => debugLog("UART log export failed", error));
-    };
-    const handleClearClick = () => {
-        if (disposed) {
-            return;
-        }
-        clear().catch(error => debugLog("UART output clear failed", error));
     };
     const handleHexToggleChange = () => {
         if (disposed) {
@@ -187,15 +170,6 @@ function createTerminalPage({
         if (terminalThemeSelect) {
             terminalThemeSelect.addEventListener("change", handleTerminalThemeChange);
         }
-        if (copyTerminalOutputBtn) {
-            copyTerminalOutputBtn.addEventListener("click", handleCopyClick);
-        }
-        if (exportTerminalLogBtn) {
-            exportTerminalLogBtn.addEventListener("click", handleExportClick);
-        }
-        if (clearTerminalOutputBtn) {
-            clearTerminalOutputBtn.addEventListener("click", handleClearClick);
-        }
         if (hexSendToggle) {
             hexSendToggle.addEventListener("change", handleHexToggleChange);
         }
@@ -219,22 +193,11 @@ function createTerminalPage({
     }
 
     function writeTerminalText(text, className) {
-        if (!terminalOutput || !text) return;
-
-        const span = document.createElement("span");
-        span.className = className;
-        span.appendChild(document.createTextNode(text));
-        terminalOutput.appendChild(span);
-        trimTerminalNodes();
-        scrollTerminalIfNeeded();
+        consoleView.appendText(text, className);
     }
 
     function writeTerminalFragment(fragment) {
-        if (!terminalOutput) return;
-
-        terminalOutput.appendChild(fragment);
-        trimTerminalNodes();
-        scrollTerminalIfNeeded();
+        consoleView.appendFragment(fragment);
     }
 
     function writeSystem(text) {
@@ -294,12 +257,8 @@ function createTerminalPage({
     }
 
     function applyTerminalTheme(theme) {
-        if (!terminalOutput) return;
-
         const themeApi = getTerminalThemeApi();
-        const nextTheme = themeApi
-            ? themeApi.apply(terminalOutput, theme)
-            : theme || "bright-dark";
+        const nextTheme = consoleView.setTheme(theme);
         if (themeApi) {
             themeApi.syncSelect(terminalThemeSelect, nextTheme);
         } else if (terminalThemeSelect) {
@@ -311,189 +270,14 @@ function createTerminalPage({
         return appModules.terminalTheme || null;
     }
 
-    function scrollTerminalIfNeeded() {
-        if (!terminalOutput) return;
-
-        if (!autoScrollToggle || autoScrollToggle.checked) {
-            terminalOutput.scrollTop = terminalOutput.scrollHeight;
-        }
-    }
-
     function scrollTerminalOnShow() {
-        if (!terminalOutput) {
-            return;
-        }
-        if (autoScrollToggle && !autoScrollToggle.checked) {
-            return;
-        }
-
         requestAnimationFrame(() => {
-            if (disposed || !terminalOutput) {
-                return;
-            }
-            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+            if (!disposed) consoleView.scrollToBottom();
         });
-    }
-
-    function trimTerminalNodes() {
-        if (!terminalOutput) return;
-
-        while (terminalOutput.childNodes.length > TERMINAL_MAX_NODES) {
-            terminalOutput.removeChild(terminalOutput.firstChild);
-        }
-    }
-
-    function showTerminalNotice(message) {
-        if (!terminalNotice) return;
-
-        terminalNotice.textContent = message;
-        terminalNotice.classList.add("visible");
-
-        if (terminalNoticeTimer) {
-            clearTimeout(terminalNoticeTimer);
-        }
-
-        terminalNoticeTimer = setTimeout(() => {
-            terminalNotice.classList.remove("visible");
-        }, 2000);
-    }
-
-    function showCopyButtonState(state) {
-        showStatusButtonState({
-            button: copyTerminalOutputBtn,
-            icons: COPY_BUTTON_ICONS,
-            label: COPY_BUTTON_LABEL,
-            state,
-            timerGetter: () => copySuccessTimer,
-            timerSetter: value => { copySuccessTimer = value; },
-            titles: {
-                success: "Copied",
-                empty: "Nothing to copy",
-                failed: "Copy failed",
-            },
-        });
-    }
-
-    function showExportButtonState(state) {
-        showStatusButtonState({
-            button: exportTerminalLogBtn,
-            icons: EXPORT_BUTTON_ICONS,
-            label: EXPORT_BUTTON_LABEL,
-            state,
-            timerGetter: () => exportSuccessTimer,
-            timerSetter: value => { exportSuccessTimer = value; },
-            titles: {
-                success: "Exported",
-                empty: "No log to export",
-                failed: "Export failed",
-            },
-        });
-    }
-
-    function showStatusButtonState({ button, icons, label, state, timerGetter, timerSetter, titles }) {
-        if (!button) return;
-
-        const icon = icons[state] || icons.idle;
-        const title = titles[state] || label;
-
-        button.classList.remove("copy-state-success", "copy-state-empty", "copy-state-failed");
-        if (state !== "idle") {
-            button.classList.add(`copy-state-${state}`);
-        }
-        button.innerHTML = icon;
-        button.title = title;
-        button.setAttribute("aria-label", title);
-
-        const currentTimer = timerGetter();
-        if (currentTimer) {
-            clearTimeout(currentTimer);
-            timerSetter(null);
-        }
-
-        if (state !== "idle") {
-            timerSetter(setTimeout(() => {
-                showStatusButtonState({ button, icons, label, state: "idle", timerGetter, timerSetter, titles });
-            }, 900));
-        }
-    }
-
-    async function copyTerminalOutput() {
-        const text = terminalOutput ? terminalOutput.textContent : "";
-        if (!text) {
-            showCopyButtonState("empty");
-            debugLog("No UART output to copy");
-            return;
-        }
-
-        if (text.length > TERMINAL_COPY_WARN_LENGTH &&
-            !confirm("UART output is large. Copying may freeze the page. Continue?")) {
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(text);
-            showCopyButtonState("success");
-            debugLog("UART output copied", { length: text.length });
-        } catch (error) {
-            showCopyButtonState("failed");
-            debugLog("UART output copy failed", error);
-        }
-    }
-
-    async function exportTerminalLog() {
-        if (!terminalLogStore) {
-            showExportButtonState("failed");
-            debugLog("terminal log store unavailable");
-            return;
-        }
-
-        try {
-            const text = await terminalLogStore.exportText();
-            if (!text) {
-                showExportButtonState("empty");
-                debugLog("No UART log to export");
-                return;
-            }
-
-            const filename = `uart-log-${formatLogFilenameDate(new Date())}.txt`;
-            const picker = appModules.filePicker;
-            if (picker) {
-                picker.downloadTextFile({
-                    suggestedName: filename,
-                    text,
-                    type: "text/plain",
-                });
-            } else {
-                const blob = new Blob([text], { type: "text/plain" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = filename;
-                link.click();
-                URL.revokeObjectURL(link.href);
-            }
-
-            showExportButtonState("success");
-            debugLog("UART log exported", { length: text.length });
-        } catch (error) {
-            showExportButtonState("failed");
-            debugLog("UART log export failed", error);
-        }
     }
 
     async function clear() {
-        if (disposed) {
-            return;
-        }
-        clearUartRxBuffer();
-        if (terminalOutput) {
-            terminalOutput.replaceChildren();
-            terminalOutput.scrollTop = 0;
-        }
-        uartAtLineStart = true;
-        if (terminalLogStore) {
-            await terminalLogStore.clear();
-        }
-        showTerminalNotice("Cleared terminal and log");
+        await consoleView.clear();
     }
 
     function writeUartData(data) {
@@ -680,7 +464,7 @@ function createTerminalPage({
             commandHistoryDraft = atCommandInput.value;
         } catch (error) {
             hexSendToggle.checked = !enabled;
-            showTerminalNotice("HEX convert failed");
+            consoleView.showNotice("HEX convert failed");
             writeError(`Error: ${error.message}\n`);
         }
     }
@@ -759,6 +543,15 @@ function createTerminalPage({
     function terminalKeyToSerialText(event) {
         if (event.ctrlKey || event.altKey || event.metaKey) {
             return null;
+        }
+        const arrowKeySequences = {
+            ArrowUp: "\u001b[A",
+            ArrowDown: "\u001b[B",
+            ArrowRight: "\u001b[C",
+            ArrowLeft: "\u001b[D",
+        };
+        if (arrowKeySequences[event.key]) {
+            return arrowKeySequences[event.key];
         }
         if (event.key === "Enter") {
             return appendNewlineToggle && appendNewlineToggle.checked ? "\r\n" : "\r";
@@ -898,23 +691,8 @@ function createTerminalPage({
         }
         stopIntervalSend();
         clearUartRxBuffer();
-        if (terminalNoticeTimer) {
-            clearTimeout(terminalNoticeTimer);
-            terminalNoticeTimer = null;
-        }
-        if (copySuccessTimer) {
-            clearTimeout(copySuccessTimer);
-            copySuccessTimer = null;
-        }
-        if (exportSuccessTimer) {
-            clearTimeout(exportSuccessTimer);
-            exportSuccessTimer = null;
-        }
         if (showLineTimeToggle) showLineTimeToggle.removeEventListener("change", handleShowLineTimeChange);
         if (terminalThemeSelect) terminalThemeSelect.removeEventListener("change", handleTerminalThemeChange);
-        if (copyTerminalOutputBtn) copyTerminalOutputBtn.removeEventListener("click", handleCopyClick);
-        if (exportTerminalLogBtn) exportTerminalLogBtn.removeEventListener("click", handleExportClick);
-        if (clearTerminalOutputBtn) clearTerminalOutputBtn.removeEventListener("click", handleClearClick);
         if (hexSendToggle) hexSendToggle.removeEventListener("change", handleHexToggleChange);
         if (rxIdleInput) rxIdleInput.removeEventListener("change", handleRxIdleChange);
         if (terminalOutput) {
@@ -930,6 +708,7 @@ function createTerminalPage({
         if (quickSendPanel && typeof quickSendPanel.dispose === "function") {
             quickSendPanel.dispose();
         }
+        consoleView.dispose();
     }
 
     function setTerminalReady(ready) {

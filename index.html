@@ -271,6 +271,23 @@
                     <div class="page-shell-content firmware-body">
                         <div class="firmware-terminal-layout">
                             <section class="firmware-terminal-pane" aria-label="Firmware update UART">
+                                <div class="firmware-terminal-actions firmware-terminal-actions-floating">
+                                    <button id="copyFirmwareOutputBtn" class="terminal-status-button" type="button" title="Copy UART output" aria-label="Copy UART output">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M8 7A2 2 0 0 1 10 5H19A2 2 0 0 1 21 7V16A2 2 0 0 1 19 18H17V20A2 2 0 0 1 15 22H6A2 2 0 0 1 4 20V11A2 2 0 0 1 6 9H8V7ZM10 7V16H19V7H10ZM6 11V20H15V18H10A2 2 0 0 1 8 16V11H6Z"></path>
+                                        </svg>
+                                    </button>
+                                    <button id="exportFirmwareOutputBtn" class="terminal-status-button" type="button" title="Export UART log" aria-label="Export UART log">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M12 3L17 8H14V14H10V8H7L12 3ZM5 16H7V19H17V16H19V19A2 2 0 0 1 17 21H7A2 2 0 0 1 5 19V16Z"></path>
+                                        </svg>
+                                    </button>
+                                    <button id="clearFirmwareOutputBtn" class="terminal-status-button" type="button" title="Clear UART output" aria-label="Clear UART output">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M9 3H15L16 5H21V7H19L18.1 20.1A2 2 0 0 1 16.1 22H7.9A2 2 0 0 1 5.9 20.1L5 7H3V5H8L9 3ZM7 7L7.9 20H16.1L17 7H7ZM9 9H11V18H9V9ZM13 9H15V18H13V9Z"></path>
+                                        </svg>
+                                    </button>
+                                </div>
                                 <pre id="firmwareUartOutput" class="firmware-uart" tabindex="0" title="Click here and type to control Flashloader."></pre>
                             </section>
                             <aside class="firmware-risk-column" aria-label="Firmware update risk notes">
@@ -657,6 +674,7 @@
     <script src="./js/serial/serial_event_bus.js"></script>
     <script src="./js/serial/serial_session.js"></script>
     <script src="./js/features/quick_send.js"></script>
+    <script src="./js/features/uart_console.js"></script>
     <script src="./js/features/terminal_page.js"></script>
     <script src="./js/utils/ymodem_crc.js"></script>
     <script src="./js/features/firmware_update.js"></script>

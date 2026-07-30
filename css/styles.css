@@ -1352,6 +1352,7 @@ textarea:focus {
 .firmware-terminal-pane {
     flex: 1;
     min-width: 0;
+    position: relative;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1435,7 +1436,7 @@ textarea:focus {
     min-height: 0;
     box-sizing: border-box;
     margin: 0;
-    padding: 10px;
+    padding: 44px 10px 10px;
     overflow: auto;
     border-radius: 8px;
     background: var(--terminal-bg);
@@ -1447,6 +1448,20 @@ textarea:focus {
     line-height: 1.45;
     border: 2px solid var(--terminal-border);
     outline: none;
+}
+
+.firmware-terminal-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.firmware-terminal-actions-floating {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
 }
 
 .firmware-progress-row {
