@@ -55,7 +55,7 @@ function createTerminalPage({
         themeApi: getTerminalThemeApi(),
         autoScrollToggle,
         maxNodes: TERMINAL_MAX_NODES,
-        exportFileName: `uart-log-${formatLogFilenameDate(new Date())}.txt`,
+        getExportFileName: () => `uart-log-${formatLogFilenameDate(new Date())}.txt`,
         getExportText: () => terminalLogStore ? terminalLogStore.exportText() : "",
         onClear: async () => {
             clearUartRxBuffer();

@@ -39,7 +39,7 @@ function createFirmwareUpdateDialog({
         clearButton: clearOutputButton,
         themeApi: getTerminalThemeApi(),
         maxNodes: 4000,
-        exportFileName: `firmware-uart-log-${formatLogFilenameDate(new Date())}.txt`,
+        getExportFileName: () => `firmware-uart-log-${formatLogFilenameDate(new Date())}.txt`,
         onClear: () => { isWelcomeShown = false; },
         debugLog,
     });
@@ -259,7 +259,6 @@ function createFirmwareUpdateDialog({
         }
         ensureConnected();
         await serialSession.writeText("firmware", text);
-        appendOutput(formatSentKey(text));
     }
 
     async function handleLoad() {
@@ -406,16 +405,6 @@ function createFirmwareUpdateDialog({
             displayMode,
             serviceWorkerControlled: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller),
         };
-    }
-
-    function formatSentKey(text) {
-        if (text === "\r") {
-            return ">\r\n";
-        }
-        if (text === " ") {
-            return "> [space]\r\n";
-        }
-        return `> ${text}\r\n`;
     }
 
     function setStatus(message, state = "") {

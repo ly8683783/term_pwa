@@ -26,7 +26,7 @@ function createUartConsole({
     themeApi,
     autoScrollToggle,
     maxNodes = Infinity,
-    exportFileName = "uart-log.txt",
+    getExportFileName = () => "uart-log.txt",
     getExportText = () => outputElement ? outputElement.textContent : "",
     onClear = () => {},
     clearNotice = "",
@@ -106,13 +106,14 @@ function createUartConsole({
                 setButtonState(exportButton, "export", "empty");
                 return;
             }
+            const filename = getExportFileName();
             const picker = appModules.filePicker;
             if (picker) {
-                picker.downloadTextFile({ suggestedName: exportFileName, text, type: "text/plain" });
+                picker.downloadTextFile({ suggestedName: filename, text, type: "text/plain" });
             } else {
                 const link = document.createElement("a");
                 link.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-                link.download = exportFileName;
+                link.download = filename;
                 link.click();
                 URL.revokeObjectURL(link.href);
             }
