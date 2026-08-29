@@ -103,7 +103,14 @@ function createTerminalPage({
         if (disposed) {
             return;
         }
+        logTerminalKeyEvent("output", event);
         sendTerminalKey(event);
+    };
+    const handleTerminalKeyCapture = event => {
+        if (!disposed && root.classList.contains("active") && isTerminalControlKey(event)) {
+            logTerminalKeyEvent("capture", event);
+            queueMicrotask(() => logTerminalKeyEvent("after", event));
+        }
     };
     const handleSendClick = () => {
         if (disposed) {
@@ -180,6 +187,7 @@ function createTerminalPage({
             terminalOutput.addEventListener("click", handleTerminalOutputClick);
             terminalOutput.addEventListener("keydown", handleTerminalOutputKeydown);
         }
+        document.addEventListener("keydown", handleTerminalKeyCapture, true);
         if (sendCmdBtn) {
             sendCmdBtn.addEventListener("click", handleSendClick);
         }
@@ -568,6 +576,26 @@ function createTerminalPage({
         return null;
     }
 
+    function isTerminalControlKey(event) {
+        return ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape", "Delete"].includes(event.key);
+    }
+
+    function logTerminalKeyEvent(stage, event) {
+        const activeElement = document.activeElement;
+        debugLog(`terminal key ${stage}`, {
+            key: event.key,
+            target: describeKeyboardTarget(event.target),
+            activeElement: describeKeyboardTarget(activeElement),
+            outputFocused: activeElement === terminalOutput,
+            defaultPrevented: event.defaultPrevented,
+        });
+    }
+
+    function describeKeyboardTarget(element) {
+        if (!element) return null;
+        return `${element.tagName || "unknown"}${element.id ? `#${element.id}` : ""}${element.className ? `.${String(element.className).trim().replace(/\s+/g, ".")}` : ""}`;
+    }
+
     async function sendTerminalKey(event) {
         if (disposed) {
             return;
@@ -699,6 +727,7 @@ function createTerminalPage({
             terminalOutput.removeEventListener("click", handleTerminalOutputClick);
             terminalOutput.removeEventListener("keydown", handleTerminalOutputKeydown);
         }
+        document.removeEventListener("keydown", handleTerminalKeyCapture, true);
         if (sendCmdBtn) sendCmdBtn.removeEventListener("click", handleSendClick);
         if (intervalSendBtn) intervalSendBtn.removeEventListener("click", handleIntervalSendClick);
         if (atCommandInput) {

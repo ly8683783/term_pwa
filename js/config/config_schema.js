@@ -100,7 +100,8 @@ WF88_M: {
     { varNo: 40, name: "WsmBootloader", group: "WiFi Network", control: "text", defaultValue: "bootloader.bin", range: "Filename", description: "Filename of the WSM bootloader." },
     { varNo: 41, name: "WsmSdd", group: "WiFi Network", control: "text", defaultValue: "sdd_6010.bin", range: "Filename", description: "System Definition Data file for WiFi hardware calibration." },
     { varNo: 64, name: "APP_AutoStart", group: "WiFi Network", control: "bool", defaultValue: "false", range: "bool", description: "Automatically connect to WiFi and start the network task on power-up." },
-    { varNo: 65, name: "AutoSSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "Default SSID used for AutoStart mode." },
+    { varNo: 65, name: "AutoSSID", group: "WiFi Network", control: "text", defaultValue: "Amped RF", range: "Text", description: "SSID used when the device starts in STA mode and automatically joins a WiFi network." },
+    { varNo: 66, name: "AutoPassPhrase", group: "WiFi Network", control: "text", defaultValue: "12345678", range: "Text", description: "Password paired with AutoSSID when the device starts in STA mode and automatically joins a WiFi network. Firmware reports this variable as PassPhrase." },
 
     { varNo: 11, name: "HostIPAddr", group: "TCP / UDP Legacy", control: "text", defaultValue: "192.168.1.3", range: "IP", description: "Remote server IP address for legacy single-connection Bypass mode." },
     { varNo: 12, name: "IPProtocol", group: "TCP / UDP Legacy", control: "select", defaultValue: "1", options: [["0", "TCP"], ["1", "UDP"], ["2", "TCP Client"]], range: "0, 1, 2", description: "Protocol type used for legacy network task." },

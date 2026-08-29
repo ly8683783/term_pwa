@@ -8,7 +8,7 @@ const CAN = 0x18;
 const CRC_REQUEST = 0x43;
 const PACKET_SIZE = 1024;
 const PACKET_TOTAL_SIZE = 3 + PACKET_SIZE + 2;
-const DEFAULT_WAIT_MS = 10000;
+const DEFAULT_WAIT_MS = 15000;
 const INITIAL_C_WAIT_MS = 15000;
 const MAX_RETRIES = 5;
 
