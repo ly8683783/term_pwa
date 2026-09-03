@@ -109,6 +109,8 @@ WF88_M: {
     { varNo: 66, name: "AutoPassPhrase", group: "WiFi Network", control: "text", defaultValue: "12345678", range: "Text", description: "Password paired with AutoSSID when the device starts in STA mode and automatically joins a WiFi network. Firmware reports this variable as PassPhrase." },
 
     { varNo: 11, name: "HostIPAddr", group: "TCP / UDP Legacy", control: "text", defaultValue: "192.168.1.3", range: "IP", description: "Remote server IP address for legacy single-connection Bypass mode." },
+    { varNo: 51, name: "remoteIPv6addrs", group: "TCP / UDP Legacy", control: "text", defaultValue: "", range: "IPv6", description: "Static remote IPv6 peer address." },
+    { varNo: 52, name: "AddrType", group: "TCP / UDP Legacy", control: "select", defaultValue: "0", options: [["0", "IPv4"], ["1", "IPv6"]], range: "0, 1", description: "Preferred IP version for network operations." },
     { varNo: 12, name: "IPProtocol", group: "TCP / UDP Legacy", control: "select", defaultValue: "UDP", options: ["TCP", "UDP", "TCP Client"], range: "TCP, UDP, TCP Client", description: "Protocol type used for legacy network task." },
     { varNo: 13, name: "HostPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Destination port on the remote server." },
     { varNo: 14, name: "LocalPort", group: "TCP / UDP Legacy", control: "number", defaultValue: "2015", range: "1-65535", description: "Local listening or source port." },
@@ -118,12 +120,10 @@ WF88_M: {
     { varNo: 38, name: "StationInactive", group: "TCP / UDP Legacy", control: "number", defaultValue: "120", range: "sec", description: "Timeout for disconnecting inactive clients in AP mode." },
     { varNo: 53, name: "LINKTYPE", group: "TCP / UDP Legacy", control: "select", defaultValue: "0", options: [["0", "TCP/UDP"], ["1", "MQTT"]], range: "0, 1", description: "Switch startup network task between standard socket bridge or MQTT client." },
 
-    { varNo: 50, name: "localIPv6addrs", group: "IPv6 & DNS", control: "readonly", ro: true, defaultValue: "", range: "IPv6", description: "The link-local IPv6 address assigned to the WiFi interface." },
-    { varNo: 51, name: "remoteIPv6addrs", group: "IPv6 & DNS", control: "text", defaultValue: "", range: "IPv6", description: "Static remote IPv6 peer address." },
-    { varNo: 52, name: "AddrType", group: "IPv6 & DNS", control: "select", defaultValue: "0", options: [["0", "IPv4"], ["1", "IPv6"]], range: "0, 1", description: "Preferred IP version for network operations." },
+    { varNo: 50, name: "localIPv6addrs", group: "IPv6 & DNS", control: "text", defaultValue: "", range: "IPv6", description: "Static local IPv6 address assigned to the WiFi interface." },
     { varNo: 57, name: "DNS1V4", group: "IPv6 & DNS", control: "text", defaultValue: "8.8.8.8", range: "IP", description: "Primary IPv4 DNS server." },
-    { varNo: 58, name: "DNS1V6", group: "IPv6 & DNS", control: "text", defaultValue: "2001:4860:4860::8888", range: "IPv6", description: "Primary IPv6 DNS server." },
     { varNo: 59, name: "DNS2V4", group: "IPv6 & DNS", control: "text", defaultValue: "1.1.1.1", range: "IP", description: "Secondary IPv4 DNS server." },
+    { varNo: 58, name: "DNS1V6", group: "IPv6 & DNS", control: "text", defaultValue: "2001:4860:4860::8888", range: "IPv6", description: "Primary IPv6 DNS server." },
     { varNo: 60, name: "DNS2V6", group: "IPv6 & DNS", control: "text", defaultValue: "2606:4700:4700::1111", range: "IPv6", description: "Secondary IPv6 DNS server." },
 
     { varNo: 42, name: "MQTTServerIP", group: "MQTT Client", control: "text", defaultValue: "91.121.93.94", range: "IP / Host", description: "MQTT Broker address." },
