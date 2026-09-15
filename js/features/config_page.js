@@ -355,7 +355,7 @@ function createConfigPage({
             updateRowState(item);
         });
         const missing = getActiveItems().length - loaded.size;
-        setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned.` : "No config rows parsed.");
+        setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned. Note: Values are stored in device Flash, not live runtime status.` : "No config rows parsed.");
         updateButtons();
         endSession();
         try {

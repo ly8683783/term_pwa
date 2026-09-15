@@ -247,6 +247,10 @@ function createFirmwareUpdateDialog({
             return;
         }
         ensureConnected();
+        await serialSession.writeText("firmware", "^#^$^%");
+        appendOutput("> ^#^$^%\r\n");
+        writeTerminal("> [Firmware] ^#^$^%\n");
+        await new Promise(resolve => setTimeout(resolve, 50));
         await serialSession.writeATCommand("firmware", "at+ab flashloaderstart");
         appendOutput("> at+ab flashloaderstart\r\n");
         writeTerminal("> [Firmware] at+ab flashloaderstart\n");

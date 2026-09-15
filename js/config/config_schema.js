@@ -118,7 +118,7 @@ WF88_M: {
     { varNo: 31, name: "MPMode", group: "TCP / UDP Legacy", control: "bool", defaultValue: "false", range: "bool", description: "Multi-Packet mode: enables addressed packet headers for multiple clients in Bypass mode." },
     { varNo: 36, name: "KeepAlive", group: "TCP / UDP Legacy", control: "number", defaultValue: "60", range: "sec", description: "TCP keep-alive interval to maintain connection through firewalls." },
     { varNo: 38, name: "StationInactive", group: "TCP / UDP Legacy", control: "number", defaultValue: "120", range: "sec", description: "Timeout for disconnecting inactive clients in AP mode." },
-    { varNo: 53, name: "LINKTYPE", group: "TCP / UDP Legacy", control: "select", defaultValue: "0", options: [["0", "TCP/UDP"], ["1", "MQTT"]], range: "0, 1", description: "Switch startup network task between standard socket bridge or MQTT client." },
+    { varNo: 53, name: "LINKTYPE", group: "TCP / UDP Legacy", control: "select", defaultValue: "0", options: [["0", "TCP/UDP"], ["1", "MQTT"], ["2", "TCP/UDP/MQTT"]], range: "0, 1, 2", description: "Switch startup network task between standard socket bridge, MQTT client, or concurrent TCP/UDP and MQTT." },
 
     { varNo: 50, name: "localIPv6addrs", group: "IPv6 & DNS", control: "text", defaultValue: "", range: "IPv6", description: "Static local IPv6 address assigned to the WiFi interface." },
     { varNo: 57, name: "DNS1V4", group: "IPv6 & DNS", control: "text", defaultValue: "8.8.8.8", range: "IP", description: "Primary IPv4 DNS server." },
