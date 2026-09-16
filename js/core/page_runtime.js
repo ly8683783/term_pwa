@@ -8,16 +8,24 @@
         let activeViewId = defaultViewId;
 
         function bindMenuNavigation(root = document) {
-            root.querySelectorAll(".menu-item").forEach(item => {
-                item.addEventListener("click", event => {
-                    event.preventDefault();
-                    const targetId = item.getAttribute("data-target");
-                    const feature = item.getAttribute("data-feature");
-                    if (feature && !hasCapability(feature)) {
-                        return;
-                    }
-                    switchView(targetId);
-                });
+            root.addEventListener("click", event => {
+                const button = event.target.closest("[data-menu-toggle]");
+                if (button && root.contains(button)) {
+                    const targetId = button.getAttribute("aria-controls");
+                    const targetMenu = targetId ? document.getElementById(targetId) : null;
+                    if (!targetMenu) return;
+                    const expanded = button.getAttribute("aria-expanded") !== "true";
+                    button.setAttribute("aria-expanded", String(expanded));
+                    targetMenu.hidden = !expanded;
+                    return;
+                }
+                const item = event.target.closest(".menu-item[data-target]");
+                if (!item || !root.contains(item)) return;
+                event.preventDefault();
+                const targetId = item.getAttribute("data-target");
+                const feature = item.getAttribute("data-feature");
+                if (feature && !hasCapability(feature)) return;
+                switchView(targetId);
             });
         }
 
@@ -57,10 +65,14 @@
 
             activeViewId = targetId;
 
-            document.querySelectorAll(".menu-item").forEach(item => item.classList.remove("active"));
+            document.querySelectorAll(".menu-item").forEach(item => {
+                item.classList.remove("active");
+                item.removeAttribute("aria-current");
+            });
             const activeItem = document.querySelector(`.menu-item[data-target="${targetId}"]`);
             if (activeItem && !activeItem.hidden) {
                 activeItem.classList.add("active");
+                activeItem.setAttribute("aria-current", "page");
             }
 
             document.querySelectorAll(".view-panel").forEach(view => view.classList.remove("active"));
@@ -71,7 +83,7 @@
 
             const nextDefinition = pageRegistry.get(targetId);
             if (nextDefinition && typeof nextDefinition.onShow === "function") {
-                callPageHook(nextDefinition, "onShow");
+                callPageHook(nextDefinition, "onShow", options);
             }
 
             debugLog("view switched", { from: previousViewId, to: targetId });

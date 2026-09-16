@@ -10,5 +10,7 @@ COPY index.html \
 COPY js ./js
 COPY css ./css
 COPY icons ./icons
+COPY docs-img ./docs-img
+COPY docs ./docs
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf

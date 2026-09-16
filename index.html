@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <link rel="stylesheet" href="./css/styles.css">
     <link rel="stylesheet" href="./css/styles_wf88.css">
+    <link rel="stylesheet" href="./css/documentation.css">
 
 </head>
 <body>
@@ -107,10 +108,15 @@
                 <svg viewBox="0 0 24 24"><use href="#icon-netview"/></svg>
                 NetView (WF88)
             </a>
-            <a href="#" class="menu-item" data-target="view-docs">
+            <button type="button" class="menu-item docs-menu-toggle" data-menu-toggle aria-controls="documentationMenu" aria-expanded="false">
                 <svg viewBox="0 0 24 24"><path d="M19,2L14,6.5V17.5L19,13V2M6.5,5C4.55,5 2.45,5.4 1,6.5V21C2.45,19.9 4.55,19.5 6.5,19.5C8.45,19.5 10.55,19.9 12,21C13.45,19.9 15.55,19.5 17.5,19.5C19.45,19.5 21.55,19.9 23,21V6.5C21.55,5.4 19.45,5 17.5,5C15.55,5 13.45,5.4 12,6.5C10.55,5.4 8.45,5 6.5,5Z"/></svg>
                 Documentation
-            </a>
+                <span class="docs-menu-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div id="documentationMenu" class="docs-submenu" hidden>
+                <a href="#" class="menu-item" data-target="view-docs">Help</a>
+                <div id="documentationGroups"></div>
+            </div>
             <a href="#" class="menu-item" data-target="view-firmware">
                 <svg viewBox="0 0 24 24"><path d="M15,9H9V15H15V9M13,13H11V11H13V13M18,15V13H20V11H18V9H20V7H18V5H16V3H14V5H12V3H10V5H8V3H6V5H4V7H6V9H4V11H6V13H4V15H6V17H4V19H6V21H8V19H10V21H12V19H14V21H16V19H18V21H20V19H18V17H20V15H18M16,17H8V7H16V17Z"/></svg>
                 Firmware Update
@@ -523,7 +529,7 @@
                 <div class="docs-page page-shell" role="region" aria-labelledby="docsTitle">
                     <div class="page-shell-header">
                         <div class="page-shell-heading-group">
-                            <h2 id="docsTitle" class="page-shell-title">Documentation</h2>
+                            <h2 id="docsTitle" class="page-shell-title">Help</h2>
                         </div>
                     </div>
                     <div class="page-shell-content docs-content">
@@ -534,7 +540,7 @@
                             </div>
                             <div class="docs-layout-split">
                                 <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_welcome.png" alt="Getting Started Guide" class="docs-img">
+                                    <img src="./docs-img/guide_welcome.png" alt="Getting Started Guide" class="docs-img" loading="lazy">
                                 </div>
                                 <div class="docs-layout-text">
                                     <ol class="docs-steps">
@@ -556,7 +562,7 @@
                             <h3>2. Terminal (AT Commands)</h3>
                             <div class="docs-layout-split">
                                 <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_terminal.png" alt="Terminal Guide" class="docs-img">
+                                    <img src="./docs-img/guide_terminal.png" alt="Terminal Guide" class="docs-img" loading="lazy">
                                 </div>
                                 <div class="docs-layout-text">
                                     <p>The Terminal allows you to communicate with the hardware interactively by sending raw AT commands and observing the response.</p>
@@ -581,7 +587,7 @@
                             <h3>3. Configuration Interface</h3>
                             <div class="docs-layout-split">
                                 <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_config.png" alt="Configuration Guide" class="docs-img">
+                                    <img src="./docs-img/guide_config.png" alt="Configuration Guide" class="docs-img" loading="lazy">
                                 </div>
                                 <div class="docs-layout-text">
                                     <p>This panel provides a structured UI to safely view and modify the device's internal parameters without memorizing AT command syntaxes.</p>
@@ -604,7 +610,7 @@
                             </div>
                             <div class="docs-layout-split">
                                 <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_firmware.png" alt="Firmware Update Guide" class="docs-img">
+                                    <img src="./docs-img/guide_firmware.png" alt="Firmware Update Guide" class="docs-img" loading="lazy">
                                 </div>
                                 <div class="docs-layout-text">
                                     <p>The firmware update mechanism uses the robust YMODEM-CRC protocol over serial.</p>
@@ -622,7 +628,7 @@
                             <h3>5. NetView Topology & System Monitor</h3>
                             <div class="docs-layout-split">
                                 <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_netview.png" alt="NetView Guide" class="docs-img">
+                                    <img src="./docs-img/guide_netview.png" alt="NetView Guide" class="docs-img" loading="lazy">
                                 </div>
                                 <div class="docs-layout-text">
                                     <p>The NetView page generates a live, interactive visualization of your physical LoRa or WiFi Mesh network topology.</p>
@@ -642,6 +648,29 @@
                     </div>
                 </div>
             </div>
+
+            <div id="view-api-guide" class="view-panel">
+                <section class="api-page page-shell" aria-label="Documentation">
+                    <div id="apiGuideStatus" class="api-status" role="status" hidden>
+                        <span id="apiGuideStatusText"></span>
+                        <button id="apiGuideRetry" type="button" hidden>Retry</button>
+                    </div>
+                    <div class="api-layout" hidden>
+                        <button id="apiTocToggle" class="api-toc-toggle" type="button" aria-expanded="false" aria-controls="apiTocPanel">On this page ▾</button>
+                        <div id="apiArticleScroll" class="api-article-scroll" tabindex="0" aria-label="API Guide content">
+                            <button id="apiNavigationBack" class="api-navigation-back" type="button" hidden>← Back to previous position</button>
+                            <article id="apiArticle" class="api-markdown"></article>
+                        </div>
+                        <div id="apiTocResizer" class="api-toc-resizer" role="separator" aria-label="Resize chapter navigation" aria-orientation="vertical" aria-controls="apiTocPanel" aria-valuemin="180" aria-valuemax="480" aria-valuenow="240" tabindex="0"></div>
+                        <aside id="apiTocPanel" class="api-toc-panel" aria-label="On this page">
+                            <h3>On this page</h3>
+                            <nav id="apiToc" aria-label="API Guide chapters"></nav>
+                        </aside>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
 
     <button id="debugLogToggle" class="debug-log-toggle" type="button">日志</button>
     <div id="debugLogPanel" class="debug-log-panel" aria-live="polite">
@@ -682,6 +711,10 @@
     <script src="./js/config/config_parser.js"></script>
     <script src="./js/features/config_page.js"></script>
     <script src="./js/features/system_monitor_page.js"></script>
+    <script src="./docs/catalog.js"></script>
+    <script src="./js/utils/horizontal_resize.js"></script>
+    <script src="./js/features/documentation_navigation.js"></script>
+    <script src="./js/features/documentation_page.js"></script>
 
     <script src="./js/core/page_runtime.js"></script>
     <script src="./js/core/page_definitions.js"></script>

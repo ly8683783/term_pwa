@@ -6,10 +6,41 @@
         serialBus,
         debugLog = () => {},
         getPage = () => null,
+        getService = () => null,
         switchView = () => {},
         isPageActive = () => false,
+        documentationGroups = [],
     } = {}) {
         return [
+            {
+                key: "documentation",
+                viewId: "view-api-guide",
+                create: () => appModules.createDocumentationPage({
+                    rootSelector: "#view-api-guide",
+                    groups: documentationGroups,
+                    debugLog,
+                    createResizeController: appModules.createHorizontalResizeController,
+                }),
+                fallback: () => createNoopPage([
+                    "handleShown",
+                    "handleHidden",
+                    "selectDocument",
+                    "getCurrentDocumentId",
+                    "isAvailable",
+                ], {
+                    selectDocument: () => false,
+                    getCurrentDocumentId: () => null,
+                    isAvailable: () => false,
+                }),
+                onShow: page => {
+                    getService("documentationNavigation")?.setSelection(page.getCurrentDocumentId(), true);
+                    page.handleShown();
+                },
+                onHide: page => {
+                    getService("documentationNavigation")?.setSelection(page.getCurrentDocumentId(), false);
+                    page.handleHidden();
+                },
+            },
             {
                 key: "terminal",
                 viewId: "view-terminal",

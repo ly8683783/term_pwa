@@ -166,6 +166,7 @@ uiState = appModules.createUiState({
 debugLog("ui state created");
 updateFeatureVisibility();
 initializePages();
+serviceRegistry.set("documentationNavigation", createDocumentationNavigationSafely());
 serviceRegistry.set("deviceDetector", createDeviceDetectorSafely());
 registerPageSubscriptions();
 updateFeatureVisibility();
@@ -200,8 +201,10 @@ function initializePages() {
         serialBus,
         debugLog,
         getPage,
+        getService,
         switchView,
         isPageActive: viewId => pageRuntime.getActiveViewId() === viewId,
+        documentationGroups: appModules.DOCUMENTATION_GROUPS || [],
     }).forEach(definition => {
         const page = createPageSafely(definition);
         definition.page = page;
@@ -312,6 +315,42 @@ function disposeAllServices() {
     Array.from(serviceRegistry.keys()).forEach(key => {
         disposeService(key);
     });
+}
+
+function createDocumentationNavigationSafely() {
+    const fallback = {
+        setSelection() {},
+        dispose() {},
+    };
+    const page = getPage("view-api-guide");
+    if (!page || typeof page.isAvailable !== "function" || !page.isAvailable()) {
+        debugLog("documentation navigation skipped because the page is unavailable");
+        return fallback;
+    }
+
+    try {
+        const navigation = appModules.createDocumentationNavigation({
+            rootSelector: "#documentationGroups",
+            groups: appModules.DOCUMENTATION_GROUPS || [],
+            debugLog,
+            onSelect: documentId => {
+                const documentationPage = getPage("view-api-guide");
+                if (!documentationPage || !documentationPage.selectDocument(documentId)) return;
+                switchView("view-api-guide");
+                getService("documentationNavigation")?.setSelection(
+                    documentationPage.getCurrentDocumentId(),
+                    pageRuntime.getActiveViewId() === "view-api-guide"
+                );
+            },
+        });
+        if (!navigation) throw new Error("createDocumentationNavigation returned falsy value");
+        debugLog("documentation navigation created");
+        return navigation;
+    } catch (error) {
+        debugLog("documentation navigation creation failed", error);
+        console.error("Documentation navigation creation failed:", error);
+        return fallback;
+    }
 }
 
 function disposeApp() {
