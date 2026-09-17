@@ -13,6 +13,7 @@ function createTerminalPage({
     serialSession,
     serialBus,
     debugLog = () => {},
+    createResizeController = null,
 } = {}) {
     const root = document.querySelector(rootSelector) || document;
     const findById = id => root.querySelector(`#${id}`);
@@ -160,6 +161,7 @@ function createTerminalPage({
         writeTerminal: writeSystem,
         writeTerminalTxEcho: writeTxEcho,
         debugLog,
+        createResizeController,
     });
 
     if (serialBus) {

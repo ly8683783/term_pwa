@@ -2,6 +2,7 @@
 const appModules = window.TermPWA || {};
 const STORAGE_KEY = "lr71QuickSendList";
 const INDEX_STORAGE_KEY = "lr71QuickSendIndex";
+const WIDTH_STORAGE_KEY = "termPwa.quickSend.width";
 const QUICK_SEND_MIN_WIDTH = 340;
 const QUICK_SEND_MAX_WIDTH = 640;
 const QUICK_SEND_WIDTH_RATIO = 0.382;
@@ -24,6 +25,7 @@ function createQuickSendPanel({
     writeTerminalTxEcho = (text, { hex = false } = {}) => writeTerminal(`> ${text}\n`),
     debugLog = () => {},
     rootSelector = "#quickSendPanel",
+    createResizeController = appModules.createHorizontalResizeController || null,
 } = {}) {
     const root = document.querySelector(rootSelector);
     let groups = loadGroups();
@@ -31,28 +33,44 @@ function createQuickSendPanel({
     let connected = false;
     let collapsed = false;
     let draggingItemIndex = null;
-    // 0 means "use the default golden-ratio width" for the current terminal container.
-    let panelWidth = 0;
-    let resizeState = null;
     let disposed = false;
     let renameHoldTimer = null;
     let renameHoldButton = null;
     let renameHoldTriggered = false;
     let pendingNewItem = null;
+    let resizeController = { refresh() {}, dispose() {} };
 
     if (!root) {
         return emptyQuickSendPanel();
     }
 
     render();
-    applyPanelWidth();
+    const constraintContainer = root.closest(".terminal-container") || root.parentElement || root;
+    if (typeof createResizeController === "function") {
+        resizeController = createResizeController({
+            container: root,
+            constraintContainer,
+            handle: root.querySelector("#quickSendResizer"),
+            cssProperty: "--quick-send-width",
+            side: "right",
+            defaultSize: width => width > 0
+                ? Math.round(width * QUICK_SEND_WIDTH_RATIO)
+                : QUICK_SEND_MAX_WIDTH,
+            minSize: QUICK_SEND_MIN_WIDTH,
+            maxSize: QUICK_SEND_MAX_WIDTH,
+            maxRatio: 1,
+            step: 16,
+            storageKey: WIDTH_STORAGE_KEY,
+            isInteractionEnabled: () => !collapsed && !isMobileLayout(),
+        });
+    }
+    resizeController.refresh();
     selectGroup(currentIndex);
     setConnected(false);
-    window.addEventListener("resize", handleWindowResize);
 
     function render() {
         root.innerHTML = `
-            <div id="quickSendResizer" class="quick-send-resizer" title="Resize Quick Send" aria-hidden="true"></div>
+            <div id="quickSendResizer" class="quick-send-resizer" role="separator" aria-label="Resize Quick Send" aria-orientation="vertical" aria-controls="quickSendPanel" tabindex="0"></div>
             <div class="quick-send-header">
                 <h3 class="quick-send-title">Quick Send</h3>
                 <button id="quickSendToggle" class="quick-send-toggle" type="button" title="Hide/Show Quick Send"></button>
@@ -76,7 +94,6 @@ function createQuickSendPanel({
             </div>
         `;
 
-        root.querySelector("#quickSendResizer").addEventListener("pointerdown", startResize);
         root.querySelector("#quickSendToggle").addEventListener("click", toggleCollapsed);
         root.querySelector("#quickSendGroup").addEventListener("change", event => {
             selectGroup(Number(event.target.value));
@@ -97,94 +114,6 @@ function createQuickSendPanel({
 
         renderGroups();
         applyCollapsed();
-        applyPanelWidth();
-    }
-
-    function startResize(event) {
-        if (disposed) {
-            return;
-        }
-        if (event.button !== 0 || !canResizePanel()) {
-            return;
-        }
-
-        event.preventDefault();
-        resizeState = {
-            startX: event.clientX,
-            startWidth: root.getBoundingClientRect().width,
-        };
-        document.body.classList.add("quick-send-resizing");
-        document.addEventListener("pointermove", resizePanel);
-        document.addEventListener("pointerup", stopResize);
-        document.addEventListener("pointercancel", stopResize);
-    }
-
-    function resizePanel(event) {
-        if (disposed || !resizeState) return;
-
-        const nextWidth = resizeState.startWidth + (resizeState.startX - event.clientX);
-        setPanelWidth(nextWidth);
-    }
-
-    function stopResize() {
-        if (!resizeState) return;
-
-        resizeState = null;
-        document.body.classList.remove("quick-send-resizing");
-        document.removeEventListener("pointermove", resizePanel);
-        document.removeEventListener("pointerup", stopResize);
-        document.removeEventListener("pointercancel", stopResize);
-    }
-
-    function handleWindowResize() {
-        if (disposed) {
-            return;
-        }
-        applyPanelWidth();
-    }
-
-    function canResizePanel() {
-        return !collapsed &&
-               !isMobileLayout() &&
-               getContainerWidth() >= QUICK_SEND_MIN_WIDTH;
-    }
-
-    function applyPanelWidth() {
-        if (collapsed || isMobileLayout()) {
-            return;
-        }
-
-        const width = panelWidth || calcDefaultPanelWidth();
-        root.style.setProperty("--quick-send-width", `${clampPanelWidth(width)}px`);
-    }
-
-    function setPanelWidth(width) {
-        panelWidth = clampPanelWidth(width);
-        root.style.setProperty("--quick-send-width", `${panelWidth}px`);
-    }
-
-    function clampPanelWidth(width) {
-        const containerWidth = getContainerWidth();
-        const upper = Math.min(QUICK_SEND_MAX_WIDTH, Math.max(QUICK_SEND_MIN_WIDTH, containerWidth || QUICK_SEND_MAX_WIDTH));
-        const value = Math.round(Number(width) || calcDefaultPanelWidth());
-
-        return Math.min(upper, Math.max(QUICK_SEND_MIN_WIDTH, value));
-    }
-
-    function calcDefaultPanelWidth() {
-        const containerWidth = getContainerWidth();
-        if (containerWidth <= 0) {
-            // The terminal tab may be hidden during startup; handleShown() recalculates
-            // the golden-ratio width after the container becomes measurable.
-            return QUICK_SEND_MAX_WIDTH;
-        }
-
-        return Math.round(containerWidth * QUICK_SEND_WIDTH_RATIO);
-    }
-
-    function getContainerWidth() {
-        const container = root.closest(".terminal-container");
-        return container ? container.clientWidth : 0;
     }
 
     function isMobileLayout() {
@@ -659,7 +588,7 @@ function createQuickSendPanel({
             toggle.textContent = collapsed ? "<" : ">";
             toggle.title = collapsed ? "Show Quick Send" : "Hide Quick Send";
         }
-        applyPanelWidth();
+        resizeController.refresh();
     }
 
     function saveGroups() {
@@ -695,7 +624,7 @@ function createQuickSendPanel({
             if (disposed) {
                 return;
             }
-            applyPanelWidth();
+            resizeController.refresh();
         },
         dispose() {
             if (disposed) {
@@ -704,8 +633,7 @@ function createQuickSendPanel({
             disposed = true;
             clearPendingNewItem();
             clearRenameHoldState();
-            stopResize();
-            window.removeEventListener("resize", handleWindowResize);
+            resizeController.dispose();
             root.replaceChildren();
         },
     };

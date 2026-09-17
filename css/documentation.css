@@ -70,10 +70,11 @@
     scrollbar-gutter: stable;
 }
 .api-navigation-back {
+    display: block;
     position: sticky;
     z-index: 5;
     top: 8px;
-    margin: 8px 8px 4px;
+    margin: 8px 8px 4px auto;
     padding: 7px 10px;
     border: 1px solid var(--api-border);
     border-radius: 6px;

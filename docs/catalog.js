@@ -12,14 +12,26 @@
                     assets: [],
                 },
                 {
+                    id: "wf88-app-demo-quick-start",
+                    title: "app_demo Quick Start",
+                    path: "WF88/Quick_Start.md",
+                    assets: [],
+                },
+                {
+                    id: "wf88-app-demo-build-guide",
+                    title: "WF88 app_demo Build and Complete Firmware Package Guide",
+                    path: "WF88/wf88_app_demo_build_guide.md",
+                    assets: [],
+                },
+                {
                     id: "wf88-bootloader-guide",
-                    title: "Bootloader User Guide",
+                    title: "WF88 Bootloader User Guide",
                     path: "WF88/wf88_bootloader_guide.md",
                     assets: [],
                 },
                 {
                     id: "wf88-bootloader-upgrade-guide",
-                    title: "Bootloader Upgrade Guide",
+                    title: "WF88 Bootloader Upgrade Guide",
                     path: "WF88/wf88_bootloader_upgrade_guide.md",
                     assets: [],
                 },

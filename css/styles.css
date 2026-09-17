@@ -400,13 +400,18 @@ input:checked + .slider:before { transform: translateX(16px); }
     background: transparent;
 }
 .quick-send-resizer:hover::after,
-.quick-send-resizing .quick-send-resizer::after {
+.quick-send-resizer:focus-visible::after,
+.quick-send-panel.is-resizing .quick-send-resizer::after {
     background: var(--primary-yellow);
+}
+.quick-send-resizer:focus-visible {
+    outline: 2px solid var(--primary-yellow);
+    outline-offset: -2px;
 }
 .quick-send-panel.collapsed .quick-send-resizer {
     display: none;
 }
-.quick-send-resizing {
+.quick-send-panel.is-resizing {
     cursor: col-resize;
     user-select: none;
 }

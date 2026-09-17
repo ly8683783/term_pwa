@@ -1,6 +1,7 @@
 (function () {
     function createHorizontalResizeController({
         container,
+        constraintContainer = container,
         handle,
         cssProperty,
         side = "right",
@@ -10,9 +11,10 @@
         maxRatio = 0.4,
         step = 16,
         storageKey = "",
+        isInteractionEnabled = () => true,
     } = {}) {
-        if (!container || !handle || !cssProperty) {
-            throw new Error("Horizontal resize controller requires a container, handle and CSS property");
+        if (!container || !constraintContainer || !handle || !cssProperty) {
+            throw new Error("Horizontal resize controller requires a container, constraint container, handle and CSS property");
         }
 
         const events = new AbortController();
@@ -21,7 +23,7 @@
         let disposed = false;
 
         const resizeObserver = new ResizeObserver(applySize);
-        resizeObserver.observe(container);
+        resizeObserver.observe(constraintContainer);
         handle.addEventListener("pointerdown", startResize, { signal: events.signal });
         handle.addEventListener("pointermove", resize, { signal: events.signal });
         handle.addEventListener("pointerup", stopResize, { signal: events.signal });
@@ -31,12 +33,14 @@
         applySize();
 
         function readStoredSize() {
-            if (!storageKey) return defaultSize;
+            if (!storageKey) return null;
             try {
-                const value = Number(localStorage.getItem(storageKey));
-                return Number.isFinite(value) && value > 0 ? clampAbsolute(value) : defaultSize;
+                const stored = localStorage.getItem(storageKey);
+                if (stored === null) return null;
+                const value = Number(stored);
+                return Number.isFinite(value) && value > 0 ? clampAbsolute(value) : null;
             } catch (_) {
-                return defaultSize;
+                return null;
             }
         }
 
@@ -50,7 +54,7 @@
         }
 
         function getLimits() {
-            const containerWidth = container.getBoundingClientRect().width;
+            const containerWidth = constraintContainer.getBoundingClientRect().width;
             const ratioLimit = containerWidth > 0 ? Math.floor(containerWidth * maxRatio) : maxSize;
             return {
                 min: minSize,
@@ -59,18 +63,30 @@
         }
 
         function clampAbsolute(size) {
-            return Math.min(maxSize, Math.max(minSize, Math.round(Number(size) || defaultSize)));
+            const value = Number(size);
+            const normalized = Number.isFinite(value) && value > 0 ? value : minSize;
+            return Math.min(maxSize, Math.max(minSize, Math.round(normalized)));
+        }
+
+        function resolveDefaultSize() {
+            const containerWidth = constraintContainer.getBoundingClientRect().width;
+            const value = typeof defaultSize === "function"
+                ? defaultSize(containerWidth)
+                : defaultSize;
+            return clampAbsolute(value);
         }
 
         function clampVisible(size) {
             const limits = getLimits();
-            return Math.min(limits.max, Math.max(limits.min, Math.round(Number(size) || defaultSize)));
+            const value = Number(size);
+            const normalized = Number.isFinite(value) && value > 0 ? value : resolveDefaultSize();
+            return Math.min(limits.max, Math.max(limits.min, Math.round(normalized)));
         }
 
         function applySize() {
             if (disposed) return;
             const limits = getLimits();
-            const visibleSize = clampVisible(preferredSize);
+            const visibleSize = clampVisible(preferredSize ?? resolveDefaultSize());
             container.style.setProperty(cssProperty, `${visibleSize}px`);
             handle.setAttribute("aria-valuemin", String(limits.min));
             handle.setAttribute("aria-valuemax", String(limits.max));
@@ -78,7 +94,11 @@
         }
 
         function canResize() {
-            return !disposed && !handle.hidden && getComputedStyle(handle).display !== "none";
+            // Layout and ARIA stay synchronized while user interaction is disabled.
+            return !disposed &&
+                Boolean(isInteractionEnabled()) &&
+                !handle.hidden &&
+                getComputedStyle(handle).display !== "none";
         }
 
         function startResize(event) {
@@ -89,6 +109,7 @@
                 pointerId: event.pointerId,
                 startX: event.clientX,
                 startSize: currentSize,
+                changed: false,
             };
             handle.setPointerCapture(event.pointerId);
             container.classList.add("is-resizing");
@@ -99,6 +120,7 @@
             const movement = side === "right"
                 ? resizeState.startX - event.clientX
                 : event.clientX - resizeState.startX;
+            resizeState.changed = true;
             preferredSize = clampVisible(resizeState.startSize + movement);
             applySize();
         }
@@ -106,18 +128,20 @@
         function stopResize(event) {
             if (!resizeState || (event.pointerId !== undefined && event.pointerId !== resizeState.pointerId)) return;
             const pointerId = resizeState.pointerId;
+            const changed = resizeState.changed;
             resizeState = null;
             container.classList.remove("is-resizing");
             if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
-            storeSize();
+            if (changed) storeSize();
         }
 
         function handleKeydown(event) {
             if (!canResize()) return;
             const limits = getLimits();
+            const currentSize = Number(handle.getAttribute("aria-valuenow")) || clampVisible(preferredSize ?? resolveDefaultSize());
             let nextSize = null;
-            if (event.key === "ArrowLeft") nextSize = side === "right" ? preferredSize + step : preferredSize - step;
-            if (event.key === "ArrowRight") nextSize = side === "right" ? preferredSize - step : preferredSize + step;
+            if (event.key === "ArrowLeft") nextSize = side === "right" ? currentSize + step : currentSize - step;
+            if (event.key === "ArrowRight") nextSize = side === "right" ? currentSize - step : currentSize + step;
             if (event.key === "Home") nextSize = limits.min;
             if (event.key === "End") nextSize = limits.max;
             if (nextSize === null) return;
@@ -128,6 +152,7 @@
         }
 
         return {
+            refresh: applySize,
             dispose() {
                 if (disposed) return;
                 disposed = true;

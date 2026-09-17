@@ -49,6 +49,7 @@
                     serialSession,
                     serialBus,
                     debugLog,
+                    createResizeController: appModules.createHorizontalResizeController,
                 }),
                 fallback: () => createNoopPage([
                     "handleConnected",
