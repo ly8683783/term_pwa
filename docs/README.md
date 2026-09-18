@@ -1,20 +1,23 @@
-# 文档维护
+# Documentation Maintenance
 
-文档按设备类型存放，页面从 `catalog.js` 生成 Documentation 下的设备分组。
+Documents are organized by device type. The application generates the Documentation device groups in the sidebar from `catalog.js`.
 
 ```text
 docs/
 ├── catalog.js
+├── help/
+│   ├── README.md
+│   └── assets/
 ├── WF88/
 │   ├── README.md
 │   └── wf88_bootloader_guide.md
 └── LR71/
 ```
 
-## 新增文档
+## Adding Documents
 
-1. 将 Markdown 文件放入对应设备目录，例如 `LR71/bootloader-guide.md`。
-2. 在 `catalog.js` 对应设备的 `documents` 中添加一项：
+1. Place the Markdown file in the corresponding device directory, such as `LR71/bootloader-guide.md`.
+2. Add an entry to the `documents` array for that device in `catalog.js`:
 
    ```javascript
    {
@@ -25,16 +28,16 @@ docs/
    }
    ```
 
-   `id` 在整个目录中必须唯一；`path` 相对于 `docs/`。数组顺序就是侧边栏顺序。
-3. 图片等附件放在设备目录内，例如 `LR71/assets/bootloader.png`。Markdown 可写 `![Bootloader](assets/bootloader.png)`。文档及图片首次打开后会写入运行时缓存，以便后续离线访问。
-4. 发布时更新 `js/core/app_version.js` 中的版本号。Docker 会复制整个 `docs/`。
+   `id` must be unique across the catalog; `path` is relative to `docs/`. The array order determines the display order in the sidebar.
+3. Place images and other assets inside the device directory, such as `LR71/assets/bootloader.png`. In Markdown, reference them as `![Bootloader](assets/bootloader.png)`. Documents and assets are cached upon first opening for subsequent offline access.
+4. When publishing or deploying changes, update the version string in `js/core/app_version.js`. Docker automatically copies the entire `docs/` directory.
 
-无需修改页面 HTML 或添加前端构建步骤。空设备分组显示 “No documents yet”。Help 继续作为通用使用说明保留。
+No HTML modifications or frontend build steps are required. Empty device groups automatically display "No documents yet". The Help guide uses `help/README.md` and is registered under `DOCUMENTATION_HELP` in `catalog.js`.
 
-使用 HTTP/HTTPS 或本地静态服务访问页面；不支持通过双击 HTML 自动读取 Markdown。
+Access the application via HTTP/HTTPS or a local static HTTP server; opening `index.html` directly via `file://` cannot fetch Markdown files.
 
-## 当前资料
+## Current Documents
 
-- WF88 发布文档保留原文件名，存放于 `WF88/README.md`。
-- WF88 Bootloader 使用说明存放于 `WF88/wf88_bootloader_guide.md`。
-- LR71 暂无文档，目录已预留。
+- WF88 release document retains its original filename, located at `WF88/README.md`.
+- WF88 Bootloader Guide is located at `WF88/wf88_bootloader_guide.md`.
+- LR71 currently has no documents; its directory is reserved.

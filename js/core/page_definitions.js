@@ -9,6 +9,7 @@
         getService = () => null,
         switchView = () => {},
         isPageActive = () => false,
+        documentationHelp = null,
         documentationGroups = [],
     } = {}) {
         return [
@@ -17,7 +18,9 @@
                 viewId: "view-api-guide",
                 create: () => appModules.createDocumentationPage({
                     rootSelector: "#view-api-guide",
-                    groups: documentationGroups,
+                    groups: documentationHelp
+                        ? [{ id: "help", title: "Help", documents: [documentationHelp] }, ...documentationGroups]
+                        : documentationGroups,
                     debugLog,
                     createResizeController: appModules.createHorizontalResizeController,
                 }),

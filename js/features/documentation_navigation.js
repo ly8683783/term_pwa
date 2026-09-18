@@ -1,6 +1,7 @@
 (function () {
     function createDocumentationNavigation({
         rootSelector = "#documentationGroups",
+        helpDocument = null,
         groups = [],
         onSelect = () => {},
         debugLog = () => {},
@@ -14,6 +15,17 @@
         }
 
         const fragment = document.createDocumentFragment();
+        if (helpDocument) {
+            if (typeof helpDocument.id !== "string" || !helpDocument.id) {
+                throw new Error("Help document must contain an id");
+            }
+            const helpLink = document.createElement("a");
+            helpLink.href = "#";
+            helpLink.className = "menu-item docs-help-link";
+            helpLink.dataset.documentId = helpDocument.id;
+            helpLink.textContent = "Help";
+            fragment.appendChild(helpLink);
+        }
         groups.forEach((group, index) => {
             if (!group || !Array.isArray(group.documents)) {
                 throw new Error(`Documentation group ${index} must contain a documents array`);

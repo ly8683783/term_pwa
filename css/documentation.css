@@ -8,7 +8,9 @@
     flex-shrink: 0;
 }
 .docs-menu-chevron { margin-left: auto; }
-.docs-device-group { display: flex; flex-direction: column; gap: 4px; }
+.docs-device-group,
+#documentationGroups { display: flex; flex-direction: column; gap: 4px; }
+#documentationGroups > .docs-help-link,
 .docs-device-group .docs-menu-toggle { padding: 8px 10px; }
 .docs-device-group .docs-submenu { margin: 0 0 6px 12px; }
 .docs-device-group .menu-item[data-document-id] { padding: 8px 10px; }
@@ -130,7 +132,14 @@
 .api-markdown th,
 .api-markdown td { padding: 10px 12px; border: 1px solid var(--api-border); text-align: left; vertical-align: top; min-width: 100px; }
 .api-markdown th { background: var(--api-soft); }
-.api-markdown img { max-width: 100%; height: auto; }
+.api-markdown img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 16px auto;
+    border: 1px solid var(--api-border);
+    border-radius: 8px;
+}
 .api-content-note { padding: 12px; border: 1px solid var(--api-border); border-radius: 6px; background: var(--api-soft); color: var(--api-muted); }
 .api-diagram { margin: 20px 0; padding: 12px; overflow-x: auto; border: 1px solid var(--api-border); border-radius: 8px; background: #fff; }
 .api-diagram svg { display: block; margin: auto; min-width: 480px; }

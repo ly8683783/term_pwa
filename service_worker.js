@@ -29,18 +29,23 @@ function validateDocumentationGroups(groups) {
             invalid(`${field} must be a non-empty string`);
         }
     };
+    const validateDocument = (doc, field) => {
+        validatePath(doc?.path, `${field}.path`);
+        if (doc.assets !== undefined && !Array.isArray(doc.assets)) {
+            invalid(`${field}.assets must be an array when provided`);
+        }
+        (doc.assets || []).forEach((path, index) => validatePath(path, `${field}.assets[${index}]`));
+    };
+    if (self.TermPWA?.DOCUMENTATION_HELP !== undefined) {
+        validateDocument(self.TermPWA.DOCUMENTATION_HELP, "DOCUMENTATION_HELP");
+    }
     groups.forEach((group, groupIndex) => {
         const field = `DOCUMENTATION_GROUPS[${groupIndex}].documents`;
         if (!group || !Array.isArray(group.documents)) {
             invalid(`${field} must be an array`);
         }
         group.documents.forEach((doc, docIndex) => {
-            const docField = `${field}[${docIndex}]`;
-            validatePath(doc?.path, `${docField}.path`);
-            if (doc.assets !== undefined && !Array.isArray(doc.assets)) {
-                invalid(`${docField}.assets must be an array when provided`);
-            }
-            (doc.assets || []).forEach((path, index) => validatePath(path, `${docField}.assets[${index}]`));
+            validateDocument(doc, `${field}[${docIndex}]`);
         });
     });
 }

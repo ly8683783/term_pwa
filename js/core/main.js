@@ -204,6 +204,7 @@ function initializePages() {
         getService,
         switchView,
         isPageActive: viewId => pageRuntime.getActiveViewId() === viewId,
+        documentationHelp: appModules.DOCUMENTATION_HELP || null,
         documentationGroups: appModules.DOCUMENTATION_GROUPS || [],
     }).forEach(definition => {
         const page = createPageSafely(definition);
@@ -331,6 +332,7 @@ function createDocumentationNavigationSafely() {
     try {
         const navigation = appModules.createDocumentationNavigation({
             rootSelector: "#documentationGroups",
+            helpDocument: appModules.DOCUMENTATION_HELP || null,
             groups: appModules.DOCUMENTATION_GROUPS || [],
             debugLog,
             onSelect: documentId => {

@@ -114,7 +114,6 @@
                 <span class="docs-menu-chevron" aria-hidden="true">▾</span>
             </button>
             <div id="documentationMenu" class="docs-submenu" hidden>
-                <a href="#" class="menu-item" data-target="view-docs">Help</a>
                 <div id="documentationGroups"></div>
             </div>
             <a href="#" class="menu-item" data-target="view-firmware">
@@ -519,131 +518,6 @@
                                     <div id="wf88Tooltip" class="wf88-tooltip"></div>
                                 </div>
                             </section>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Docs View -->
-            <div id="view-docs" class="view-panel">
-                <div class="docs-page page-shell" role="region" aria-labelledby="docsTitle">
-                    <div class="page-shell-header">
-                        <div class="page-shell-heading-group">
-                            <h2 id="docsTitle" class="page-shell-title">Help</h2>
-                        </div>
-                    </div>
-                    <div class="page-shell-content docs-content">
-                        <div class="docs-section">
-                            <h3>1. Getting Started & Connection</h3>
-                            <div class="docs-callout docs-info">
-                                <strong>Prerequisites:</strong> Please use a Chromium-based browser (Google Chrome or Microsoft Edge). If deploying on a local network, ensure you access the site via HTTPS or localhost, otherwise the browser will silently disable the Web Serial API for security reasons.
-                            </div>
-                            <div class="docs-layout-split">
-                                <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_welcome.png" alt="Getting Started Guide" class="docs-img" loading="lazy">
-                                </div>
-                                <div class="docs-layout-text">
-                                    <ol class="docs-steps">
-                                        <li>Connect your hardware device to the computer using a reliable data USB cable.</li>
-                                        <li>Click the <strong>Connect</strong> button in the top right corner of the application.</li>
-                                        <li>In the browser's authorization popup, select the corresponding COM port (e.g., CP210x USB to UART Bridge) and click "Connect".</li>
-                                    </ol>
-                                    <p class="docs-note"><strong>💡 Auto-Connect Tip:</strong> Enabling the <code>Auto-connect</code> toggle skips manual authorization on subsequent visits; <code>Auto-detect</code> will attempt to automatically identify the device model (LR71 or WF88) immediately after connection.</p>
-                                    <h4>Troubleshooting Connection</h4>
-                                    <ul class="docs-list">
-                                        <li><strong>No port found?</strong> Ensure the USB cable supports data transfer (some are charge-only). Check if you need to install CP210x or CH340 drivers.</li>
-                                        <li><strong>Port in use?</strong> Make sure no other terminal programs (like PuTTY or another browser tab) are currently connected to the same COM port.</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="docs-section">
-                            <h3>2. Terminal (AT Commands)</h3>
-                            <div class="docs-layout-split">
-                                <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_terminal.png" alt="Terminal Guide" class="docs-img" loading="lazy">
-                                </div>
-                                <div class="docs-layout-text">
-                                    <p>The Terminal allows you to communicate with the hardware interactively by sending raw AT commands and observing the response.</p>
-                                    <ul class="docs-list">
-                                        <li><strong>Manual Send:</strong> Type your command in the bottom-left input box and press Enter. </li>
-                                        <li><strong>Formatting:</strong> Check <code>HEX</code> to interpret input as hexadecimal bytes. Check <code>Add CR/LF</code> to automatically append carriage return and line feed characters.</li>
-                                    </ul>
-                                    <h4>Quick Send Panel</h4>
-                                    <table class="docs-table">
-                                        <thead><tr><th>Action</th><th>Description</th></tr></thead>
-                                        <tbody>
-                                            <tr><td><strong>Send</strong></td><td>Click a button to instantly send the mapped command.</td></tr>
-                                            <tr><td><strong>Rename</strong></td><td><strong>Long-press</strong> (click and hold) any button for 1 second to edit its name and command payload.</td></tr>
-                                            <tr><td><strong>Reorder</strong></td><td>Drag the grip icon on the left of the button to rearrange your command list.</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="docs-section">
-                            <h3>3. Configuration Interface</h3>
-                            <div class="docs-layout-split">
-                                <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_config.png" alt="Configuration Guide" class="docs-img" loading="lazy">
-                                </div>
-                                <div class="docs-layout-text">
-                                    <p>This panel provides a structured UI to safely view and modify the device's internal parameters without memorizing AT command syntaxes.</p>
-                                    <ol class="docs-steps">
-                                        <li>Always click <strong>Read From Device</strong> first to fetch the current live parameters. The system will parse them into the table.</li>
-                                        <li>Edit the values directly in the table. Unsaved modifications will be prominently highlighted with a <span style="background:#fff8df; padding:2px 4px; border:1px solid #f2c766; border-radius:3px;">yellow</span> background.</li>
-                                        <li>Review your changes, then click the green <strong>Apply Changed</strong> button to systematically write them back to the device.</li>
-                                    </ol>
-                                    <div class="docs-callout docs-info">
-                                        <strong>Bulk Operations:</strong> Use <strong>Export JSON</strong> to save a snapshot of the current parameters to your local disk. You can later use <strong>Import JSON</strong> to rapidly clone configurations across multiple devices.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="docs-section">
-                            <h3>4. Firmware Update (YMODEM-CRC)</h3>
-                            <div class="docs-callout docs-danger">
-                                <strong>⚠ CRITICAL WARNING:</strong> Never disconnect the USB cable or close the browser tab before the progress bar completes! Interrupting a bootloader flash may brick the device.
-                            </div>
-                            <div class="docs-layout-split">
-                                <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_firmware.png" alt="Firmware Update Guide" class="docs-img" loading="lazy">
-                                </div>
-                                <div class="docs-layout-text">
-                                    <p>The firmware update mechanism uses the robust YMODEM-CRC protocol over serial.</p>
-                                    <ol class="docs-steps">
-                                        <li>Click <strong>Enter Flashloader</strong> to force the device to reboot into Bootloader mode. Verify that the bootloader banner appears in the serial log window below.</li>
-                                        <li>Click the <strong>Select</strong> button to browse your computer and choose the correct <code>.bin</code> firmware file.</li>
-                                        <li>Click <strong>Load</strong> to initiate the YMODEM handshake and start the file transfer.</li>
-                                    </ol>
-                                    <p class="docs-note"><strong>Troubleshooting Transfers:</strong> If the progress bar stalls for a long time without moving, the YMODEM handshake may have failed. Click <strong>Cancel</strong> to safely abort the current browser transfer, then click <strong>Enter Flashloader</strong> again to completely reset the hardware's state before retrying.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="docs-section">
-                            <h3>5. NetView Topology & System Monitor</h3>
-                            <div class="docs-layout-split">
-                                <div class="docs-layout-media">
-                                    <img src="./docs-img/guide_netview.png" alt="NetView Guide" class="docs-img" loading="lazy">
-                                </div>
-                                <div class="docs-layout-text">
-                                    <p>The NetView page generates a live, interactive visualization of your physical LoRa or WiFi Mesh network topology.</p>
-                                    <p><strong>Operation:</strong> Click <strong>Start</strong> when connected. The system will continuously query the device and render the hierarchical network map using force-directed graphing.</p>
-                                    <table class="docs-table">
-                                        <thead><tr><th>Node Type</th><th>Role & Function</th></tr></thead>
-                                        <tbody>
-                                            <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#f7b2aa; margin-right:6px;"></span><strong>Local Gateway (Pink)</strong></td><td>The central gateway device directly tethered to this computer.</td></tr>
-                                            <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#c8c5ff; margin-right:6px;"></span><strong>Relay Node (Purple)</strong></td><td>Intermediate nodes that actively route network traffic.</td></tr>
-                                            <tr><td><span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#bfeec6; margin-right:6px;"></span><strong>End Node (Green)</strong></td><td>Leaf nodes at the edge of the mesh network.</td></tr>
-                                        </tbody>
-                                    </table>
-                                    <p class="docs-note"><strong>Interaction:</strong> Edges between nodes represent active communication paths. You can hover over any node or edge to inspect live telemetry metrics such as RSSI (Received Signal Strength Indicator).</p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
