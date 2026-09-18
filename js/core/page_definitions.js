@@ -9,6 +9,11 @@
         getService = () => null,
         switchView = () => {},
         isPageActive = () => false,
+        ensureDeviceConfigProfile = async () => ({
+            profileName: "UNKNOWN",
+            name: "Unknown",
+            configProfile: null,
+        }),
         documentationHelp = null,
         documentationGroups = [],
     } = {}) {
@@ -161,6 +166,7 @@
                 create: () => appModules.createConfigPage({
                     serialManager,
                     serialSession,
+                    ensureDeviceConfigProfile,
                     writeTerminal: (...args) => {
                         const page = getPage("view-terminal");
                         if (page && typeof page.writeSystem === "function") {
@@ -183,10 +189,10 @@
                 onDisconnected: page => page.handleDisconnected(),
                 onUnavailable: (page, message) => page.handleUnavailable(message),
                 onSessionChanged: page => page.handleSessionChanged(),
-                afterDeviceConnected: (page, context = {}) => {
-                    if (context.activeViewId === "view-config") {
-                        page.handleDeviceChanged(true);
-                    }
+                onDeviceProfileChanged: (page, context = {}) => {
+                    const shouldReadImmediately = context.activeViewId === "view-config" &&
+                        (context.reason === "user-detect" || context.reason === "manual-selection");
+                    page.handleDeviceChanged(shouldReadImmediately);
                 },
                 subscriptions: [
                     { channel: "config", handler: page => text => page.handleSerialData(text) },

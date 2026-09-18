@@ -1,24 +1,4 @@
 (function () {
-function parseHardwareName(text) {
-    const lines = String(text || "").split(/\r?\n/);
-    for (const line of lines) {
-        const match = line.match(/^var\d+\s+Hardware\s*=\s*(.+)$/i);
-        if (match) {
-            return match[1].trim();
-        }
-    }
-    return null;
-}
-
-function findProfileName(hardwareName) {
-    const profileName = window.TermPWA.normalizeDeviceProfileName
-        ? window.TermPWA.normalizeDeviceProfileName(hardwareName)
-        : null;
-    const deviceProfile = profileName ? window.TermPWA.getDeviceProfile(profileName) : null;
-    const configProfile = deviceProfile ? deviceProfile.configProfile : null;
-    return configProfile && window.TermPWA.CONFIG_PROFILES[configProfile] ? configProfile : null;
-}
-
 function normalizeValue(item, value) {
     if (item.control === "bool") {
         return value === true || value === "1" || value === "true" ? "true" : "false";
@@ -116,8 +96,6 @@ function parseConfigList(readBuffer, itemByVar) {
 }
 
 window.TermPWA = window.TermPWA || {};
-window.TermPWA.parseHardwareName = parseHardwareName;
-window.TermPWA.findProfileName = findProfileName;
 window.TermPWA.normalizeValue = normalizeValue;
 window.TermPWA.normalizeForCommand = normalizeForCommand;
 window.TermPWA.validateImportShape = validateImportShape;

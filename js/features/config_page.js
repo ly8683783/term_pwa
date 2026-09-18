@@ -1,16 +1,20 @@
 (function () {
-const CONFIG_HARDWARE_TIMEOUT_MS = 3000;
 const CONFIG_READ_IDLE_MS = 900;
 
 function createConfigPage({
     serialManager,
     serialSession,
+    ensureDeviceConfigProfile = async () => ({
+        profileName: "UNKNOWN",
+        name: "Unknown",
+        configProfile: null,
+    }),
     writeTerminal = () => {},
     debugLog = () => {},
     rootSelector = "#configPage",
 } = {}) {
     const root = document.querySelector(rootSelector);
-    let activeProfileContext = null;
+    let activeConfigProfileContext = null;
     let itemByVar = new Map();
     let itemByName = new Map();
     let values = new Map();
@@ -78,7 +82,7 @@ function createConfigPage({
             columns[index % columns.length].appendChild(card);
         });
 
-        root.querySelector("#configReadBtn").addEventListener("click", () => probeHardwareThenRead().catch(handleError));
+        root.querySelector("#configReadBtn").addEventListener("click", () => refreshFromDevice().catch(handleError));
         root.querySelector("#configApplyBtn").addEventListener("click", () => applyChanged().catch(handleError));
         root.querySelector("#configExportBtn").addEventListener("click", () => exportJson().catch(handleError));
         root.querySelector("#configImportBtn").addEventListener("click", () => chooseImportJson().catch(handleError));
@@ -209,22 +213,33 @@ function createConfigPage({
         if (importBtn) importBtn.disabled = isReading() || !hasActiveProfile() || loaded.size === 0;
     }
 
-    async function probeHardwareThenRead() {
+    async function refreshFromDevice() {
         if (disposed) {
             return;
         }
         ensureConnected();
+        const deviceProfile = await ensureDeviceConfigProfile({ reason: "configuration" });
+        autoReadDone = true;
+        const configProfileName = deviceProfile.configProfile;
+        if (!configProfileName || !window.TermPWA.CONFIG_PROFILES[configProfileName]) {
+            clearPendingImport();
+            setActiveProfile(null);
+            configUnavailableStatus = `${deviceProfile.name || deviceProfile.profileName || "This device"} does not support Configuration.`;
+            setStatus(configUnavailableStatus);
+            updateButtons();
+            endSession();
+            return;
+        }
+
         beginSession();
-        readMode = "hardware";
+        readMode = null;
         readBuffer = "";
         configUnavailableStatus = "";
         clearDeviceState();
-        setActiveProfile(null);
-        setStatus("Detecting hardware...");
+        setActiveProfile(configProfileName);
+        setStatus(`Using ${deviceProfile.name} profile. Reading configuration...`);
         updateButtons();
-        await serialSession.writeATCommand("config", "at+ab config Hardware");
-        writeTerminal("> [Configuration] at+ab config Hardware\n");
-        armHardwareTimer();
+        await readFromDevice();
     }
 
     async function readFromDevice() {
@@ -275,64 +290,18 @@ function createConfigPage({
         updateButtons();
         setStatus("Apply complete. Refreshing from device...");
         await sleep(300);
-        await probeHardwareThenRead();
+        await refreshFromDevice();
     }
 
     function handleSerialData(text) {
         if (disposed || !isReading()) return;
         readBuffer += text;
-        if (readMode === "hardware") {
-            const hardware = window.TermPWA.parseHardwareName(readBuffer);
-            if (hardware) {
-                finishHardwareProbe(hardware);
-            }
-            return;
-        }
         armConfigReadTimer();
-    }
-
-    function armHardwareTimer() {
-        clearTimeout(readTimer);
-        readTimer = setTimeout(() => finishHardwareProbe(null), CONFIG_HARDWARE_TIMEOUT_MS);
     }
 
     function armConfigReadTimer() {
         clearTimeout(readTimer);
         readTimer = setTimeout(finishRead, CONFIG_READ_IDLE_MS);
-    }
-
-    function finishHardwareProbe(hardware) {
-        if (readMode !== "hardware") return;
-
-        clearTimeout(readTimer);
-        readTimer = null;
-        readMode = null;
-
-        if (!hardware) {
-            clearPendingImport();
-            setActiveProfile(null);
-            configUnavailableStatus = "Failed to detect hardware. Configuration is disabled.";
-            setStatus(configUnavailableStatus);
-            updateButtons();
-            endSession();
-            return;
-        }
-
-        const profileName = window.TermPWA.findProfileName(hardware);
-        if (!profileName || !window.TermPWA.CONFIG_PROFILES[profileName].items.length) {
-            clearPendingImport();
-            setActiveProfile(null);
-            configUnavailableStatus = `Unsupported hardware: ${hardware}. Configuration is disabled.`;
-            setStatus(configUnavailableStatus);
-            updateButtons();
-            endSession();
-            return;
-        }
-
-        configUnavailableStatus = "";
-        setActiveProfile(profileName);
-        setStatus(`Detected hardware: ${profileName}. Reading configuration...`);
-        readFromDevice().catch(handleError);
     }
 
     function finishRead() {
@@ -355,7 +324,9 @@ function createConfigPage({
             updateRowState(item);
         });
         const missing = getActiveItems().length - loaded.size;
-        setStatus(count ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned. Note: Values are stored in device Flash, not live runtime status.` : "No config rows parsed.");
+        setStatus(count
+            ? `Loaded ${loaded.size} item(s). ${missing} item(s) not returned. Note: Values are stored in device Flash, not live runtime status.`
+            : "No config rows parsed.");
         updateButtons();
         endSession();
         try {
@@ -461,7 +432,7 @@ function createConfigPage({
 
         pendingImport = createPendingImport(data, fileName);
         setStatus(`Import selected: ${fileName}. Reading current device configuration before diff...`);
-        await probeHardwareThenRead();
+        await refreshFromDevice();
     }
 
     function handleConnected() {
@@ -513,7 +484,7 @@ function createConfigPage({
         }
         if (connected && !autoReadDone && !isReading()) {
             autoReadDone = true;
-            probeHardwareThenRead().catch(handleError);
+            refreshFromDevice().catch(handleError);
         }
     }
 
@@ -533,7 +504,7 @@ function createConfigPage({
         updateButtons();
         if (connected && isConfigVisible) {
             autoReadDone = true;
-            probeHardwareThenRead().catch(handleError);
+            refreshFromDevice().catch(handleError);
         }
     }
 
@@ -748,7 +719,7 @@ function createConfigPage({
 
     function setActiveProfile(profileName) {
         const profile = profileName ? window.TermPWA.CONFIG_PROFILES[profileName] : null;
-        activeProfileContext = profile ? { name: profileName, profile } : null;
+        activeConfigProfileContext = profile ? { name: profileName, profile } : null;
         const items = getActiveItems();
         itemByVar = new Map(items.map(item => [item.varNo, item]));
         itemByName = new Map(items.map(item => [item.name.toLowerCase(), item]));
@@ -757,11 +728,11 @@ function createConfigPage({
     }
 
     function getActiveProfile() {
-        return activeProfileContext ? activeProfileContext.profile : null;
+        return activeConfigProfileContext ? activeConfigProfileContext.profile : null;
     }
 
     function getActiveProfileName() {
-        return activeProfileContext ? activeProfileContext.name : "";
+        return activeConfigProfileContext ? activeConfigProfileContext.name : "";
     }
 
     function getActiveItems() {
@@ -775,7 +746,7 @@ function createConfigPage({
     }
 
     function hasActiveProfile() {
-        return Boolean(activeProfileContext);
+        return Boolean(activeConfigProfileContext);
     }
 
     function isReading() {

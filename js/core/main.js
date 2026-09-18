@@ -51,6 +51,8 @@ let uiState = null;
 let waitingServiceWorker = null;
 let serviceWorkerRefreshing = false;
 let appDisposed = false;
+let deviceProfilePromise = null;
+let manualDeviceSelector = null;
 const pageRegistry = new Map();
 const serviceRegistry = new Map();
 const pageRuntime = appModules.createPageRuntime({
@@ -137,7 +139,10 @@ function onDisconnect() {
     if (serialSession) {
         serialSession.reset();
     }
-    uiState.setActiveDeviceProfile("UNKNOWN", "Serial disconnected.");
+    uiState.setActiveDeviceProfile("UNKNOWN", "Serial disconnected.", {
+        source: "unknown",
+        reason: "disconnect",
+    });
     dispatchPageLifecycle("onSerialDisconnect");
     updateUI(false);
     updatePortList().catch(error => console.error("Port list update failed:", error));
@@ -161,9 +166,36 @@ uiState = appModules.createUiState({
     welcomeDeviceName,
     welcomeDeviceStatus,
     welcomeDetectDeviceBtn,
-    onDeviceProfileChanged: updateFeatureVisibility,
+    onDeviceProfileChanged: (profileName, selection) => {
+        updateFeatureVisibility();
+        manualDeviceSelector?.render();
+        dispatchPageLifecycle("onDeviceProfileChanged", {
+            profileName,
+            selection,
+            activeViewId: pageRuntime.getActiveViewId(),
+            reason: selection && selection.reason ? selection.reason : "profile-change",
+        });
+    },
+    onWelcomeRender: () => manualDeviceSelector?.render(),
 });
 debugLog("ui state created");
+manualDeviceSelector = appModules.createManualDeviceSelector({
+    select: document.getElementById("welcomeManualDeviceSelect"),
+    button: document.getElementById("welcomeManualDeviceBtn"),
+    appModules,
+    getProfiles: appModules.getManualDeviceProfiles,
+    getSelection: () => uiState.getActiveDeviceSelection(),
+    isConnected: () => serialManager.isConnected(),
+    isBusy: () => serialManager.isBusy(),
+    onApply: selectedProfile => {
+        uiState.setActiveDeviceProfile(
+            selectedProfile.profileName,
+            `${selectedProfile.name} selected manually.`,
+            { source: "manual", reason: "manual-selection" }
+        );
+        debugLog("manual device profile selected", { profileName: selectedProfile.profileName });
+    },
+});
 updateFeatureVisibility();
 initializePages();
 serviceRegistry.set("documentationNavigation", createDocumentationNavigationSafely());
@@ -204,6 +236,7 @@ function initializePages() {
         getService,
         switchView,
         isPageActive: viewId => pageRuntime.getActiveViewId() === viewId,
+        ensureDeviceConfigProfile,
         documentationHelp: appModules.DOCUMENTATION_HELP || null,
         documentationGroups: appModules.DOCUMENTATION_GROUPS || [],
     }).forEach(definition => {
@@ -360,6 +393,7 @@ function disposeApp() {
         return;
     }
     appDisposed = true;
+    manualDeviceSelector?.dispose();
     disposeAllPages();
     disposeAllServices();
 }
@@ -483,7 +517,10 @@ async function switchConnectedPort(selectedValue) {
         debugLog("switch serial port start", { selectedValue });
         dispatchPageLifecycle("beforePortSwitch");
         serialSession.reset();
-        uiState.setActiveDeviceProfile("UNKNOWN", "Switching serial device...");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Switching serial device...", {
+            source: "unknown",
+            reason: "port-switch",
+        });
         
         const disconnectPromise = serialManager.disconnect({ notify: false });
         updateUI();
@@ -550,10 +587,16 @@ async function performConnection(portObj) {
     updateUI();
     
     if (autoDetectToggle.checked) {
-        uiState.setActiveDeviceProfile("UNKNOWN", "Detecting device...");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Detecting device...", {
+            source: "unknown",
+            reason: "connection",
+        });
         await detectDevice();
     } else {
-        uiState.setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Device connected. Click Detect Device.", {
+            source: "unknown",
+            reason: "connection",
+        });
     }
 
     dispatchPageLifecycle("afterDeviceConnected", {
@@ -570,7 +613,10 @@ async function tryDisconnect() {
     debugLog("tryDisconnect start");
     try {
         dispatchPageLifecycle("beforeDisconnect");
-        uiState.setActiveDeviceProfile("UNKNOWN", "Disconnecting...");
+        uiState.setActiveDeviceProfile("UNKNOWN", "Disconnecting...", {
+            source: "unknown",
+            reason: "disconnect",
+        });
         const disconnectPromise = serialManager.disconnect();
         updateUI();
         await disconnectPromise;
@@ -664,25 +710,62 @@ if (welcomeDetectDeviceBtn) {
 async function detectDevice() {
     if (!serialManager.isConnected()) {
         uiState.setWelcomeStatus("Connect a device first.");
-        return;
+        return uiState.getActiveDeviceSelection();
     }
     if (serialManager.isBusy()) {
         uiState.setWelcomeStatus("Serial is busy. Try again later.");
-        return;
+        return uiState.getActiveDeviceSelection();
     }
 
-    uiState.setWelcomeStatus("Checking bootloader...");
-    const detector = getService("deviceDetector");
-    const result = await detector.detect();
-    const profileName = result.profileName || "UNKNOWN";
-    const message = result.mode === "bootloader"
-        ? "Flashloader detected."
-        : result.mode === "application"
-            ? `${profileName} application detected.`
-            : "Device type is unknown.";
+    return ensureDeviceProfile({ force: true, reason: "user-detect" });
+}
 
-    uiState.setActiveDeviceProfile(profileName, message);
-    debugLog("device detect result", { profileName, mode: result.mode });
+async function ensureDeviceProfile({ force = false, reason = "application" } = {}) {
+    if (!serialManager.isConnected()) {
+        throw new Error("Connect a device first.");
+    }
+
+    const currentSelection = uiState.getActiveDeviceSelection();
+    if (!force && currentSelection.profileName && currentSelection.profileName !== "UNKNOWN") {
+        return currentSelection;
+    }
+    if (deviceProfilePromise) {
+        return deviceProfilePromise;
+    }
+
+    deviceProfilePromise = (async () => {
+        uiState.setWelcomeStatus("Checking bootloader...");
+        const detector = getService("deviceDetector");
+        const result = await detector.detect();
+        if (!serialManager.isConnected()) {
+            throw new Error("Device disconnected during detection.");
+        }
+
+        const profileName = result.profileName || "UNKNOWN";
+        const message = result.mode === "bootloader"
+            ? "Flashloader detected."
+            : result.mode === "application"
+                ? `${profileName} application detected.`
+                : "Device type is unknown.";
+        const source = profileName === "UNKNOWN" ? "unknown" : "detected";
+        uiState.setActiveDeviceProfile(profileName, message, { source, reason });
+        debugLog("device detect result", { profileName, mode: result.mode, reason });
+        return uiState.getActiveDeviceSelection();
+    })().finally(() => {
+        deviceProfilePromise = null;
+    });
+
+    return deviceProfilePromise;
+}
+
+async function ensureDeviceConfigProfile(options = {}) {
+    const selection = await ensureDeviceProfile(options);
+    const profile = appModules.getDeviceProfile(selection.profileName);
+    return {
+        profileName: selection.profileName,
+        name: profile.name,
+        configProfile: profile.configProfile || null,
+    };
 }
 
 function hasActiveCapability(capability) {

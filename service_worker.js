@@ -82,6 +82,7 @@ const APP_ASSETS = [
     "./js/serial/serial_event_bus.js",
     "./js/serial/serial_session.js",
     "./js/features/quick_send.js",
+    "./js/features/manual_device_selector.js",
     "./js/features/uart_console.js",
     "./js/features/terminal_page.js",
     "./js/netview/lr71_parser.js",

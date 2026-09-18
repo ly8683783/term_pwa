@@ -34,6 +34,20 @@ function getDefaultDeviceProfile() {
     return DEVICE_PROFILES.UNKNOWN;
 }
 
+function getManualDeviceProfiles({ capability = "" } = {}) {
+    return Object.entries(DEVICE_PROFILES)
+        .filter(([profileName, profile]) => {
+            if (profileName === "UNKNOWN" || profileName === "BOOTLOADER") {
+                return false;
+            }
+            return !capability || profile.capabilities?.includes(capability);
+        })
+        .map(([profileName, profile]) => ({
+            profileName,
+            name: profile.name,
+        }));
+}
+
 function hasDeviceCapability(name, capability) {
     const profile = getDeviceProfile(name);
     return Boolean(profile.capabilities && profile.capabilities.includes(capability));
@@ -68,6 +82,7 @@ window.TermPWA.DEVICE_PROFILES = DEVICE_PROFILES;
 window.TermPWA.normalizeDeviceProfileName = normalizeDeviceProfileName;
 window.TermPWA.getDeviceProfile = getDeviceProfile;
 window.TermPWA.getDefaultDeviceProfile = getDefaultDeviceProfile;
+window.TermPWA.getManualDeviceProfiles = getManualDeviceProfiles;
 window.TermPWA.hasDeviceCapability = hasDeviceCapability;
 window.TermPWA.isBootloaderText = isBootloaderText;
 window.TermPWA.parseHardwareProfile = parseHardwareProfile;

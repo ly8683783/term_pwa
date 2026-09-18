@@ -153,6 +153,17 @@
                                     <li>Firmware Update is available for supported devices.</li>
                                 </ul>
                             </div>
+                            <div class="welcome-manual-device-card" aria-labelledby="welcomeManualDeviceTitle">
+                                <div id="welcomeManualDeviceTitle" class="welcome-manual-device-title">Manual device type</div>
+                                <div class="welcome-manual-device-description">Use this if automatic detection fails.</div>
+                                <label class="welcome-manual-device-field" for="welcomeManualDeviceSelect">
+                                    Device type
+                                    <select id="welcomeManualDeviceSelect" disabled>
+                                        <option value="">Select device type...</option>
+                                    </select>
+                                </label>
+                                <button id="welcomeManualDeviceBtn" class="welcome-manual-device-button" type="button" disabled>Use This Type</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -578,6 +589,7 @@
     <script src="./js/serial/serial_session.js"></script>
     <script src="./js/utils/horizontal_resize.js"></script>
     <script src="./js/features/quick_send.js"></script>
+    <script src="./js/features/manual_device_selector.js"></script>
     <script src="./js/features/uart_console.js"></script>
     <script src="./js/features/terminal_page.js"></script>
     <script src="./js/utils/ymodem_crc.js"></script>

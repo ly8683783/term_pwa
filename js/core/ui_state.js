@@ -8,8 +8,11 @@
         welcomeDeviceStatus,
         welcomeDetectDeviceBtn,
         onDeviceProfileChanged = () => {},
+        onWelcomeRender = () => {},
     } = {}) {
         let activeDeviceProfileName = "UNKNOWN";
+        let activeDeviceProfileSource = "unknown";
+        let activeDeviceProfileReason = "initial";
         let welcomeStatusText = "Connect a device, then detect it.";
 
         function setStatusMessageText(text) {
@@ -34,12 +37,17 @@
             statusMessage.append(valueSpan);
         }
 
-        function setActiveDeviceProfile(profileName, statusText = "") {
+        function setActiveDeviceProfile(profileName, statusText = "", {
+            source = "detected",
+            reason = "profile-change",
+        } = {}) {
             activeDeviceProfileName = appModules.normalizeDeviceProfileName(profileName) || "UNKNOWN";
+            activeDeviceProfileSource = activeDeviceProfileName === "UNKNOWN" ? "unknown" : source;
+            activeDeviceProfileReason = reason;
             if (statusText) {
                 welcomeStatusText = statusText;
             }
-            onDeviceProfileChanged(activeDeviceProfileName);
+            onDeviceProfileChanged(activeDeviceProfileName, getActiveDeviceSelection());
             renderWelcomeDevice();
         }
 
@@ -68,6 +76,15 @@
                     ? "Detecting..."
                     : "Detect Device";
             }
+            onWelcomeRender();
+        }
+
+        function getActiveDeviceSelection() {
+            return {
+                profileName: activeDeviceProfileName,
+                source: activeDeviceProfileSource,
+                reason: activeDeviceProfileReason,
+            };
         }
 
         function hasActiveCapability(capability) {
@@ -78,6 +95,7 @@
 
         return {
             getActiveDeviceProfileName: () => activeDeviceProfileName,
+            getActiveDeviceSelection,
             hasActiveCapability,
             renderWelcomeDevice,
             setActiveDeviceProfile,
